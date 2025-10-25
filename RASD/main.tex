@@ -1,0 +1,87 @@
+\documentclass[a4paper, 11pt]{article}
+
+\input{commandsFile} 
+
+\begin{document}
+
+\begin{titlepage}
+    \centering 
+
+    \vfill
+    \includegraphics[scale=0.5]{Images/PolimiLogo}
+
+    \vspace{2.5cm} 
+    {\scshape\textcolor{Blue}{\textbf{\Huge{Best Bike Paths}}}}
+    
+    \vspace{0.5cm} 
+    
+    {\Large Requirement Analysis and Specification Document}
+    
+    \vspace{3cm} 
+    
+    {\large
+    Filippo Raimondi \\
+    \vspace{0.5cm}
+    Matteo Sala
+    }
+    
+    \vfill
+
+\end{titlepage}
+
+\begin{table}[h!]
+\begin{tabu} to \textwidth { X[0.3,r,p] X[1.0,l,p] }
+\hline
+\textbf{Deliverable:} & RASD\\
+\textbf{Title:} & Requirement Analysis and Specification Document \\
+\textbf{Authors:} & Raimondi Filippo, Sala Matteo \\
+\textbf{Version:} & 1.0 \\ 
+\textbf{Date:} & xx-xxxx-2025 \\
+\textbf{Download page:} & https://github.com/m-tteo/sw-eng-2-raimondi-sala \\
+\textbf{Copyright:} & Copyright © 2025, Raimondi Filippo, Sala Matteo – All rights reserved \\
+\hline
+\end{tabu}
+\end{table}
+
+\setcounter{page}{2}
+
+\newpage
+\addcontentsline{toc}{section}{Table of Contents}
+\tableofcontents
+\newpage
+\addcontentsline{toc}{section}{List of Figures}
+\listoffigures
+\addcontentsline{toc}{section}{List of Tables}
+\listoftables
+
+\clearpage
+{\color{Blue}{\section{Introduction}}}
+\label{sect:introduction}
+\input{Files/introduction}
+
+\clearpage
+{\color{Blue}{\section{Overall Description}}}
+\label{sect:overview}
+\input{Files/overview}
+
+\clearpage
+{\color{Blue}{\section{Specific Requirements}}}
+\label{sect:requirements}
+\input{Files/requirements}
+
+\clearpage
+{\color{Blue}{\section{Formal Analysis Using Alloy}}}
+\label{sect:alloy}
+\input{Files/alloy}
+
+\clearpage
+{\color{Blue}{\section{Effort Spent}}}
+\label{sect:effort}
+\input{Files/effort}
+
+\clearpage
+\addcontentsline{toc}{section}{References}
+\bibliographystyle{plain}
+\bibliography{main}
+
+\end{document}
