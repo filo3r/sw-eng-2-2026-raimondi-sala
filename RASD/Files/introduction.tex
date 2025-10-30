@@ -1,7 +1,44 @@
 \subsection{Purpose}
+Best Bike Path is a software system that enables cyclists to create and browse through an inventory of bike paths.
 
+\noindent For \textbf{registered users} it serves as a personal cycling log with the possibility to keep track of their activities and share them with the public. The software will provide registered users with useful information about each trip, such as the total covered distance, the average speed, the weather conditions, the temperature, the humidity, and the wind speed. Registered users can also report the quality of the roads and the presence of obstacles.
+
+\noindent Bicycle paths can be added to the software in two ways:
+\begin{itemize}
+    \item \textbf{Manual mode}: this mode allows users to insert data manually through the web app or smartphone app.
+    \item \textbf{Automated mode}: this mode allows the smartphone app to start recording the path when it notices that the user is cycling, and through GPS the software system will map the route taken by the user. With the help of the accelerometer and gyroscope, and after user validation, it will automatically report potential potholes or bad road quality. 
+\end{itemize}
+\noindent Every published path will be searchable by everyone who accesses the website or who downloads the app, regardless of whether they are a registered user or not. This gives everyone the possibility to look for the best bike path between a starting location and a destination, and can rank multiple results in order from the best path to the worst.
 
 \subsection{Scope}
+This section defines the scope of the Best Bike Paths (BBP) system using the \textit{World and the Machine} approach. This framework distinguishes between two domains: the \textbf{World}, which comprises phenomena that occur in the application domain, and the \textbf{Machine}, which is the software system itself. The intersection between these two domains defines the \textbf{Shared Phenomena}: a set of phenomena that occur in the World and are monitored by the Machine, or are controlled by the Machine and observed by the World.
+
+\subsubsection*{The World}
+\begin{itemize}
+    \item \textbf{Users:} Individuals who interact with the system. They can be \textit{Registered Users} or \textit{Anonymous Users}.
+    \item \textbf{Mobile Devices:} Smartphones, equipped with sensors.
+    \item \textbf{Bike Paths:} Proper bike path, but also roads where cars are rare and speed limits are compatible with the average speed of a bike.
+    \item \textbf{Cycling Activity:} The act of a user riding a bicycle.
+    \item \textbf{External Services:} Third-party systems that provide data, such as \textit{Meteorological Service} and \textit{Maps Data}.
+\end{itemize}
+
+\subsubsection*{The Machine}
+The BBP system is the software component to be developed.
+
+\subsubsection*{Shared Phenomena}
+
+\begin{itemize}
+    \item \textbf{User Account Actions:} Actions such as log in, log out.
+    \item \textbf{Manual Data Submission:} A user provides information about a path.
+    \item \textbf{Route Query:} A user queries a starting point and a destination point.
+    \item \textbf{Trip Recording Start/Stop:} The system detects that a cycling activity has begun or ended.
+    \item \textbf{Data Validation:} A user validates the path and potential obstacles data that the system guessed.
+    \item \textbf{Publish Request:} A user publishes his path.
+    \item \textbf{Weather Data Feed:} The system receives weather data from the meteorological service.
+    \item \textbf{Paths Visualization:} The system shows the available bike paths to the user, ranked by the road quality and reported obstacles.
+    \item \textbf{Trip Statistics Visualization:} The system shows useful statistical data for a specific trip.
+\end{itemize}
+
 
 \subsection{Definitions, Acronyms, and Abbreviations}
 
