@@ -26,17 +26,37 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-        <!-- OAuth2 Resource Server: native Spring JWT support -->
-        <!-- Enables JWT token validation and management to protect REST APIs -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
-        </dependency>
         <!-- Spring Security: framework for authentication and authorization -->
         <!-- Handles application security, user roles and endpoint protection -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <!-- JJWT (Java JWT): library for creating and validating JWT tokens -->
+        <!-- Used to generate signed tokens (JWT) for authentication and authorization -->
+        <!-- Core API: provides classes like Jwts.builder(), JwtParser, and related interfaces -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.13.0</version>
+        </dependency>
+        <!-- JJWT Implementation: provides the runtime implementation of the jjwt-api -->
+        <!-- Includes cryptographic algorithms (HS256, RS256, etc.) and Base64 encoding logic -->
+        <!-- Declared as runtime since it’s needed only when the application runs, not for compilation -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.13.0</version>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- JJWT Jackson Serializer: integrates Jackson for JSON parsing and serialization -->
+        <!-- Required to convert JWT payloads (claims) to/from JSON, fully compatible with Spring Boot -->
+        <!-- Alternative modules exist (e.g. jjwt-gson), but Jackson is recommended for Spring projects -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.13.0</version>
+            <scope>runtime</scope>
         </dependency>
         <!-- Validation: input data validation (e.g. @NotNull, @Email, @Size) -->
         <!-- Enables automatic validation of DTOs and request bodies -->
