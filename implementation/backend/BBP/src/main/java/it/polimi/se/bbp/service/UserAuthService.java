@@ -11,8 +11,6 @@ import it.polimi.se.bbp.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,11 +38,6 @@ public class UserAuthService {
     private final AuthenticationManager authenticationManager;
 
     /**
-     * Service for loading user-specific data during authentication.
-     */
-    private final UserDetailsService userDetailsService;
-
-    /**
      * Mapper for converting user registration requests to User entities.
      */
     private final UserMapper userMapper;
@@ -64,13 +57,13 @@ public class UserAuthService {
     public UserAuthResponse register(UserRegisterRequest request) {
         validateUserUniqueness(request);
         User user = userRepository.save(userMapper.toEntity(request));
-        String token = generateToken(user);
+        String token = jwtService.generateToken(user.getId());
         return userAuthResponseMapper.toAuthResponse(user, token, "User registered successfully");
     }
 
     /**
      * Authenticates a user and generates a JWT token.
-     * User logs in with email, but token contains username.
+     * User logs in with email, and token contains user ID.
      * @param request login request containing email and password
      * @return authentication response with JWT token
      * @throws IllegalArgumentException if email is invalid
@@ -78,8 +71,8 @@ public class UserAuthService {
      */
     public UserAuthResponse login(UserLoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword()));
-        String token = generateToken(user);
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword()));
+        String token = jwtService.generateToken(user.getId());
         return userAuthResponseMapper.toAuthResponse(user, token, "User logged in successfully");
     }
 
@@ -93,16 +86,6 @@ public class UserAuthService {
             throw new IllegalArgumentException("Username is already in use");
         if (userRepository.existsByEmail(request.getEmail()))
             throw new IllegalArgumentException("Email is already in use");
-    }
-
-    /**
-     * Generates a JWT token for the given user.
-     * @param user the user entity
-     * @return the generated JWT token
-     */
-    private String generateToken(User user) {
-        UserDetails  userDetails = userDetailsService.loadUserByUsername(user.getUsername());
-        return jwtService.generateToken(userDetails);
     }
 
 }

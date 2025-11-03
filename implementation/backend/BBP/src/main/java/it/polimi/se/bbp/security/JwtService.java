@@ -5,7 +5,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
@@ -38,12 +37,13 @@ public class JwtService {
     private long jwtExpiration;
 
     /**
-     * Extracts the username (subject) from the JWT token.
+     * Extracts the user ID (subject) from the JWT token.
      * @param token JWT token
-     * @return username extracted from the token
+     * @return user ID extracted from the token
      */
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
+    public Long extractUserId(String token) {
+        String userIdString = extractClaim(token, Claims::getSubject);
+        return Long.parseLong(userIdString);
     }
 
     /**
@@ -59,36 +59,36 @@ public class JwtService {
     }
 
     /**
-     * Generates a JWT token for the given user.
-     * @param userDetails user details
+     * Generates a JWT token for the given user ID.
+     * @param userId user ID
      * @return generated JWT token
      */
-    public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+    public String generateToken(Long userId) {
+        return generateToken(new HashMap<>(), userId);
     }
 
     /**
      * Generates a JWT token with additional claims.
      * @param extraClaims additional claims to include in the token
-     * @param userDetails user details
+     * @param userId user ID
      * @return generated JWT token
      */
-    public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
-        return buildToken(extraClaims, userDetails, jwtExpiration);
+    public String generateToken(Map<String, Object> extraClaims, Long userId) {
+        return buildToken(extraClaims, userId, jwtExpiration);
     }
 
     /**
      * Builds a JWT token with specified claims and expiration.
      * @param extraClaims additional claims
-     * @param userDetails user details
+     * @param userId user ID
      * @param expiration expiration time in milliseconds
      * @return built JWT token
      */
-    private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
+    private String buildToken(Map<String, Object> extraClaims, Long userId, long expiration) {
         return Jwts
                 .builder()
                 .claims(extraClaims)
-                .subject(userDetails.getUsername())
+                .subject(userId.toString())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSignInKey())
@@ -96,14 +96,14 @@ public class JwtService {
     }
 
     /**
-     * Validates if the token is valid for the given user.
+     * Validates if the token is valid for the given user ID.
      * @param token JWT token
-     * @param userDetails user details
+     * @param userId user ID
      * @return true if token is valid, false otherwise
      */
-    public boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+    public boolean isTokenValid(String token, Long userId) {
+        final Long tokenUserId = extractUserId(token);
+        return tokenUserId.equals(userId) && !isTokenExpired(token);
     }
 
     /**
