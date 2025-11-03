@@ -25,16 +25,17 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserRepository userRepository;
 
     /**
-     * Loads user by username.
-     * This is used by JWT filter to validate tokens (tokens contain username, not email).
-     * @param username username
+     * Loads user by email (used as username for Spring Security authentication).
+     * This is called by Spring Security during login when authenticating with email.
+     * @param email user email (used as username in Spring Security context)
      * @return UserDetails object
      * @throws UsernameNotFoundException if user is not found
      */
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
-        return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
+        // Use email as the username in UserDetails for Spring Security
+        return new org.springframework.security.core.userdetails.User(user.getEmail(), user.getPassword(), Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
     }
 
     /**

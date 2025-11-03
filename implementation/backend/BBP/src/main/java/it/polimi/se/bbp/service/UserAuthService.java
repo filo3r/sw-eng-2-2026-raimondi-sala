@@ -63,15 +63,20 @@ public class UserAuthService {
 
     /**
      * Authenticates a user and generates a JWT token.
-     * User logs in with email, and token contains user ID.
+     * User logs in with email, Spring Security authenticates with email,
+     * and token contains user ID.
      * @param request login request containing email and password
      * @return authentication response with JWT token
-     * @throws IllegalArgumentException if email is invalid
      * @throws org.springframework.security.authentication.BadCredentialsException if credentials are invalid
      */
     public UserAuthResponse login(UserLoginRequest request) {
+        // Authenticate with email (Spring Security will call loadUserByUsername with email)
+        // This performs the password check internally
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        // After successful authentication, retrieve the user
+        // This query is necessary to get the user ID for JWT generation
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword()));
+        // Generate token with user ID
         String token = jwtService.generateToken(user.getId());
         return userAuthResponseMapper.toResponse(user, token, "User logged in successfully");
     }

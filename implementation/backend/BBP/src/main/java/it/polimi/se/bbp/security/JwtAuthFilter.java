@@ -19,6 +19,8 @@ import java.io.IOException;
  * JWT Authentication Filter that intercepts HTTP requests to validate JWT tokens.
  * This filter runs once per request and checks for valid JWT tokens in the Authorization header.
  * Stores userId as principal in SecurityContext for efficient retrieval.
+ * Note: This filter uses loadUserById() to load users from the JWT token's userId.
+ * The loadUserByUsername() method is only used during login authentication with email.
  */
 @Component
 @RequiredArgsConstructor
