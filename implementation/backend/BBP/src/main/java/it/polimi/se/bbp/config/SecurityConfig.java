@@ -100,7 +100,7 @@ public class SecurityConfig {
         auth
                 // Public endpoints - accessible without authentication
                 .requestMatchers("/api/auth/**").permitAll()
-                // Public read-only endpoints for bike paths, obstacles, and search
+                // Public read-only endpoints
 
                 // All other endpoints require authentication
                 .anyRequest().authenticated();

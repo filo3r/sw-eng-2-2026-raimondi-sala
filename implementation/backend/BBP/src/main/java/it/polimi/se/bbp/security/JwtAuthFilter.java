@@ -18,6 +18,7 @@ import java.io.IOException;
 /**
  * JWT Authentication Filter that intercepts HTTP requests to validate JWT tokens.
  * This filter runs once per request and checks for valid JWT tokens in the Authorization header.
+ * Stores userId as principal in SecurityContext for efficient retrieval.
  */
 @Component
 @RequiredArgsConstructor
@@ -35,7 +36,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     /**
      * Filters incoming requests to validate JWT tokens.
-     * If a valid token is found, the user is authenticated in the security context.
+     * If a valid token is found, the userId is stored in the security context as principal.
      * @param request HTTP request
      * @param response HTTP response
      * @param filterChain filter chain
@@ -57,10 +58,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         userId = jwtService.extractUserId(jwt);
         // If user ID is extracted and user is not already authenticated
         if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserById(userId);
-            // Validate token and authenticate user
+            // Validate token
             if (jwtService.isTokenValid(jwt, userId)) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                UserDetails userDetails = this.userDetailsService.loadUserById(userId);
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userId, null, userDetails.getAuthorities());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }

@@ -58,7 +58,7 @@ public class UserAuthService {
         validateUserUniqueness(request);
         User user = userRepository.save(userMapper.toEntity(request));
         String token = jwtService.generateToken(user.getId());
-        return userAuthResponseMapper.toAuthResponse(user, token, "User registered successfully");
+        return userAuthResponseMapper.toResponse(user, token, "User registered successfully");
     }
 
     /**
@@ -73,7 +73,7 @@ public class UserAuthService {
         User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword()));
         String token = jwtService.generateToken(user.getId());
-        return userAuthResponseMapper.toAuthResponse(user, token, "User logged in successfully");
+        return userAuthResponseMapper.toResponse(user, token, "User logged in successfully");
     }
 
     /**

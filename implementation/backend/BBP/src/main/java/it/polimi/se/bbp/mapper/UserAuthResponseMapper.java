@@ -17,7 +17,7 @@ public class UserAuthResponseMapper {
      * @param message the response message
      * @return the authentication response DTO
      */
-    public UserAuthResponse toAuthResponse(User user, String token, String message) {
+    public UserAuthResponse toResponse(User user, String token, String message) {
         return UserAuthResponse.builder()
                 .token(token)
                 .userId(user.getId())
