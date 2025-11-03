@@ -21,10 +21,6 @@ public class UserAuthResponseMapper {
         return UserAuthResponse.builder()
                 .token(token)
                 .userId(user.getId())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .name(user.getName())
-                .surname(user.getSurname())
                 .message(message)
                 .build();
     }

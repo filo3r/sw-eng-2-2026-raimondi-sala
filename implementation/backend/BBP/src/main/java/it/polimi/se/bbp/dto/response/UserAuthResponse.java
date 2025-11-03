@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * Data Transfer Object for authentication response.
- * Contains the JWT token and user information.
+ * Contains the JWT token and user id.
  */
 @Data
 @AllArgsConstructor
@@ -24,26 +24,6 @@ public class UserAuthResponse {
      * User ID.
      */
     private Long userId;
-
-    /**
-     * Username.
-     */
-    private String username;
-
-    /**
-     * User's email.
-     */
-    private String email;
-
-    /**
-     * User's first name.
-     */
-    private String name;
-
-    /**
-     * User's last name.
-     */
-    private String surname;
 
     /**
      * Message about the authentication result.
