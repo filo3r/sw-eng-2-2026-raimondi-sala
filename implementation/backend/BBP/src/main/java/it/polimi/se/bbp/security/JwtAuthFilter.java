@@ -1,5 +1,6 @@
 package it.polimi.se.bbp.security;
 
+import it.polimi.se.bbp.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -7,20 +8,20 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Collections;
 
 /**
  * JWT Authentication Filter that intercepts HTTP requests to validate JWT tokens.
  * This filter runs once per request and checks for valid JWT tokens in the Authorization header.
  * Stores userId as principal in SecurityContext for efficient retrieval.
- * Note: This filter uses loadUserById() to load users from the JWT token's userId.
- * The loadUserByUsername() method is only used during login authentication with email.
+ * All authenticated users have ROLE_USER by default.
  */
 @Component
 @RequiredArgsConstructor
@@ -32,9 +33,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
 
     /**
-     * Service for loading user-specific data used during authentication.
+     * Repository to verify user existence.
+     * This ensures that deleted users cannot access the API even with valid tokens.
      */
-    private final CustomUserDetailsService userDetailsService;
+    private final UserRepository userRepository;
 
     /**
      * Filters incoming requests to validate JWT tokens.
@@ -48,26 +50,35 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final Long userId;
         // Check if Authorization header is present and starts with "Bearer "
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
-        // Extract JWT token from header
-        jwt = authHeader.substring(7);
-        userId = jwtService.extractUserId(jwt);
-        // If user ID is extracted and user is not already authenticated
+        // Extract JWT token from header (remove "Bearer " prefix)
+        final String jwt = authHeader.substring(7);
+        // Extract userId from token
+        final Long userId = jwtService.extractUserId(jwt);
+        // If userId is extracted and user is not already authenticated
         if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            // Validate token
+            // Validate token (checks signature and expiration)
             if (jwtService.isTokenValid(jwt, userId)) {
-                UserDetails userDetails = this.userDetailsService.loadUserById(userId);
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userId, null, userDetails.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                // Verify user still exists in database
+                if (userRepository.existsById(userId)) {
+                    // Create authentication token with userId as principal
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userId,
+                            null,
+                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
+                    );
+                    // Set additional request details
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    // Store authentication in SecurityContext
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
         }
+        // Continue filter chain
         filterChain.doFilter(request, response);
     }
 

@@ -9,14 +9,14 @@ import it.polimi.se.bbp.mapper.UserMapper;
 import it.polimi.se.bbp.repository.UserRepository;
 import it.polimi.se.bbp.security.JwtService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Service for handling user authentication operations.
- * Manages user registration and login processes.
+ * Manages user registration and login processes with manual password validation.
  */
 @Service
 @RequiredArgsConstructor
@@ -33,9 +33,9 @@ public class UserAuthService {
     private final JwtService jwtService;
 
     /**
-     * Manager for authenticating users with Spring Security.
+     * Password encoder for validating passwords.
      */
-    private final AuthenticationManager authenticationManager;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * Mapper for converting user registration requests to User entities.
@@ -55,28 +55,29 @@ public class UserAuthService {
      */
     @Transactional
     public UserAuthResponse register(UserRegisterRequest request) {
+        // Check username and email
         validateUserUniqueness(request);
+        // Save user in database
         User user = userRepository.save(userMapper.toEntity(request));
+        // Generate JWT token with user ID
         String token = jwtService.generateToken(user.getId());
         return userAuthResponseMapper.toResponse(user, token, "User registered successfully");
     }
 
     /**
      * Authenticates a user and generates a JWT token.
-     * User logs in with email, Spring Security authenticates with email,
-     * and token contains user ID.
+     * Uses manual password validation for simplicity and performance.
      * @param request login request containing email and password
      * @return authentication response with JWT token
-     * @throws org.springframework.security.authentication.BadCredentialsException if credentials are invalid
+     * @throws BadCredentialsException if credentials are invalid
      */
     public UserAuthResponse login(UserLoginRequest request) {
-        // Authenticate with email (Spring Security will call loadUserByUsername with email)
-        // This performs the password check internally
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-        // After successful authentication, retrieve the user
-        // This query is necessary to get the user ID for JWT generation
-        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
-        // Generate token with user ID
+        // Query to find user by email
+        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
+        // Password validation
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword()))
+            throw new BadCredentialsException("Invalid email or password");
+        // Generate JWT token with user ID
         String token = jwtService.generateToken(user.getId());
         return userAuthResponseMapper.toResponse(user, token, "User logged in successfully");
     }
