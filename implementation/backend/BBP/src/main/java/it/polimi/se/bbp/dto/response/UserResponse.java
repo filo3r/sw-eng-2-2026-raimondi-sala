@@ -40,9 +40,4 @@ public class UserResponse {
      */
     private String email;
 
-    /**
-     * Message about the operation result.
-     */
-    private String message;
-
 }

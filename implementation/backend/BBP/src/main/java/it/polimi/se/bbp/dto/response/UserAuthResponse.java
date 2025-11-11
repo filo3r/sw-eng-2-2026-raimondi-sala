@@ -25,9 +25,4 @@ public class UserAuthResponse {
      */
     private Long userId;
 
-    /**
-     * Message about the authentication result.
-     */
-    private String message;
-
 }

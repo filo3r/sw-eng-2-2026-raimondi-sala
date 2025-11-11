@@ -14,17 +14,15 @@ public class UserResponseMapper {
      * Converts a User entity to a UserResponse DTO.
      * Excludes sensitive information like password.
      * @param user the user entity
-     * @param message the response message
      * @return the user response DTO
      */
-    public UserResponse toResponse(User user, String message) {
+    public UserResponse toResponse(User user) {
         return UserResponse.builder()
                 .id(user.getId())
                 .name(user.getName())
                 .surname(user.getSurname())
                 .username(user.getUsername())
                 .email(user.getEmail())
-                .message(message)
                 .build();
     }
 

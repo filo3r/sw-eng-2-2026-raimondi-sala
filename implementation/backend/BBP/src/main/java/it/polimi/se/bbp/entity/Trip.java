@@ -165,11 +165,10 @@ public class Trip {
 
     /**
      * The maximum speed reached during the trip in km/h.
-     * This field is required, must be greater than 0, and must be greater than or equal to the average speed.
+     * This field must be greater than 0, and must be greater than or equal to the average speed.
      * Precision: 5 digits total, 2 after the decimal point (e.g., 123.45).
      */
-    @Column(nullable = false, precision = 5, scale = 2)
-    @NotNull(message = "Max speed is required")
+    @Column(nullable = true, precision = 5, scale = 2)
     @DecimalMin(value = "0.0", inclusive = false, message = "Max speed must be greater than 0")
     private BigDecimal maxSpeed;
 

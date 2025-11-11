@@ -61,7 +61,7 @@ public class UserAuthService {
         User user = userRepository.save(userMapper.toEntity(request));
         // Generate JWT token with user ID
         String token = jwtService.generateToken(user.getId());
-        return userAuthResponseMapper.toResponse(user, token, "User registered successfully");
+        return userAuthResponseMapper.toResponse(user, token);
     }
 
     /**
@@ -79,7 +79,7 @@ public class UserAuthService {
             throw new BadCredentialsException("Invalid email or password");
         // Generate JWT token with user ID
         String token = jwtService.generateToken(user.getId());
-        return userAuthResponseMapper.toResponse(user, token, "User logged in successfully");
+        return userAuthResponseMapper.toResponse(user, token);
     }
 
     /**

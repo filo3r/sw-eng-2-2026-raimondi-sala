@@ -14,14 +14,12 @@ public class UserAuthResponseMapper {
      * Converts a User entity to a UserAuthResponse DTO.
      * @param user the user entity
      * @param token the JWT token
-     * @param message the response message
      * @return the authentication response DTO
      */
-    public UserAuthResponse toResponse(User user, String token, String message) {
+    public UserAuthResponse toResponse(User user, String token) {
         return UserAuthResponse.builder()
                 .token(token)
                 .userId(user.getId())
-                .message(message)
                 .build();
     }
 

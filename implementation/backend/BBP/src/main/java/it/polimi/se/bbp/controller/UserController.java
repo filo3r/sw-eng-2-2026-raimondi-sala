@@ -46,4 +46,16 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
+    /**
+     * Deletes the current authenticated user's account.
+     * All associated data (trips, bike paths, etc.) will be deleted according to cascade rules.
+     * After deletion, the JWT token will become invalid automatically.
+     * @return ResponseEntity with HTTP 204 NO CONTENT status
+     */
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteCurrentUser() {
+        userService.deleteCurrentUser();
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
 }

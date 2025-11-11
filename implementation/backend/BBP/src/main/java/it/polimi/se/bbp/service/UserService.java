@@ -8,7 +8,6 @@ import it.polimi.se.bbp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,19 +40,19 @@ public class UserService {
      * Only non-null fields in the request will be updated.
      * @param request update request containing fields to modify
      * @return updated user data
-     * @throws UsernameNotFoundException if user is not found
+     * @throws IllegalStateException if authenticated user is not found in database
      * @throws IllegalArgumentException if username or email already exists
      */
     @Transactional
     public UserResponse updateCurrentUser(UserUpdateRequest request) {
         // Get current authenticated user ID from SecurityContext
         Long currentUserId = getCurrentUserId();
-        User user = userRepository.findById(currentUserId).orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        User user = userRepository.findById(currentUserId).orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
         // Update only non-null fields
         updateUserFields(user, request);
         // Save and return updated user
         User updatedUser = userRepository.save(user);
-        return userResponseMapper.toResponse(updatedUser, "User updated successfully");
+        return userResponseMapper.toResponse(updatedUser);
     }
 
     /**
@@ -113,12 +112,29 @@ public class UserService {
     /**
      * Retrieves the current authenticated user's data.
      * @return current user data
-     * @throws UsernameNotFoundException if user is not found
+     * @throws IllegalStateException if authenticated user is not found in database
      */
     public UserResponse getCurrentUser() {
         Long currentUserId = getCurrentUserId();
-        User user = userRepository.findById(currentUserId).orElseThrow(() -> new UsernameNotFoundException("User not found"));
-        return userResponseMapper.toResponse(user, "User retrieved successfully");
+        User user = userRepository.findById(currentUserId).orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
+        return userResponseMapper.toResponse(user);
+    }
+
+    /**
+     * Deletes the current authenticated user's account.
+     * All associated data will be deleted according to cascade rules defined in User entity:
+     * - Recorded trips: deleted (cascade delete)
+     * - Created bike paths: deleted (cascade delete)
+     * - Created obstacles: preserved (creator set to null)
+     * - Updates to bike paths/obstacles: preserved
+     * After deletion, the JWT token will become invalid automatically as the user will no longer exist in the database.
+     * @throws IllegalStateException if authenticated user is not found in database
+     */
+    @Transactional
+    public void deleteCurrentUser() {
+        Long currentUserId = getCurrentUserId();
+        User user = userRepository.findById(currentUserId).orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
+        userRepository.delete(user);
     }
 
     /**
