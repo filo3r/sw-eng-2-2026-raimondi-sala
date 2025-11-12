@@ -1,4 +1,4 @@
-package it.polimi.se.bbp.mapper;
+package it.polimi.se.bbp.mapper.response;
 
 import it.polimi.se.bbp.dto.response.TripResponse;
 import it.polimi.se.bbp.entity.Trip;
@@ -16,6 +16,11 @@ public class TripResponseMapper {
      * Mapper for converting TripPoint entities to TripPointResponse DTOs.
      */
     private final TripPointResponseMapper tripPointResponseMapper;
+
+    /**
+     * Mapper for converting MeteorologicalData entities to MeteorologicalDataResponse DTOs.
+     */
+    private final MeteorologicalDataResponseMapper meteorologicalDataResponseMapper;
 
     /**
      * Converts a Trip entity to a TripResponse DTO.
@@ -41,6 +46,7 @@ public class TripResponseMapper {
                 .averageSpeed(trip.getAverageSpeed())
                 .maxSpeed(trip.getMaxSpeed())
                 .tripPoints(tripPointResponseMapper.toResponses(trip.getTripPoints()))
+                .meteorologicalData(meteorologicalDataResponseMapper.toResponse(trip.getMeteorologicalData()))
                 .build();
     }
 

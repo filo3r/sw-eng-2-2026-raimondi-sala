@@ -1,4 +1,4 @@
-package it.polimi.se.bbp.enums;
+package it.polimi.se.bbp.enums.openmeteo;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

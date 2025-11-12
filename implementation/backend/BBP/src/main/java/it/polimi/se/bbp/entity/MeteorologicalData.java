@@ -1,6 +1,6 @@
 package it.polimi.se.bbp.entity;
 
-import it.polimi.se.bbp.enums.WeatherCondition;
+import it.polimi.se.bbp.enums.openmeteo.WeatherCondition;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;

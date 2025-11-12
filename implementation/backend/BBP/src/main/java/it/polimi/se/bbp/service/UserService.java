@@ -3,7 +3,7 @@ package it.polimi.se.bbp.service;
 import it.polimi.se.bbp.dto.request.UserUpdateRequest;
 import it.polimi.se.bbp.dto.response.UserResponse;
 import it.polimi.se.bbp.entity.User;
-import it.polimi.se.bbp.mapper.UserResponseMapper;
+import it.polimi.se.bbp.mapper.response.UserResponseMapper;
 import it.polimi.se.bbp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;

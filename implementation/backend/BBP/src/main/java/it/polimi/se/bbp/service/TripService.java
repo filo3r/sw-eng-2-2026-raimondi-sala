@@ -4,14 +4,16 @@ import it.polimi.se.bbp.dto.mapbox.Coordinate;
 import it.polimi.se.bbp.dto.mapbox.CyclingRouteResult;
 import it.polimi.se.bbp.dto.mapbox.GeocodeResult;
 import it.polimi.se.bbp.dto.request.TripManualRecordRequest;
+import it.polimi.se.bbp.entity.MeteorologicalData;
 import it.polimi.se.bbp.entity.Trip;
 import it.polimi.se.bbp.entity.TripPoint;
 import it.polimi.se.bbp.entity.User;
-import it.polimi.se.bbp.mapper.TripMapper;
-import it.polimi.se.bbp.mapper.TripPointMapper;
+import it.polimi.se.bbp.mapper.entity.TripMapper;
+import it.polimi.se.bbp.mapper.entity.TripPointMapper;
 import it.polimi.se.bbp.repository.TripRepository;
 import it.polimi.se.bbp.repository.UserRepository;
 import it.polimi.se.bbp.service.mapbox.MapboxService;
+import it.polimi.se.bbp.service.openmeteo.OpenMeteoService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -28,6 +30,7 @@ import java.util.List;
 /**
  * Service for handling trip operations.
  * Manages trip creation, deletion, and retrieval using Mapbox APIs for geocoding and routing.
+ * Optionally enriches trips with meteorological data from Open-Meteo API.
  */
 @Service
 @RequiredArgsConstructor
@@ -49,6 +52,11 @@ public class TripService {
     private final MapboxService mapboxService;
 
     /**
+     * Service for interacting with Open-Meteo API (weather data).
+     */
+    private final OpenMeteoService openMeteoService;
+
+    /**
      * Mapper for converting trip request data to Trip entities.
      */
     private final TripMapper tripMapper;
@@ -60,9 +68,10 @@ public class TripService {
 
     /**
      * Creates a new trip from manual user input.
-     * Geocodes addresses, calculates cycling route, and saves trip with all route points.
+     * Geocodes addresses, calculates cycling route, saves trip with all route points,
+     * and optionally enriches it with meteorological data if available.
      * @param request the manual trip recording request
-     * @return the created trip entity
+     * @return the created trip entity with optional meteorological data
      * @throws IllegalArgumentException if addresses are invalid or route cannot be calculated
      * @throws IllegalStateException if Mapbox service is unavailable
      */
@@ -91,7 +100,27 @@ public class TripService {
         List<TripPoint> tripPoints = tripPointMapper.toEntities(routeResult.getRouteCoordinates(), trip);
         trip.setTripPoints(tripPoints);
         // Step 8: Save trip (cascade saves trip points)
-        return tripRepository.save(trip);
+        trip = tripRepository.save(trip);
+        // Step 9: Try to fetch and associate meteorological data (optional, non-blocking)
+        try {
+            MeteorologicalData weatherData = openMeteoService.getWeatherData(
+                    trip.getOriginLatitude(),
+                    trip.getOriginLongitude(),
+                    trip.getStartTime(),
+                    trip
+            );
+            trip.setMeteorologicalData(weatherData);
+        } catch (IllegalArgumentException e) {
+            // Weather data not available (trip too old, no data for location, etc.)
+            // Trip is saved without meteorological data
+        } catch (IllegalStateException e) {
+            // Weather service unavailable (API down, rate limit, network issues)
+            // Trip is saved without meteorological data
+        } catch (Exception e) {
+            // Unexpected error - trip is saved without meteorological data
+        }
+        // Return trip (with or without meteorological data)
+        return trip;
     }
 
     /**

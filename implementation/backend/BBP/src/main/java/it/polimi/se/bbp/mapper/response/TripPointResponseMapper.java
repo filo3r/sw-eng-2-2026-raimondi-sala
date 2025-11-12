@@ -1,4 +1,4 @@
-package it.polimi.se.bbp.mapper;
+package it.polimi.se.bbp.mapper.response;
 
 import it.polimi.se.bbp.dto.response.TripPointResponse;
 import it.polimi.se.bbp.entity.TripPoint;

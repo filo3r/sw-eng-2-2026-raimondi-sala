@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * DTO for Trip response.
- * Contains all trip information including route details, timing, and performance metrics.
+ * Contains all trip information including route details, timing, performance metrics, and optional weather data.
  */
 @Data
 @AllArgsConstructor
@@ -105,5 +105,12 @@ public class TripResponse {
      * List of GPS coordinates that form the complete route.
      */
     private List<TripPointResponse> tripPoints;
+
+    /**
+     * Optional meteorological data associated with this trip.
+     * Contains weather conditions at the time of the trip.
+     * Will be null if weather data is not available (e.g., trip older than 90 days, API error).
+     */
+    private MeteorologicalDataResponse meteorologicalData;
 
 }

@@ -3,7 +3,7 @@ package it.polimi.se.bbp.controller;
 import it.polimi.se.bbp.dto.request.TripManualRecordRequest;
 import it.polimi.se.bbp.dto.response.TripResponse;
 import it.polimi.se.bbp.entity.Trip;
-import it.polimi.se.bbp.mapper.TripResponseMapper;
+import it.polimi.se.bbp.mapper.response.TripResponseMapper;
 import it.polimi.se.bbp.service.TripService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

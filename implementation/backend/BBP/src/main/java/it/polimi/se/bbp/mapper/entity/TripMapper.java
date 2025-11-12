@@ -1,4 +1,4 @@
-package it.polimi.se.bbp.mapper;
+package it.polimi.se.bbp.mapper.entity;
 
 import it.polimi.se.bbp.dto.mapbox.GeocodeResult;
 import it.polimi.se.bbp.dto.request.TripManualRecordRequest;

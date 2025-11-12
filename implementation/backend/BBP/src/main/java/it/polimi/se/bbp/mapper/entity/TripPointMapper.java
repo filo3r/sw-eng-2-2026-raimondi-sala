@@ -1,4 +1,4 @@
-package it.polimi.se.bbp.mapper;
+package it.polimi.se.bbp.mapper.entity;
 
 import it.polimi.se.bbp.dto.mapbox.Coordinate;
 import it.polimi.se.bbp.entity.Trip;
