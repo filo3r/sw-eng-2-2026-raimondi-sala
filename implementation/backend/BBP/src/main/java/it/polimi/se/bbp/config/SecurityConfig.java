@@ -57,6 +57,13 @@ public class SecurityConfig {
     private int bcryptStrength;
 
     /**
+     * Flag to enable/disable H2 console access.
+     * Read from application.properties: spring.h2.console.enabled
+     */
+    @Value("${spring.h2.console.enabled}")
+    private boolean h2ConsoleEnabled;
+
+    /**
      * Configures the security filter chain.
      * Defines authentication, authorization, CORS, and session management policies.
      * @param http HttpSecurity object
@@ -65,7 +72,7 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
+        HttpSecurity httpSecurity = http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(this::configureAuthorization)
@@ -74,8 +81,14 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint())
                         .accessDeniedHandler(accessDeniedHandler())
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .build();
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        // Configure headers for H2 console only if enabled
+        if (h2ConsoleEnabled) {
+            httpSecurity.headers(headers -> headers
+                    .frameOptions(frame -> frame.sameOrigin())
+            );
+        }
+        return httpSecurity.build();
     }
 
     /**
@@ -84,6 +97,10 @@ public class SecurityConfig {
      * @param auth AuthorizationManagerRequestMatcherRegistry
      */
     private void configureAuthorization(AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
+        // Allow H2 console access only if enabled (development)
+        if (h2ConsoleEnabled) {
+            auth.requestMatchers("/h2-console/**").permitAll();
+        }
         auth
                 // Public endpoints - accessible without authentication
                 .requestMatchers("/api/auth/**").permitAll()

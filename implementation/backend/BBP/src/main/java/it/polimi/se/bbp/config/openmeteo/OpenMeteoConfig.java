@@ -41,7 +41,6 @@ public class OpenMeteoConfig {
     /**
      * The timezone parameter for weather data requests.
      * Injected from application.properties via the property 'open-meteo.api.timezone'.
-     * Default value is 'auto', which automatically determines the timezone based on coordinates.
      */
     @Value("${open-meteo.api.timezone}")
     private String timezone;

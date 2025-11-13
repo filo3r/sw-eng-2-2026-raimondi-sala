@@ -9,7 +9,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -65,7 +64,7 @@ public class BikePath {
      * This field is optional and is set to null if the user who updated it is deleted.
      */
     @ManyToOne
-    @JoinColumn(name = "updated_by_id", nullable = true, foreignKey = @ForeignKey(foreignKeyDefinition = "FOREIGN KEY (updated_by_id) REFERENCES user(id) ON DELETE SET NULL"))
+    @JoinColumn(name = "updated_by_id", nullable = true, foreignKey = @ForeignKey(foreignKeyDefinition = "FOREIGN KEY (updated_by_id) REFERENCES users(id) ON DELETE SET NULL"))
     private User updatedBy;
 
     /**

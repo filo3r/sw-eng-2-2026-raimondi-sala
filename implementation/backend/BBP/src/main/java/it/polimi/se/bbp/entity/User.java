@@ -17,7 +17,7 @@ import java.util.List;
  * Users can record trips, create and update bike paths, and report obstacles on bike routes.
  */
 @Entity
-@Table
+@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

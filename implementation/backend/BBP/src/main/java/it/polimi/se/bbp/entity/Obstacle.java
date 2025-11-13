@@ -53,7 +53,7 @@ public class Obstacle {
      * This field is optional and is set to null if the user who created it is deleted.
      */
     @ManyToOne
-    @JoinColumn(name = "created_by_id", nullable = true, foreignKey = @ForeignKey(foreignKeyDefinition = "FOREIGN KEY (created_by_id) REFERENCES user(id) ON DELETE SET NULL"))
+    @JoinColumn(name = "created_by_id", nullable = true, foreignKey = @ForeignKey(foreignKeyDefinition = "FOREIGN KEY (created_by_id) REFERENCES users(id) ON DELETE SET NULL"))
     private User createdBy;
 
     /**
@@ -69,7 +69,7 @@ public class Obstacle {
      * This field is optional and is set to null if the user who updated it is deleted.
      */
     @ManyToOne
-    @JoinColumn(name = "updated_by_id", nullable = true, foreignKey = @ForeignKey(foreignKeyDefinition = "FOREIGN KEY (updated_by_id) REFERENCES user(id) ON DELETE SET NULL"))
+    @JoinColumn(name = "updated_by_id", nullable = true, foreignKey = @ForeignKey(foreignKeyDefinition = "FOREIGN KEY (updated_by_id) REFERENCES users(id) ON DELETE SET NULL"))
     private User updatedBy;
 
     /**
