@@ -43,14 +43,14 @@ public class OpenMeteoConfig {
      * Injected from application.properties via the property 'open-meteo.api.timezone'.
      * Default value is 'auto', which automatically determines the timezone based on coordinates.
      */
-    @Value("${open-meteo.api.timezone:auto}")
+    @Value("${open-meteo.api.timezone}")
     private String timezone;
 
     /**
      * Connection and read timeout in milliseconds for HTTP requests to Open-Meteo API.
      * Injected from application.properties via the property 'open-meteo.api.timeout'.
      */
-    @Value("${open-meteo.api.timeout:10000}")
+    @Value("${open-meteo.api.timeout}")
     private int timeout;
 
     /**

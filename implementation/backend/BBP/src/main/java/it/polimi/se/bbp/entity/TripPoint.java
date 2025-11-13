@@ -7,7 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 /**
  * Entity class representing a GPS coordinate point recorded during a trip.
@@ -63,7 +63,7 @@ public class TripPoint {
      * This field is optional.
      */
     @Column(nullable = true)
-    private LocalDateTime timestamp;
+    private OffsetDateTime timestamp;
 
     /**
      * The sequential position of this point in the trip route.

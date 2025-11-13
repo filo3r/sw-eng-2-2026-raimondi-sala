@@ -6,8 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -66,19 +65,14 @@ public class TripResponse {
     private String description;
 
     /**
-     * Date when the trip took place.
-     */
-    private LocalDate tripDate;
-
-    /**
      * Date and time when the trip started.
      */
-    private LocalDateTime startTime;
+    private OffsetDateTime startTime;
 
     /**
      * Date and time when the trip ended.
      */
-    private LocalDateTime endTime;
+    private OffsetDateTime endTime;
 
     /**
      * Total duration of the trip in minutes.

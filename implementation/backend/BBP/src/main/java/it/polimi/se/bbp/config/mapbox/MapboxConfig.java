@@ -36,7 +36,7 @@ public class MapboxConfig {
      * Connection and read timeout in milliseconds for HTTP requests to Mapbox API.
      * Injected from application.properties via the property 'mapbox.api.timeout'.
      */
-    @Value("${mapbox.api.timeout:10000}")
+    @Value("${mapbox.api.timeout}")
     private int timeout;
 
     /**

@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 /**
  * DTO for TripPoint response.
@@ -31,7 +31,7 @@ public class TripPointResponse {
      * Timestamp when this point was recorded.
      * Will be null for manually recorded trips.
      */
-    private LocalDateTime timestamp;
+    private OffsetDateTime timestamp;
 
     /**
      * Sequential position of this point in the route (1-indexed).

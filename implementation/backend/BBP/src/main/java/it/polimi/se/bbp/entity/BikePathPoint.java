@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 /**
  * Entity class representing a GPS coordinate point that defines a bike path route.
@@ -63,7 +64,7 @@ public class BikePathPoint {
      * This field is optional.
      */
     @Column(nullable = true)
-    private LocalDateTime timestamp;
+    private OffsetDateTime timestamp;
 
     /**
      * The sequential position of this point in the bike path route.

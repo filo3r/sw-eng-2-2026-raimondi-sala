@@ -40,7 +40,6 @@ public class TripMapper {
                 .destinationLatitude(destination.getCoordinate().getLatitude())
                 .destinationLongitude(destination.getCoordinate().getLongitude())
                 .description(request.getDescription())
-                .tripDate(request.getStartTime().toLocalDate())
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
                 .totalDuration(totalDurationMinutes)

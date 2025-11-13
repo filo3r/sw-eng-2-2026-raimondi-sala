@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
@@ -46,14 +46,14 @@ public class TripManualRecordRequest {
      * The trip date will be calculated from this field.
      */
     @NotNull(message = "Start time is required")
-    private LocalDateTime startTime;
+    private OffsetDateTime startTime;
 
     /**
      * The exact date and time when the trip ended.
      * This field is required and must be after the start time.
      */
     @NotNull(message = "End time is required")
-    private LocalDateTime endTime;
+    private OffsetDateTime endTime;
 
     /**
      * The maximum speed reached during the trip in km/h.

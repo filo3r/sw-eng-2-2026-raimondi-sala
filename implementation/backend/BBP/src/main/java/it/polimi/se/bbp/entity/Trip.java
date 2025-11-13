@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -110,21 +111,12 @@ public class Trip {
     private String description;
 
     /**
-     * The date when the trip took place.
-     * This field is required and cannot be in the future.
-     */
-    @Column(nullable = false)
-    @NotNull(message = "Trip date is required")
-    @PastOrPresent(message = "Trip date cannot be in the future")
-    private LocalDate tripDate;
-
-    /**
      * The exact date and time when the trip started.
      * This field is required.
      */
     @Column(nullable = false)
     @NotNull(message = "Start time is required")
-    private LocalDateTime startTime;
+    private OffsetDateTime startTime;
 
     /**
      * The exact date and time when the trip ended.
@@ -132,7 +124,7 @@ public class Trip {
      */
     @Column(nullable = false)
     @NotNull(message = "End time is required")
-    private LocalDateTime endTime;
+    private OffsetDateTime endTime;
 
     /**
      * The total duration of the trip in minutes.

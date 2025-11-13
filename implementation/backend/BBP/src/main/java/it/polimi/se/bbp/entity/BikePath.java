@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,7 +58,7 @@ public class BikePath {
      */
     @Column(nullable = false)
     @NotNull(message = "Creation date is required")
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 
     /**
      * The user who last updated this bike path.
@@ -72,7 +73,7 @@ public class BikePath {
      * This field is optional and is null if the path has never been updated.
      */
     @Column(nullable = true)
-    private LocalDateTime updatedAt;
+    private OffsetDateTime updatedAt;
 
     /**
      * The name or address of the bike path's starting point.

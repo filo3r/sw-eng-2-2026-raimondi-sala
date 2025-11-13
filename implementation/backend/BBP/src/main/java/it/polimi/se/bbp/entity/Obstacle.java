@@ -8,7 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 /**
  * Entity class representing an obstacle on a bike path in the BBP system.
@@ -62,7 +62,7 @@ public class Obstacle {
      */
     @Column(nullable = false)
     @NotNull(message = "Creation date is required")
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 
     /**
      * The user who last updated this obstacle record.
@@ -77,7 +77,7 @@ public class Obstacle {
      * This field is optional and is null if the obstacle has never been updated.
      */
     @Column(nullable = true)
-    private LocalDateTime updatedAt;
+    private OffsetDateTime updatedAt;
 
     /**
      * The name or description of the location where the obstacle is present.

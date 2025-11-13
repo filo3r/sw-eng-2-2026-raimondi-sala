@@ -38,7 +38,6 @@ public class TripResponseMapper {
                 .destinationLatitude(trip.getDestinationLatitude())
                 .destinationLongitude(trip.getDestinationLongitude())
                 .description(trip.getDescription())
-                .tripDate(trip.getTripDate())
                 .startTime(trip.getStartTime())
                 .endTime(trip.getEndTime())
                 .totalDuration(trip.getTotalDuration())
