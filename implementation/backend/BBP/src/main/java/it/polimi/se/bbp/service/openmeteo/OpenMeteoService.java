@@ -10,6 +10,7 @@ import it.polimi.se.bbp.entity.Trip;
 import it.polimi.se.bbp.enums.openmeteo.WeatherCondition;
 import it.polimi.se.bbp.mapper.entity.MeteorologicalDataMapper;
 import it.polimi.se.bbp.mapper.openmeteo.OpenMeteoResponseMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,7 @@ import java.util.List;
  * - UTC timezone handling for multi-timezone support
  */
 @Service
+@Slf4j
 public class OpenMeteoService {
 
     /**
@@ -137,6 +139,7 @@ public class OpenMeteoService {
             // Acquire rate limiter permit (blocks if necessary, throws RequestNotPermitted after timeout)
             RateLimiter.waitForPermission(rateLimiter);
         } catch (RequestNotPermitted e) {
+            log.warn("Weather service rate limit exceeded", e);
             throw new IllegalStateException("Weather service is temporarily unavailable due to high traffic. Please try again later.", e);
         }
         try {
@@ -169,9 +172,11 @@ public class OpenMeteoService {
             throw e;
         } catch (IllegalStateException e) {
             // Service unavailable → 503
+            log.error("OpenMeteo service unavailable", e);
             throw e;
         } catch (Exception e) {
             // Any other error (network issues, etc.) - wrap as service unavailable → 503
+            log.error("Unexpected error fetching weather data", e);
             throw new IllegalStateException("Open-Meteo weather service is currently unavailable", e);
         }
     }

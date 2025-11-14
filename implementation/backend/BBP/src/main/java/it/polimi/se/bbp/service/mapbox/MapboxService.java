@@ -9,6 +9,7 @@ import it.polimi.se.bbp.dto.mapbox.CyclingRouteResult;
 import it.polimi.se.bbp.dto.mapbox.GeocodeResult;
 import it.polimi.se.bbp.mapper.mapbox.CyclingRouteResultMapper;
 import it.polimi.se.bbp.mapper.mapbox.GeocodeResultMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
@@ -35,6 +36,7 @@ import java.util.stream.Collectors;
  * - Self-injection pattern to enable cache on internal method calls
  */
 @Service
+@Slf4j
 public class MapboxService {
 
     /**
@@ -142,6 +144,7 @@ public class MapboxService {
             // Acquire rate limiter permit (blocks if necessary, throws RequestNotPermitted after timeout)
             RateLimiter.waitForPermission(geocodingRateLimiter);
         } catch (RequestNotPermitted e) {
+            log.warn("Geocoding rate limit exceeded", e);
             throw new IllegalStateException("Geocoding service is temporarily unavailable due to high traffic. Please try again later.", e);
         }
         try {
@@ -165,9 +168,11 @@ public class MapboxService {
             throw e;
         } catch (IllegalStateException e) {
             // Mapbox service unavailable → 503
+            log.error("Mapbox geocoding service unavailable", e);
             throw e;
         } catch (Exception e) {
             // Any other error (network issues, etc.) - wrap as service unavailable → 503
+            log.error("Unexpected error during geocoding", e);
             throw new IllegalStateException("Mapbox geocoding service is currently unavailable", e);
         }
     }
@@ -243,6 +248,7 @@ public class MapboxService {
             // Acquire rate limiter permit (blocks if necessary, throws RequestNotPermitted after timeout)
             RateLimiter.waitForPermission(directionsRateLimiter);
         } catch (RequestNotPermitted e) {
+            log.warn("Routing rate limit exceeded", e);
             throw new IllegalStateException("Routing service is temporarily unavailable due to high traffic. Please try again later.", e);
         }
         try {
@@ -270,9 +276,11 @@ public class MapboxService {
             throw e;
         } catch (IllegalStateException e) {
             // Mapbox service unavailable → 503
+            log.error("Mapbox routing service unavailable", e);
             throw e;
         } catch (Exception e) {
             // Any other error → 503
+            log.error("Unexpected error during calculating route", e);
             throw new IllegalStateException("Mapbox routing service is currently unavailable", e);
         }
     }
