@@ -43,6 +43,7 @@ public class UserRegisterRequest {
      */
     @NotBlank(message = "Email is required")
     @Email(message = "Email must be valid")
+    @Size(max = 150, message = "Email must not exceed 150 characters")
     private String email;
 
     /**
