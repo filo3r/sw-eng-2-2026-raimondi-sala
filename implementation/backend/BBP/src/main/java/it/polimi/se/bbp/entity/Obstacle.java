@@ -1,5 +1,6 @@
 package it.polimi.se.bbp.entity;
 
+import it.polimi.se.bbp.enums.ObstacleSeverity;
 import it.polimi.se.bbp.enums.ObstacleType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -126,7 +127,7 @@ public class Obstacle {
     @Column(nullable = false, length = 15)
     @Enumerated(EnumType.STRING)
     @NotNull(message = "Severity is required")
-    private ObstacleType severity;
+    private ObstacleSeverity severity;
 
     /**
      * Flag indicating whether this obstacle is currently active and present.
@@ -135,6 +136,6 @@ public class Obstacle {
      */
     @Column(nullable = false)
     @NotNull(message = "Active flag is required")
-    private Boolean is_active;
+    private Boolean active;
 
 }

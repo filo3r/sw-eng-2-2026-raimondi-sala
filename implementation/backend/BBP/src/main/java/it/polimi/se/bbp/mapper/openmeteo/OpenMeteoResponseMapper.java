@@ -16,7 +16,7 @@ public class OpenMeteoResponseMapper {
     /**
      * Jackson ObjectMapper for parsing JSON responses from Open-Meteo API.
      */
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     /**
      * Parses an Open-Meteo Forecast API JSON response and creates an OpenMeteoResponse DTO.

@@ -155,7 +155,7 @@ public class Trip {
 
     /**
      * The maximum speed reached during the trip in km/h.
-     * This field must be greater than 0, and must be greater than or equal to the average speed.
+     * This field is optional. When provided, must be greater than 0 and greater than or equal to the average speed.
      * Precision: 5 digits total, 2 after the decimal point (e.g., 123.45).
      */
     @Column(nullable = true, precision = 5, scale = 2)

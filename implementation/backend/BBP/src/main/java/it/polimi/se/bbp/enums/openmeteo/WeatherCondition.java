@@ -88,11 +88,7 @@ public enum WeatherCondition {
      * Immutable map for quick lookup of weather condition by code.
      */
     private static final Map<Integer, WeatherCondition> CODE_MAP =
-            Stream.of(values())
-                    .collect(Collectors.toUnmodifiableMap(
-                            WeatherCondition::getWeatherCode,
-                            condition -> condition
-                    ));
+            Stream.of(values()).collect(Collectors.toUnmodifiableMap(WeatherCondition::getWeatherCode, condition -> condition));
 
     /**
      * Retrieves the weather condition corresponding to the given WMO weather code.
@@ -102,9 +98,8 @@ public enum WeatherCondition {
      */
     public static WeatherCondition fromWeatherCode(int code) {
         WeatherCondition condition = CODE_MAP.get(code);
-        if (condition == null) {
+        if (condition == null)
             throw new IllegalArgumentException("Unknown weather code: " + code);
-        }
         return condition;
     }
 

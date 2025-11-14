@@ -13,7 +13,6 @@ public class MeteorologicalDataMapper {
 
     /**
      * Converts weather data parameters to a MeteorologicalData entity.
-     *
      * @param trip the trip entity to associate with the meteorological data
      * @param weatherCondition the weather condition enum
      * @param temperature the temperature in degrees Celsius

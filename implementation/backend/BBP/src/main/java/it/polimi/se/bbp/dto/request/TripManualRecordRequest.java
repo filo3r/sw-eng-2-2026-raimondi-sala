@@ -43,7 +43,6 @@ public class TripManualRecordRequest {
     /**
      * The exact date and time when the trip started.
      * This field is required.
-     * The trip date will be calculated from this field.
      */
     @NotNull(message = "Start time is required")
     private OffsetDateTime startTime;

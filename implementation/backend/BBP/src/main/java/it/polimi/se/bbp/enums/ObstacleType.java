@@ -67,6 +67,6 @@ public enum ObstacleType {
     /**
      * The human-readable description of this obstacle type.
      */
-    private final String obstacleType;
+    private final String typeDescription;
 
 }

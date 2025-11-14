@@ -12,16 +12,12 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Configuration for Spring Cache abstraction.
- * Enables caching for external API calls to reduce API usage and improve performance.
+ * Enables caching for API calls to reduce usage and improve performance.
  * Uses Caffeine cache with customizable TTL and size for each cache type.
  * Cache configurations:
- * - geocoding: 50,000 entries, 1-year TTL (~10 MB)
- *   Address to coordinate conversions. Long TTL because addresses are nearly immutable.
- * - cyclingRoute: 5,000 entries, 90-day TTL (~150 MB)
- *   Calculated cycling routes with full geometry. Moderate TTL to allow for road/infrastructure changes.
- * - weatherData: 20,000 entries, NO TTL (~4 MB)
- *   Historical weather data is immutable and never changes. Only size-based LRU eviction is used.
- *   When cache is full (20K entries), least recently used entries are automatically removed.
+ * - geocoding: Long TTL for address to coordinate conversions, as addresses are nearly immutable.
+ * - cyclingRoute: Moderate TTL for calculated routes with full geometry to allow for infrastructure changes.
+ * - weatherData: No TTL as historical data is immutable. Only size-based LRU eviction is used.
  */
 @Configuration
 public class CacheConfig {
@@ -29,8 +25,8 @@ public class CacheConfig {
     /**
      * Configures the cache manager with three separate caches using Caffeine.
      * Each cache has customized maximum size and eviction strategy based on data characteristics:
-     * - "geocoding": 1-year TTL (addresses rarely change)
-     * - "cyclingRoute": 90-day TTL (roads/routes change occasionally)
+     * - "geocoding": Long TTL (addresses rarely change)
+     * - "cyclingRoute": Moderate TTL (routes change occasionally)
      * - "weatherData": No TTL (historical data is immutable, only LRU eviction based on size)
      * @return configured cache manager with separate cache specifications
      */
@@ -38,8 +34,8 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
         cacheManager.setCaches(Arrays.asList(
-                buildCache("geocoding", 50000, 365, TimeUnit.DAYS),
-                buildCache("cyclingRoute", 5000, 90, TimeUnit.DAYS),
+                buildCache("geocoding", 50000, 90, TimeUnit.DAYS),
+                buildCache("cyclingRoute", 5000, 30, TimeUnit.DAYS),
                 buildCache("weatherData", 20000)
         ));
         return cacheManager;

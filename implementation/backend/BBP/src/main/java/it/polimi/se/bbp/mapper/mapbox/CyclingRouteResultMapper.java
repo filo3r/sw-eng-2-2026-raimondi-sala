@@ -25,7 +25,7 @@ public class CyclingRouteResultMapper {
     /**
      * Jackson ObjectMapper for parsing JSON responses from Mapbox API.
      */
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     /**
      * Parses a Mapbox Directions API JSON response and creates a CyclingRouteResult DTO.

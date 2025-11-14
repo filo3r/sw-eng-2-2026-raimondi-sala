@@ -26,7 +26,7 @@ public class TripMapper {
      * @param averageSpeed the calculated average speed in km/h
      * @param totalDurationMinutes the calculated total duration in minutes
      * @param maxSpeed the validated maximum speed in km/h
-     * @return the trip entity (without trip points)
+     * @return the trip entity with empty trip points list
      */
     public Trip toEntity(TripManualRecordRequest request, User user, GeocodeResult origin, GeocodeResult destination,
                          BigDecimal totalDistanceKm, BigDecimal averageSpeed,

@@ -148,14 +148,14 @@ public class BikePath {
      */
     @Column(nullable = false, precision = 3, scale = 2)
     @NotNull(message = "Score is required")
-    @DecimalMin(value = "0.0", message = "Score must be at least 1.0")
+    @DecimalMin(value = "0.0", message = "Score must be at least 0.0")
     @DecimalMax(value = "5.0", message = "Score must be at most 5.0")
     private BigDecimal score;
 
     /**
      * The current condition status of the bike path.
-     * This field is required and indicates the maintenance level needed.
-     * Possible values include: OPTIMAL, MEDIUM, SUFFICIENT, REQUIRES_MAINTENANCE.
+     * This field is required and indicates the maintenance level and usability.
+     * Possible values include: EXCELLENT, GOOD, SUFFICIENT, POOR, UNDER_MAINTENANCE, etc.
      */
     @Column(nullable = false, length = 25)
     @Enumerated(EnumType.STRING)
@@ -179,7 +179,7 @@ public class BikePath {
      */
     @Column(nullable = false)
     @NotNull(message = "Publishable flag is required")
-    private Boolean is_published;
+    private Boolean published;
 
     /**
      * The collection of GPS coordinate points that define the bike path route.

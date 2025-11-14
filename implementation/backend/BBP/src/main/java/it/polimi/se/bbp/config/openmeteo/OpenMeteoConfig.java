@@ -16,9 +16,9 @@ import java.time.Duration;
  * Open-Meteo is a free, open-source weather API that doesn't require authentication.
  * Uses the Forecast API which can retrieve both forecast and recent historical data.
  * Historical data is available for approximately the last 3 months.
- * Timezone handling: All API calls use 'timezone=auto' parameter, which automatically
- * determines the correct timezone based on the provided latitude and longitude coordinates.
- * This ensures weather data is in the local timezone of the trip location.
+ * Timezone handling: All API calls use 'timezone=UTC' parameter, which returns
+ * timestamps in Coordinated Universal Time (UTC/GMT+0). This ensures consistent
+ * timestamp formatting across all weather data requests regardless of location.
  */
 @Configuration
 @Getter
@@ -40,6 +40,7 @@ public class OpenMeteoConfig {
 
     /**
      * The timezone parameter for weather data requests.
+     * Set to 'UTC' to receive all timestamps in Coordinated Universal Time.
      * Injected from application.properties via the property 'open-meteo.api.timezone'.
      */
     @Value("${open-meteo.api.timezone}")

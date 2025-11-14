@@ -85,7 +85,6 @@ public class OpenMeteoService {
     /**
      * Constructor for dependency injection.
      * Initializes rate limiter based on Open-Meteo API limits.
-     *
      * @param openMeteoConfig Configuration for Open-Meteo API
      * @param restClient REST client configured for Open-Meteo API calls
      * @param responseMapper Mapper for parsing JSON responses
@@ -140,33 +139,31 @@ public class OpenMeteoService {
         } catch (RequestNotPermitted e) {
             throw new IllegalStateException("Weather service is temporarily unavailable due to high traffic. Please try again later.", e);
         }
-
         try {
             // Convert startTime to UTC if not already (for consistent processing)
             OffsetDateTime utcStartTime = startTime.withOffsetSameInstant(ZoneOffset.UTC);
-
+            // Validate that the start time is within the supported historical range
             validateStartTimeRange(utcStartTime);
+            // Build the API request URL with coordinates and date parameters
             String url = buildWeatherApiUrl(latitude, longitude, utcStartTime);
-
+            // Execute HTTP GET request and retrieve response body as String
             String jsonResponse = restClient.get()
                     .uri(url)
                     .retrieve()
                     .body(String.class);
-
+            // Parse JSON response into OpenMeteoResponse DTO
             OpenMeteoResponse response = responseMapper.fromJsonResponse(jsonResponse);
-
             // Find closest hour using UTC time comparison
             int closestIndex = findClosestHourIndex(response.getHourlyData().getTime(), utcStartTime);
-
+            // Extract weather values for the closest hour
             OpenMeteoResponse.HourlyData hourlyData = response.getHourlyData();
             Double temperature = hourlyData.getTemperatureValues().get(closestIndex);
             Integer humidity = hourlyData.getHumidityValues().get(closestIndex);
             Double windSpeed = hourlyData.getWindSpeedValues().get(closestIndex);
             Integer weatherCode = hourlyData.getWeatherCodeValues().get(closestIndex);
             WeatherCondition weatherCondition = WeatherCondition.fromWeatherCode(weatherCode);
-
+            // Convert to MeteorologicalData entity and return
             return meteorologicalDataMapper.toEntity(trip, weatherCondition, temperature, humidity, windSpeed);
-
         } catch (IllegalArgumentException e) {
             // Invalid parameters → 400
             throw e;
@@ -200,7 +197,7 @@ public class OpenMeteoService {
         // Convert to UTC first to ensure consistent rounding across timezones
         OffsetDateTime utc = dateTime.withOffsetSameInstant(ZoneOffset.UTC);
         int minutes = utc.getMinute();
-
+        // Round up if minutes >= 30, otherwise round down
         if (minutes >= 30) {
             return utc.truncatedTo(ChronoUnit.HOURS).plusHours(1);
         }
@@ -224,7 +221,7 @@ public class OpenMeteoService {
         // Ensure we're in UTC before extracting date (should already be UTC from caller, but double-check)
         OffsetDateTime utc = dateTime.withOffsetSameInstant(ZoneOffset.UTC);
         String date = utc.format(DATE_FORMATTER);
-
+        // Build URL with all required query parameters
         return openMeteoConfig.getForecastEndpoint() +
                 "?latitude=" + latitude +
                 "&longitude=" + longitude +
@@ -258,20 +255,18 @@ public class OpenMeteoService {
     private int findClosestHourIndex(List<String> timeArray, OffsetDateTime startTime) {
         // Ensure startTime is in UTC for comparison (should already be from caller, but double-check)
         OffsetDateTime utcStartTime = startTime.withOffsetSameInstant(ZoneOffset.UTC);
-
         int closestIndex = -1;
         long minDifference = Long.MAX_VALUE;
-
+        // Iterate through all timestamps to find the closest match
         for (int i = 0; i < timeArray.size(); i++) {
             try {
                 // Open-Meteo returns timestamps like "2025-11-13T14:00" (without Z) when timezone=UTC
                 // Parse as LocalDateTime first, then convert to UTC OffsetDateTime
                 LocalDateTime localDateTime = LocalDateTime.parse(timeArray.get(i), TIME_FORMATTER);
                 OffsetDateTime hourTime = localDateTime.atOffset(ZoneOffset.UTC);
-
-                // Calculate time difference in UTC
+                // Calculate time difference in minutes (UTC comparison)
                 long differenceInMinutes = Math.abs(ChronoUnit.MINUTES.between(utcStartTime, hourTime));
-
+                // Update closest index if this hour is closer
                 if (differenceInMinutes < minDifference) {
                     minDifference = differenceInMinutes;
                     closestIndex = i;
@@ -281,7 +276,7 @@ public class OpenMeteoService {
                 continue;
             }
         }
-
+        // Throw exception if no valid timestamp was found
         if (closestIndex == -1) {
             throw new IllegalArgumentException("No valid weather data found for the trip start time");
         }
@@ -299,8 +294,9 @@ public class OpenMeteoService {
     private void validateStartTimeRange(OffsetDateTime startTime) {
         // Use UTC for current time to ensure consistent validation across timezones
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        // Calculate the number of days between start time and now
         long daysDifference = ChronoUnit.DAYS.between(startTime, now);
-
+        // Throw exception if start time is too far in the past
         if (daysDifference > MAX_DAYS_IN_PAST) {
             throw new IllegalArgumentException(
                     String.format("Weather data is not available for trips older than %d days. Trip is %d days old.",

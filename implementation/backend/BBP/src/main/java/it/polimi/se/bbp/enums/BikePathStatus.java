@@ -74,9 +74,8 @@ public enum BikePathStatus {
      */
     public static BikePathStatus fromStatusScore(int score) {
         BikePathStatus status = SCORE_MAP.get(score);
-        if (status == null) {
+        if (status == null)
             throw new IllegalArgumentException("Unknown status score: " + score);
-        }
         return status;
     }
 

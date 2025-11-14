@@ -53,9 +53,8 @@ public enum ObstacleSeverity {
      */
     public static ObstacleSeverity fromSeverityLevel(int level) {
         ObstacleSeverity severity = LEVEL_MAP.get(level);
-        if (severity == null) {
+        if (severity == null)
             throw new IllegalArgumentException("Unknown severity level: " + level);
-        }
         return severity;
     }
 
