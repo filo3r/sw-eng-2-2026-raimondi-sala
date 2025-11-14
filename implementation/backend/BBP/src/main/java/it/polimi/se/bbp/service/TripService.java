@@ -202,15 +202,15 @@ public class TripService {
 
     /**
      * Validates and adjusts the maximum speed to ensure it's greater than or equal to average speed.
-     * If maxSpeed is null or less than averageSpeed, it's set to averageSpeed.
+     * If maxSpeed is less than averageSpeed, it's set to averageSpeed.
      * @param requestMaxSpeed the max speed from the user request (may be null)
      * @param averageSpeed the calculated average speed
      * @return validated maximum speed
      */
     private BigDecimal validateMaxSpeed(BigDecimal requestMaxSpeed, BigDecimal averageSpeed) {
-        // If max speed is not provided, set it to average speed
+        // If max speed is not provided, set it to null
         if (requestMaxSpeed == null)
-            return averageSpeed;
+            return null;
         // If max speed is less than average speed, correct it to average speed
         if (requestMaxSpeed.compareTo(averageSpeed) < 0)
             return averageSpeed;
