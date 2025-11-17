@@ -51,8 +51,8 @@ public class TripController {
      * @return ResponseEntity with HTTP 201 CREATED status and trip response
      */
     @PostMapping("/manual")
-    public ResponseEntity<TripResponse> createManualTrip(@Valid @RequestBody TripManualRecordRequest request) {
-        Trip trip = tripService.manualRecordTrip(request);
+    public ResponseEntity<TripResponse> createTripManually(@Valid @RequestBody TripManualRecordRequest request) {
+        Trip trip = tripService.recordTripManual(request);
         TripResponse response = tripResponseMapper.toResponse(trip);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

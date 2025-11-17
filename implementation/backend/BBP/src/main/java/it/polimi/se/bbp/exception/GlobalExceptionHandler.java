@@ -3,6 +3,7 @@ package it.polimi.se.bbp.exception;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.security.SignatureException;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.OptimisticLockException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -133,6 +134,21 @@ public class GlobalExceptionHandler {
         response.put("error", "Forbidden");
         response.put("message", ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    /**
+     * Handles optimistic lock exceptions (e.g., concurrent updates on the same entity).
+     * @param ex the optimistic lock exception
+     * @return error response
+     */
+    @ExceptionHandler(OptimisticLockException.class)
+    public ResponseEntity<Map<String, Object>> handleOptimisticLockException(OptimisticLockException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("timestamp", LocalDateTime.now());
+        response.put("status", HttpStatus.CONFLICT.value());
+        response.put("error", "Conflict");
+        response.put("message", "The resource was modified by another user. Please refresh and try again.");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
     /**

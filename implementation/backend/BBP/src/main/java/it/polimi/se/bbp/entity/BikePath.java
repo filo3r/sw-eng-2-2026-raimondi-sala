@@ -32,7 +32,7 @@ public class BikePath {
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     /**
      * Version number for optimistic locking.
@@ -76,11 +76,11 @@ public class BikePath {
 
     /**
      * The name or address of the bike path's starting point.
-     * This field is required and cannot exceed 255 characters.
+     * This field is required and cannot exceed 256 characters.
      */
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, length = 256)
     @NotBlank(message = "Origin is required")
-    @Size(max = 255, message = "Origin must not exceed 255 characters")
+    @Size(max = 256, message = "Origin must not exceed 256 characters")
     private String origin;
 
     /**
@@ -105,11 +105,11 @@ public class BikePath {
 
     /**
      * The name or address of the bike path's destination point.
-     * This field is required and cannot exceed 255 characters.
+     * This field is required and cannot exceed 256 characters.
      */
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, length = 256)
     @NotBlank(message = "Destination is required")
-    @Size(max = 255, message = "Destination must not exceed 255 characters")
+    @Size(max = 256, message = "Destination must not exceed 256 characters")
     private String destination;
 
     /**

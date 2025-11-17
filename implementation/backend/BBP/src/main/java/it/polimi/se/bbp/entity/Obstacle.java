@@ -81,13 +81,13 @@ public class Obstacle {
     private OffsetDateTime updatedAt;
 
     /**
-     * The name or description of the location where the obstacle is present.
-     * This field is required and cannot exceed 255 characters.
+     * The address or location description of the obstacle.
+     * This field is required and cannot exceed 256 characters.
      */
-    @Column(nullable = false, length = 255)
-    @NotBlank(message = "Location is required")
-    @Size(max = 255, message = "Location must not exceed 255 characters")
-    private String location;
+    @Column(nullable = false, length = 256)
+    @NotBlank(message = "Address is required")
+    @Size(max = 256, message = "Address must not exceed 256 characters")
+    private String address;
 
     /**
      * The latitude coordinate of the obstacle's location.

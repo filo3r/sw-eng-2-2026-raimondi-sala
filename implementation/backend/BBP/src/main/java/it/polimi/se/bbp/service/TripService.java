@@ -76,7 +76,7 @@ public class TripService {
      * @throws IllegalStateException if Mapbox service is unavailable
      */
     @Transactional
-    public Trip manualRecordTrip(TripManualRecordRequest request) {
+    public Trip recordTripManual(TripManualRecordRequest request) {
         // Get authenticated user ID from security context
         Long userId = getCurrentUserId();
         User user = userRepository.findById(userId).orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
