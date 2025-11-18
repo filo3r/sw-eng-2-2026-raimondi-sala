@@ -128,16 +128,19 @@ public class BikePathService {
         BikePath bikePath = bikePathMapper.toEntity(
                 request,
                 user,
+                now,
+                null,
+                null,
                 origin,
                 destination,
-                totalDistanceKm,
-                BigDecimal.ZERO, // Temporary score, recalculated after obstacles are added
-                now
+                BigDecimal.ZERO,
+                totalDistanceKm
         );
         // Step 6: Create BikePathPoint entities from route coordinates
         List<BikePathPoint> points = bikePathPointMapper.toEntities(
                 routeResult.getRouteCoordinates(),
-                bikePath
+                bikePath,
+                null
         );
         bikePath.setBikePathPoints(points);
         // Step 7: Create and validate Obstacles (reuses the pre-calculated buffer)

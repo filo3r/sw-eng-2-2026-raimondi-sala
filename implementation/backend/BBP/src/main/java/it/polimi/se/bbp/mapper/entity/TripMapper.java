@@ -28,9 +28,7 @@ public class TripMapper {
      * @param maxSpeed the validated maximum speed in km/h
      * @return the trip entity with empty trip points list
      */
-    public Trip toEntity(TripManualRecordRequest request, User user, GeocodeResult origin, GeocodeResult destination,
-                         BigDecimal totalDistanceKm, BigDecimal averageSpeed,
-                         int totalDurationMinutes, BigDecimal maxSpeed) {
+    public Trip toEntity(TripManualRecordRequest request, User user, GeocodeResult origin, GeocodeResult destination, int totalDurationMinutes, BigDecimal totalDistanceKm, BigDecimal averageSpeed, BigDecimal maxSpeed) {
         return Trip.builder()
                 .recordedBy(user)
                 .origin(origin.getAddress())

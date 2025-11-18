@@ -28,12 +28,12 @@ public class BikePathMapper {
      * @param createdAt the creation timestamp
      * @return the bike path entity with empty collections for points and obstacles
      */
-    public BikePath toEntity(BikePathManualCreateRequest request, User createdBy, GeocodeResult origin, GeocodeResult destination, BigDecimal totalDistanceKm, BigDecimal score, OffsetDateTime createdAt) {
+    public BikePath toEntity(BikePathManualCreateRequest request, User createdBy, OffsetDateTime createdAt, User updatedBy, OffsetDateTime updatedAt, GeocodeResult origin, GeocodeResult destination, BigDecimal score, BigDecimal totalDistanceKm) {
         return BikePath.builder()
                 .createdBy(createdBy)
                 .createdAt(createdAt)
-                .updatedBy(null) // null until first update
-                .updatedAt(null) // null until first update
+                .updatedBy(updatedBy)
+                .updatedAt(updatedAt)
                 .origin(origin.getAddress())
                 .originLatitude(origin.getCoordinate().getLatitude())
                 .originLongitude(origin.getCoordinate().getLongitude())
@@ -45,8 +45,8 @@ public class BikePathMapper {
                 .status(request.getStatus())
                 .totalDistance(totalDistanceKm)
                 .published(request.getPublished())
-                .bikePathPoints(new ArrayList<>()) // empty list, populated later
-                .obstacles(new ArrayList<>()) // empty list, populated later
+                .bikePathPoints(new ArrayList<>())
+                .obstacles(new ArrayList<>())
                 .build();
     }
 

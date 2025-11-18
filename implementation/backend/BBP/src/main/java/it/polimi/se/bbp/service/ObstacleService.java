@@ -95,9 +95,12 @@ public class ObstacleService {
             Obstacle obstacle = obstacleMapper.toEntity(
                     obstacleRequests.get(i),
                     bikePath,
-                    geocodeResults.get(i),
                     createdBy,
-                    createdAt
+                    createdAt,
+                    null,
+                    null,
+                    geocodeResults.get(i),
+                    true
             );
             obstacles.add(obstacle);
         }

@@ -5,6 +5,7 @@ import it.polimi.se.bbp.entity.BikePath;
 import it.polimi.se.bbp.entity.BikePathPoint;
 import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,12 +24,12 @@ public class BikePathPointMapper {
      * @param sequentialPosition the sequential position in the route (1-indexed)
      * @return bike path point entity
      */
-    public BikePathPoint toEntity(Coordinate coordinate, BikePath bikePath, int sequentialPosition) {
+    public BikePathPoint toEntity(Coordinate coordinate, BikePath bikePath, OffsetDateTime timestamp, int sequentialPosition) {
         return BikePathPoint.builder()
                 .bikePath(bikePath)
                 .latitude(coordinate.getLatitude())
                 .longitude(coordinate.getLongitude())
-                .timestamp(null) // null for manually created bike paths
+                .timestamp(timestamp)
                 .sequentialPosition(sequentialPosition)
                 .build();
     }
@@ -42,10 +43,11 @@ public class BikePathPointMapper {
      * @param bikePath the bike path entity to associate with these points
      * @return list of bike path point entities ordered by sequential position
      */
-    public List<BikePathPoint> toEntities(List<Coordinate> coordinates, BikePath bikePath) {
+    public List<BikePathPoint> toEntities(List<Coordinate> coordinates, BikePath bikePath, List<OffsetDateTime> timestamps) {
         List<BikePathPoint> bikePathPoints = new ArrayList<>();
         for (int i = 0; i < coordinates.size(); i++) {
-            BikePathPoint bikePathPoint = toEntity(coordinates.get(i), bikePath, i + 1);
+            OffsetDateTime timestamp = (timestamps != null && i < timestamps.size()) ? timestamps.get(i) : null;
+            BikePathPoint bikePathPoint = toEntity(coordinates.get(i), bikePath, timestamp, i + 1);
             bikePathPoints.add(bikePathPoint);
         }
         return bikePathPoints;

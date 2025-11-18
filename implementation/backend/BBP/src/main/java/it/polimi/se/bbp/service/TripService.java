@@ -95,9 +95,9 @@ public class TripService {
         BigDecimal averageSpeed = calculateAverageSpeed(totalDistanceKm, totalDurationMinutes);
         BigDecimal maxSpeed = validateMaxSpeed(request.getMaxSpeed(), averageSpeed);
         // Step 6: Build Trip entity using mapper
-        Trip trip = tripMapper.toEntity(request, user, origin, destination, totalDistanceKm, averageSpeed, totalDurationMinutes, maxSpeed);
+        Trip trip = tripMapper.toEntity(request, user, origin, destination, totalDurationMinutes, totalDistanceKm, averageSpeed, maxSpeed);
         // Step 7: Create TripPoint entities from route coordinates using mapper
-        List<TripPoint> tripPoints = tripPointMapper.toEntities(routeResult.getRouteCoordinates(), trip);
+        List<TripPoint> tripPoints = tripPointMapper.toEntities(routeResult.getRouteCoordinates(), trip, null);
         trip.setTripPoints(tripPoints);
         // Step 8: Save trip (cascade saves trip points)
         trip = tripRepository.save(trip);

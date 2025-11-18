@@ -5,6 +5,7 @@ import it.polimi.se.bbp.entity.Trip;
 import it.polimi.se.bbp.entity.TripPoint;
 import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,12 +23,12 @@ public class TripPointMapper {
      * @param sequentialPosition the sequential position in the route (1-indexed)
      * @return trip point entity
      */
-    public TripPoint toEntity(Coordinate coordinate, Trip trip, int sequentialPosition) {
+    public TripPoint toEntity(Coordinate coordinate, Trip trip, OffsetDateTime timestamp, int sequentialPosition) {
         return TripPoint.builder()
                 .trip(trip)
                 .latitude(coordinate.getLatitude())
                 .longitude(coordinate.getLongitude())
-                .timestamp(null) // null for manually recorded trips
+                .timestamp(timestamp)
                 .sequentialPosition(sequentialPosition)
                 .build();
     }
@@ -40,10 +41,11 @@ public class TripPointMapper {
      * @param trip the trip entity to associate with these points
      * @return list of trip point entities
      */
-    public List<TripPoint> toEntities(List<Coordinate> coordinates, Trip trip) {
+    public List<TripPoint> toEntities(List<Coordinate> coordinates, Trip trip, List<OffsetDateTime> timestamps) {
         List<TripPoint> tripPoints = new ArrayList<>();
         for (int i = 0; i < coordinates.size(); i++) {
-            TripPoint tripPoint = toEntity(coordinates.get(i), trip, i + 1);
+            OffsetDateTime timestamp = (timestamps != null && i < timestamps.size()) ? timestamps.get(i) : null;
+            TripPoint tripPoint = toEntity(coordinates.get(i), trip, timestamp, i + 1);
             tripPoints.add(tripPoint);
         }
         return tripPoints;

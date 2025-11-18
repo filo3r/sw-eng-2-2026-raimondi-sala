@@ -26,19 +26,19 @@ public class ObstacleMapper {
      * @param createdAt the creation timestamp
      * @return the obstacle entity with active=true and no update information
      */
-    public Obstacle toEntity(ObstacleCreateRequest request, BikePath bikePath, GeocodeResult geocodeResult, User createdBy, OffsetDateTime createdAt) {
+    public Obstacle toEntity(ObstacleCreateRequest request, BikePath bikePath, User createdBy, OffsetDateTime createdAt, User updatedBy, OffsetDateTime updatedAt, GeocodeResult geocodeResult, Boolean active) {
         return Obstacle.builder()
                 .bikePath(bikePath)
                 .createdBy(createdBy)
                 .createdAt(createdAt)
-                .updatedBy(null) // null until first update
-                .updatedAt(null) // null until first update
+                .updatedBy(updatedBy)
+                .updatedAt(updatedAt)
                 .address(geocodeResult.getAddress())
                 .latitude(geocodeResult.getCoordinate().getLatitude())
                 .longitude(geocodeResult.getCoordinate().getLongitude())
                 .type(request.getType())
                 .severity(request.getSeverity())
-                .active(true) // always true when creating a new obstacle
+                .active(active)
                 .build();
     }
 
