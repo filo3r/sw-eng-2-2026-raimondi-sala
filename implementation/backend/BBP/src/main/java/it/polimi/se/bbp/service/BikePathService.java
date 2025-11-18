@@ -11,12 +11,16 @@ import it.polimi.se.bbp.entity.Obstacle;
 import it.polimi.se.bbp.entity.User;
 import it.polimi.se.bbp.mapper.entity.BikePathMapper;
 import it.polimi.se.bbp.mapper.entity.BikePathPointMapper;
+import it.polimi.se.bbp.repository.BikePathPointRepository;
 import it.polimi.se.bbp.repository.BikePathRepository;
+import it.polimi.se.bbp.repository.ObstacleRepository;
 import it.polimi.se.bbp.repository.UserRepository;
 import it.polimi.se.bbp.service.mapbox.MapboxService;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
@@ -51,6 +55,16 @@ public class BikePathService {
     private final UserRepository userRepository;
 
     /**
+     *
+     */
+    private final BikePathPointRepository  bikePathPointRepository;
+
+    /**
+     *
+     */
+    private final ObstacleRepository obstacleRepository;
+
+    /**
      * Service for interacting with Mapbox APIs (geocoding and routing).
      */
     private final MapboxService mapboxService;
@@ -76,6 +90,11 @@ public class BikePathService {
     private final BikePathPointMapper bikePathPointMapper;
 
     /**
+     *
+     */
+    private final EntityManager entityManager;
+
+    /**
      * Buffer distance around the bike path route in meters.
      * Obstacles must be within this distance to be considered valid.
      */
@@ -92,16 +111,18 @@ public class BikePathService {
     private static final double WEIGHT_OBSTACLES = 0.5;
 
     /**
-     * Creates a new bike path with route and optional obstacles.
-     * OPTIMIZED: Calculates route buffer ONCE and reuses it for all obstacle validations.
+     * Creates a new bike path with route and optional obstacles using BATCH INSERT.
+     * OPTIMIZED: Uses batch insert for BikePathPoints and Obstacles to improve performance.
      * Workflow:
      * 1. Geocode bike path addresses in parallel
      * 2. Calculate cycling route through all waypoints
      * 3. Create route buffer using JTS (ONCE)
-     * 4. Create bike path entity with points
-     * 5. Create and validate obstacles using the pre-calculated buffer
-     * 6. Calculate final score based on status and obstacles
-     * 7. Save bike path (cascade saves points, obstacles, and score)
+     * 4. Save bike path entity first (without points and obstacles)
+     * 5. BATCH INSERT bike path points
+     * 6. Create, validate, and BATCH INSERT obstacles using the pre-calculated buffer
+     * 7. Calculate final score based on status and obstacles
+     * 8. Update bike path with calculated score
+     * 9. Reload complete entity with all relationships
      * @param request the bike path creation request containing addresses, status, and obstacles
      * @return the created bike path entity with all associated data
      * @throws IllegalArgumentException if addresses are invalid, route cannot be calculated, or obstacles are too far
@@ -124,7 +145,7 @@ public class BikePathService {
         GeocodeResult origin = geocodeResults.getFirst();
         GeocodeResult destination = geocodeResults.getLast();
         BigDecimal totalDistanceKm = calculateDistance(routeResult);
-        // Step 5: Create BikePath entity (score will be calculated later)
+        // Step 5: Create and save BikePath entity FIRST (with temporary score = 0)
         BikePath bikePath = bikePathMapper.toEntity(
                 request,
                 user,
@@ -136,14 +157,16 @@ public class BikePathService {
                 BigDecimal.ZERO,
                 totalDistanceKm
         );
-        // Step 6: Create BikePathPoint entities from route coordinates
+        bikePath = bikePathRepository.save(bikePath);
+        // Step 6: BATCH INSERT - Create and save BikePathPoint entities
         List<BikePathPoint> points = bikePathPointMapper.toEntities(
                 routeResult.getRouteCoordinates(),
                 bikePath,
                 null
         );
-        bikePath.setBikePathPoints(points);
-        // Step 7: Create and validate Obstacles (reuses the pre-calculated buffer)
+        bikePathPointRepository.saveAll(points);
+        entityManager.flush();
+        // Step 7: BATCH INSERT - Create, validate, and save Obstacles
         List<Obstacle> obstacles = obstacleService.createObstacles(
                 request.getObstacles(),
                 bikePath,
@@ -151,11 +174,19 @@ public class BikePathService {
                 user,
                 now
         );
-        bikePath.setObstacles(obstacles);
+        if (!obstacles.isEmpty())
+            obstacleRepository.saveAll(obstacles);
+        entityManager.flush();
         // Step 8: Calculate final score based on status and obstacles
+        bikePath.setObstacles(obstacles);
         calculateScore(bikePath);
-        // Step 9: Save bike path (cascade saves points, obstacles, and calculated score)
-        return bikePathRepository.save(bikePath);
+        // Step 9: Update bike path with calculated score
+        bikePath = bikePathRepository.save(bikePath);
+        entityManager.clear();
+        // Step 10: Reload complete entity with all relationships (points + obstacles)
+        bikePath = bikePathRepository.findByIdWithPoints(bikePath.getId()).orElseThrow(() -> new IllegalStateException("BikePath not found after save"));
+        bikePathRepository.findByIdWithObstacles(bikePath.getId());
+        return bikePath;
     }
 
     /**
@@ -187,7 +218,8 @@ public class BikePathService {
         Long userId = getCurrentUserId();
         User user = userRepository.findById(userId).orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
         // Load bike path from database
-        BikePath bikePath = bikePathRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("Bike path not found"));
+        BikePath bikePath = bikePathRepository.findByIdWithPoints(id).orElseThrow(() -> new EntityNotFoundException("Bike path not found"));
+        bikePathRepository.findByIdWithObstacles(bikePath.getId());
         // Step 1: Validate complex update permissions
         validateUpdatePermissions(bikePath, userId);
         if (!bikePath.getVersion().equals(request.getVersion()))
@@ -223,7 +255,9 @@ public class BikePathService {
         // Step 6: Recalculate score based on updated status and/or obstacles
         calculateScore(bikePath);
         // Step 7: Save bike path (JPA automatic flush with @Transactional)
-        return bikePathRepository.save(bikePath);
+        bikePath = bikePathRepository.save(bikePath);
+        Hibernate.initialize(bikePath.getObstacles());
+        return bikePath;
     }
 
     /**
@@ -251,7 +285,12 @@ public class BikePathService {
      */
     public List<BikePath> getUserBikePaths() {
         Long userId = getCurrentUserId();
-        return bikePathRepository.findAllByCreatedById(userId);
+        // Load bike paths with points first
+        List<BikePath> bikePaths = bikePathRepository.findAllByCreatedByIdWithPoints(userId);
+        // Load obstacles for all bike paths (Hibernate merges them into existing entities)
+        if (!bikePaths.isEmpty())
+            bikePathRepository.findAllByCreatedByIdWithObstacles(userId);
+        return bikePaths;
     }
 
     /**

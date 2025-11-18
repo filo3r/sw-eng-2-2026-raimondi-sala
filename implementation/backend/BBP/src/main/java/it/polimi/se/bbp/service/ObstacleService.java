@@ -7,7 +7,9 @@ import it.polimi.se.bbp.entity.BikePath;
 import it.polimi.se.bbp.entity.Obstacle;
 import it.polimi.se.bbp.entity.User;
 import it.polimi.se.bbp.mapper.entity.ObstacleMapper;
+import it.polimi.se.bbp.repository.ObstacleRepository;
 import it.polimi.se.bbp.service.mapbox.MapboxService;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import org.locationtech.jts.geom.Coordinate;
@@ -42,6 +44,16 @@ public class ObstacleService {
      * Mapper for converting obstacle request data to Obstacle entities.
      */
     private final ObstacleMapper obstacleMapper;
+
+    /**
+     *
+     */
+    private final ObstacleRepository obstacleRepository;
+
+    /**
+     *
+     */
+    private final EntityManager entityManager;
 
     /**
      * GeometryFactory for creating JTS geometric objects.
@@ -108,11 +120,11 @@ public class ObstacleService {
     }
 
     /**
-     * OPTIMIZED: Updates existing obstacles and adds new ones to a bike path.
+     * OPTIMIZED: Updates existing obstacles and adds new ones to a bike path using BATCH INSERT.
      * The route buffer is calculated ONCE by the caller and reused for new obstacles only.
      * Workflow:
-     * 1. Update existing obstacles (partial update - only non-null fields)
-     * 2. Create and add new obstacles (using the pre-calculated buffer)
+     * 1. Update existing obstacles in-place (partial update - only non-null fields)
+     * 2. Create, validate, and BATCH INSERT new obstacles (using the pre-calculated buffer)
      * @param bikePath the bike path to update
      * @param obstaclesToAdd new obstacles to add (nullable)
      * @param obstaclesToUpdate existing obstacles to modify (nullable)
@@ -123,14 +135,15 @@ public class ObstacleService {
      * @throws IllegalStateException if Mapbox geocoding service is unavailable
      */
     public void updateObstacles(BikePath bikePath, List<ObstacleCreateRequest> obstaclesToAdd, List<ObstacleUpdateRequest> obstaclesToUpdate, Geometry routeBuffer, User updatedBy, OffsetDateTime updatedAt) {
-        // Update existing obstacles (no geocoding needed)
+        // Step 1: Update existing obstacles in-place (no geocoding needed, no batch required)
         if (obstaclesToUpdate != null && !obstaclesToUpdate.isEmpty()) {
             updateExistingObstacles(bikePath, obstaclesToUpdate, updatedBy, updatedAt);
         }
-        // Add new obstacles (requires geocoding and validation)
+        // Step 2: BATCH INSERT - Create, validate, and save new obstacles
         if (obstaclesToAdd != null && !obstaclesToAdd.isEmpty()) {
             List<Obstacle> newObstacles = createObstacles(obstaclesToAdd, bikePath, routeBuffer, updatedBy, updatedAt);
-            bikePath.getObstacles().addAll(newObstacles);
+            obstacleRepository.saveAll(newObstacles);
+            entityManager.flush();
         }
     }
 
@@ -146,8 +159,7 @@ public class ObstacleService {
      */
     private void updateExistingObstacles(BikePath bikePath, List<ObstacleUpdateRequest> updates, User updatedBy, OffsetDateTime updatedAt) {
         // Create a map for efficient obstacle lookup by ID
-        Map<Long, Obstacle> obstacleMap = bikePath.getObstacles().stream()
-                .collect(Collectors.toMap(Obstacle::getId, obstacle -> obstacle));
+        Map<Long, Obstacle> obstacleMap = bikePath.getObstacles().stream().collect(Collectors.toMap(Obstacle::getId, obstacle -> obstacle));
         // Process each update request
         for (ObstacleUpdateRequest update : updates) {
             Obstacle obstacle = obstacleMap.get(update.getId());

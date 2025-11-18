@@ -10,10 +10,12 @@ import it.polimi.se.bbp.entity.TripPoint;
 import it.polimi.se.bbp.entity.User;
 import it.polimi.se.bbp.mapper.entity.TripMapper;
 import it.polimi.se.bbp.mapper.entity.TripPointMapper;
+import it.polimi.se.bbp.repository.TripPointRepository;
 import it.polimi.se.bbp.repository.TripRepository;
 import it.polimi.se.bbp.repository.UserRepository;
 import it.polimi.se.bbp.service.mapbox.MapboxService;
 import it.polimi.se.bbp.service.openmeteo.OpenMeteoService;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -42,6 +44,11 @@ public class TripService {
     private final TripRepository tripRepository;
 
     /**
+     *
+     */
+    private final TripPointRepository tripPointRepository;
+
+    /**
      * Repository for user data access operations.
      */
     private final UserRepository userRepository;
@@ -67,9 +74,20 @@ public class TripService {
     private final TripPointMapper tripPointMapper;
 
     /**
-     * Creates a new trip from manual user input.
-     * Geocodes addresses, calculates cycling route, saves trip with all route points,
-     * and optionally enriches it with meteorological data if available.
+     *
+     */
+    private final EntityManager entityManager;
+
+    /**
+     * Creates a new trip from manual user input using BATCH INSERT.
+     * OPTIMIZED: Uses batch insert for TripPoints to improve performance.
+     * Workflow:
+     * 1. Geocode addresses and calculate cycling route
+     * 2. Calculate trip metrics (distance, speed, duration)
+     * 3. Save trip entity first (without points)
+     * 4. BATCH INSERT trip points
+     * 5. Optionally enrich with meteorological data if available
+     * 6. Reload complete entity with all relationships
      * @param request the manual trip recording request
      * @return the created trip entity with optional meteorological data
      * @throws IllegalArgumentException if addresses are invalid or route cannot be calculated
@@ -94,14 +112,14 @@ public class TripService {
         BigDecimal totalDistanceKm = calculateDistance(routeResult);
         BigDecimal averageSpeed = calculateAverageSpeed(totalDistanceKm, totalDurationMinutes);
         BigDecimal maxSpeed = validateMaxSpeed(request.getMaxSpeed(), averageSpeed);
-        // Step 6: Build Trip entity using mapper
+        // Step 6: Create and save Trip entity FIRST (without points)
         Trip trip = tripMapper.toEntity(request, user, origin, destination, totalDurationMinutes, totalDistanceKm, averageSpeed, maxSpeed);
-        // Step 7: Create TripPoint entities from route coordinates using mapper
-        List<TripPoint> tripPoints = tripPointMapper.toEntities(routeResult.getRouteCoordinates(), trip, null);
-        trip.setTripPoints(tripPoints);
-        // Step 8: Save trip (cascade saves trip points)
         trip = tripRepository.save(trip);
-        // Step 9: Try to fetch and associate meteorological data (optional, non-blocking)
+        // Step 7: BATCH INSERT - Create and save TripPoint entities
+        List<TripPoint> tripPoints = tripPointMapper.toEntities(routeResult.getRouteCoordinates(), trip, null);
+        tripPointRepository.saveAll(tripPoints);
+        entityManager.flush();
+        // Step 8: Try to fetch and associate meteorological data (optional, non-blocking)
         try {
             MeteorologicalData weatherData = openMeteoService.getWeatherData(
                     trip.getOriginLatitude(),
@@ -109,7 +127,9 @@ public class TripService {
                     trip.getStartTime(),
                     trip
             );
+            // Set weather data - will be saved automatically by dirty checking
             trip.setMeteorologicalData(weatherData);
+            entityManager.flush();
         } catch (IllegalArgumentException e) {
             // Weather data not available (trip too old, no data for location, etc.)
             // Trip is saved without meteorological data
@@ -119,6 +139,9 @@ public class TripService {
         } catch (Exception e) {
             // Unexpected error - trip is saved without meteorological data
         }
+        entityManager.clear();
+        // Step 9: Reload complete entity with all relationships (points + weather data)
+        trip = tripRepository.findByIdWithPointsAndWeather(trip.getId()).orElseThrow(() -> new IllegalStateException("Trip not found after save"));
         // Return trip (with or without meteorological data)
         return trip;
     }
@@ -146,7 +169,7 @@ public class TripService {
      */
     public List<Trip> getUserTrips() {
         Long userId = getCurrentUserId();
-        return tripRepository.findAllByRecordedById(userId);
+        return tripRepository.findAllByRecordedByIdWithPointsAndWeather(userId);
     }
 
     /**
