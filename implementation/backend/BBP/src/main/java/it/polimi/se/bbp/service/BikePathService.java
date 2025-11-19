@@ -24,6 +24,10 @@ import org.hibernate.Hibernate;
 import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,6 +37,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -55,12 +61,12 @@ public class BikePathService {
     private final UserRepository userRepository;
 
     /**
-     *
+     * Repository for bike path point data access operations.
      */
-    private final BikePathPointRepository  bikePathPointRepository;
+    private final BikePathPointRepository bikePathPointRepository;
 
     /**
-     *
+     * Repository for obstacle data access operations.
      */
     private final ObstacleRepository obstacleRepository;
 
@@ -90,7 +96,7 @@ public class BikePathService {
     private final BikePathPointMapper bikePathPointMapper;
 
     /**
-     *
+     * Entity manager for JPA operations.
      */
     private final EntityManager entityManager;
 
@@ -279,18 +285,102 @@ public class BikePathService {
     }
 
     /**
-     * Retrieves all bike paths created by the authenticated user.
-     * Returns both published and private bike paths.
-     * @return list of bike paths belonging to the user
+     * Retrieves a paginated list of bike paths created by the authenticated user.
+     * OPTIMIZED: Uses 3-step loading strategy to avoid MultipleBagFetchException with pagination.
+     * Returns both published and private bike paths with all relationships eagerly loaded.
+     * Each bike path includes all bike path points and obstacles.
+     * Supports sorting by any BikePath field (e.g., createdAt, score, totalDistance).
+     * Default sorting: createdAt DESC (newest first).
+     * 3-step loading strategy:
+     * 1. Query page of bike path IDs with pagination and sorting
+     * 2. Load bike paths with points for those specific IDs
+     * 3. Load obstacles for those specific IDs (Hibernate merges into existing entities)
+     * 4. Reorder bike paths according to original sort order from step 1
+     * This approach is necessary because Spring Data cannot create a Page with multiple JOIN FETCH
+     * (would throw MultipleBagFetchException). By loading IDs first, we maintain pagination
+     * metadata while still eagerly loading all relationships.
+     * @param page the page number (0-indexed, first page is 0)
+     * @param size the number of bike paths per page (must be positive)
+     * @param sortBy the field name to sort by (default: createdAt)
+     * @param direction the sort direction: ASC or DESC (default: DESC)
+     * @return page of bike paths with all relationships loaded and pagination metadata
+     * @throws IllegalArgumentException if page or size parameters are invalid
      */
-    public List<BikePath> getUserBikePaths() {
+    public Page<BikePath> getUserBikePaths(int page, int size, String sortBy, String direction) {
+        // Get authenticated user ID
         Long userId = getCurrentUserId();
-        // Load bike paths with points first
-        List<BikePath> bikePaths = bikePathRepository.findAllByCreatedByIdWithPoints(userId);
-        // Load obstacles for all bike paths (Hibernate merges them into existing entities)
-        if (!bikePaths.isEmpty())
-            bikePathRepository.findAllByCreatedByIdWithObstacles(userId);
-        return bikePaths;
+        // Validate pagination parameters
+        validatePaginationParameters(page, size);
+        // Create Pageable with sorting
+        Pageable pageable = createPageable(page, size, sortBy, direction);
+        // STEP 1: Query page of bike path IDs only (with pagination and sorting)
+        Page<Long> idPage = bikePathRepository.findIdsByCreatedById(userId, pageable);
+        // Return empty page if no bike paths found
+        if (idPage.isEmpty())
+            return Page.empty(pageable);
+        // Extract IDs from the page
+        List<Long> ids = idPage.getContent();
+        // STEP 2: Load bike paths with points for the IDs in this page
+        List<BikePath> bikePaths = bikePathRepository.findByIdsWithPoints(ids);
+        // STEP 3: Load obstacles for the same IDs (Hibernate merges into existing entities)
+        bikePathRepository.findByIdsWithObstacles(ids);
+        // STEP 4: Reorder bike paths to match the original sort order from step 1
+        // This is necessary because findByIdsWithPoints may return results in arbitrary order
+        bikePaths = sortBikePaths(bikePaths, ids);
+        // Manually create Page object with the loaded bike paths and original pagination metadata
+        // The Page interface expects: content, pageable, and total elements count
+        return new org.springframework.data.domain.PageImpl<>(bikePaths, pageable, idPage.getTotalElements());
+    }
+
+    /**
+     * Validates pagination parameters to ensure they are within acceptable ranges.
+     * @param page the page number (must be non-negative)
+     * @param size the page size (must be positive)
+     * @throws IllegalArgumentException if parameters are invalid
+     */
+    private void validatePaginationParameters(int page, int size) {
+        if (page < 0)
+            throw new IllegalArgumentException("Page number must be non-negative");
+        if (size <= 0)
+            throw new IllegalArgumentException("Page size must be positive");
+    }
+
+    /**
+     * Creates a Pageable object with the specified pagination and sorting parameters.
+     * Converts sort direction string to Sort.Direction enum.
+     * @param page the page number
+     * @param size the page size
+     * @param sortBy the field to sort by
+     * @param direction the sort direction (ASC or DESC)
+     * @return configured Pageable object
+     */
+    private Pageable createPageable(int page, int size, String sortBy, String direction) {
+        // Parse sort direction (default to DESC if invalid)
+        Sort.Direction sortDirection = "ASC".equalsIgnoreCase(direction)
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+        // Create and return Pageable
+        return PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
+    }
+
+    /**
+     * Sorts a list of bike paths according to a specified order of IDs.
+     * This method is necessary because findByIdsWithPoints may return results in arbitrary order,
+     * but we need to maintain the sort order specified in the original paginated query.
+     * Creates a map for O(1) lookup, then builds the result list in the correct order.
+     * @param bikePaths the list of bike paths to sort (may be in arbitrary order)
+     * @param orderedIds the list of IDs in the desired order (from the paginated query)
+     * @return list of bike paths sorted according to orderedIds
+     */
+    private List<BikePath> sortBikePaths(List<BikePath> bikePaths, List<Long> orderedIds) {
+        // Create map for O(1) lookup by ID
+        Map<Long, BikePath> bikePathMap = bikePaths.stream()
+                .collect(Collectors.toMap(BikePath::getId, bp -> bp));
+        // Build result list in the correct order
+        return orderedIds.stream()
+                .map(bikePathMap::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     /**

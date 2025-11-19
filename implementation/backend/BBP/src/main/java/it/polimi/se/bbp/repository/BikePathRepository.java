@@ -1,6 +1,8 @@
 package it.polimi.se.bbp.repository;
 
 import it.polimi.se.bbp.entity.BikePath;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -49,6 +51,7 @@ public interface BikePathRepository extends JpaRepository<BikePath, Long> {
      * This is the FIRST query to call when loading user's bike paths.
      * After this, call findAllByCreatedByIdWithObstacles to load obstacles.
      * Returns DISTINCT results to avoid duplicates from JOIN FETCH.
+     * WARNING: This loads ALL bike paths at once. Use findIdsByCreatedById for pagination.
      * @param userId the ID of the user who created the bike paths
      * @return list of bike paths with points loaded, ordered by creation date (newest first)
      */
@@ -61,10 +64,52 @@ public interface BikePathRepository extends JpaRepository<BikePath, Long> {
      * This is the SECOND query to call after findAllByCreatedByIdWithPoints.
      * Hibernate will merge the obstacles into the already loaded entities.
      * Returns DISTINCT results to avoid duplicates from JOIN FETCH.
+     * WARNING: This loads ALL bike paths at once. Use findByIdsWithObstacles for pagination.
      * @param userId the ID of the user who created the bike paths
      * @return list of bike paths with obstacles loaded
      */
     @Query("SELECT DISTINCT b FROM BikePath b LEFT JOIN FETCH b.obstacles WHERE b.createdBy.id = :userId")
     List<BikePath> findAllByCreatedByIdWithObstacles(@Param("userId") Long userId);
+
+    /**
+     * Finds only the IDs of bike paths created by a specific user (paginated).
+     * This is the FIRST step in the 3-step paginated loading strategy:
+     * 1. Load page of IDs (this method)
+     * 2. Load bike paths with points for those IDs (findByIdsWithPoints)
+     * 3. Load obstacles for those IDs (findByIdsWithObstacles)
+     * This approach avoids MultipleBagFetchException when using pagination with multiple JOIN FETCH.
+     * Used for: getUserBikePaths (paginated version)
+     * @param userId the ID of the user who created the bike paths
+     * @param pageable pagination information (page number, size, sort)
+     * @return page containing only bike path IDs
+     */
+    @Query("SELECT b.id FROM BikePath b WHERE b.createdBy.id = :userId")
+    Page<Long> findIdsByCreatedById(@Param("userId") Long userId, Pageable pageable);
+
+    /**
+     * Finds bike paths with bike path points eagerly loaded for specific IDs.
+     * This is the SECOND step in the 3-step paginated loading strategy.
+     * Loads only the bike paths whose IDs are in the provided list.
+     * Returns DISTINCT results to avoid duplicates from JOIN FETCH.
+     * The results may not be in the same order as the input IDs - reordering is needed in the service layer.
+     * Used for: getUserBikePaths (paginated version)
+     * @param ids list of bike path IDs to load
+     * @return list of bike paths with points loaded
+     */
+    @Query("SELECT DISTINCT b FROM BikePath b LEFT JOIN FETCH b.bikePathPoints WHERE b.id IN :ids")
+    List<BikePath> findByIdsWithPoints(@Param("ids") List<Long> ids);
+
+    /**
+     * Finds bike paths with obstacles eagerly loaded for specific IDs.
+     * This is the THIRD step in the 3-step paginated loading strategy.
+     * Loads only the bike paths whose IDs are in the provided list.
+     * Hibernate will merge the obstacles into the already loaded bike path entities.
+     * Returns DISTINCT results to avoid duplicates from JOIN FETCH.
+     * Used for: getUserBikePaths (paginated version)
+     * @param ids list of bike path IDs to load obstacles for
+     * @return list of bike paths with obstacles loaded
+     */
+    @Query("SELECT DISTINCT b FROM BikePath b LEFT JOIN FETCH b.obstacles WHERE b.id IN :ids")
+    List<BikePath> findByIdsWithObstacles(@Param("ids") List<Long> ids);
 
 }

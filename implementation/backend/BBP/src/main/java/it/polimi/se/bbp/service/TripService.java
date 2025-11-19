@@ -18,6 +18,10 @@ import it.polimi.se.bbp.service.openmeteo.OpenMeteoService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -44,7 +48,7 @@ public class TripService {
     private final TripRepository tripRepository;
 
     /**
-     *
+     * Repository for trip point data access operations.
      */
     private final TripPointRepository tripPointRepository;
 
@@ -74,7 +78,7 @@ public class TripService {
     private final TripPointMapper tripPointMapper;
 
     /**
-     *
+     * Entity manager for JPA operations.
      */
     private final EntityManager entityManager;
 
@@ -164,12 +168,58 @@ public class TripService {
     }
 
     /**
-     * Retrieves all trips for the authenticated user.
-     * @return list of trips belonging to the user
+     * Retrieves a paginated list of trips for the authenticated user.
+     * OPTIMIZED: Returns only the requested page of trips with all relationships eagerly loaded.
+     * Each trip includes all trip points and meteorological data if available.
+     * Supports sorting by any Trip field (e.g., startTime, totalDistance, averageSpeed).
+     * Default sorting: startTime DESC (newest first).
+     * @param page the page number (0-indexed, first page is 0)
+     * @param size the number of trips per page (must be positive)
+     * @param sortBy the field name to sort by (default: startTime)
+     * @param direction the sort direction: ASC or DESC (default: DESC)
+     * @return page of trips with all relationships loaded
+     * @throws IllegalArgumentException if page or size parameters are invalid
      */
-    public List<Trip> getUserTrips() {
+    public Page<Trip> getUserTrips(int page, int size, String sortBy, String direction) {
+        // Get authenticated user ID
         Long userId = getCurrentUserId();
-        return tripRepository.findAllByRecordedByIdWithPointsAndWeather(userId);
+        // Validate pagination parameters
+        validatePaginationParameters(page, size);
+        // Create Pageable with sorting
+        Pageable pageable = createPageable(page, size, sortBy, direction);
+        // Execute paginated query with eager loading
+        return tripRepository.findPageByRecordedByIdWithPointsAndWeather(userId, pageable);
+    }
+
+    /**
+     * Validates pagination parameters to ensure they are within acceptable ranges.
+     * @param page the page number (must be non-negative)
+     * @param size the page size (must be positive)
+     * @throws IllegalArgumentException if parameters are invalid
+     */
+    private void validatePaginationParameters(int page, int size) {
+        if (page < 0)
+            throw new IllegalArgumentException("Page number must be non-negative");
+        if (size <= 0)
+            throw new IllegalArgumentException("Page size must be positive");
+    }
+
+    /**
+     * Creates a Pageable object with the specified pagination and sorting parameters.
+     * Converts sort direction string to Sort.Direction enum.
+     * @param page the page number
+     * @param size the page size
+     * @param sortBy the field to sort by
+     * @param direction the sort direction (ASC or DESC)
+     * @return configured Pageable object
+     */
+    private Pageable createPageable(int page, int size, String sortBy, String direction) {
+        // Parse sort direction (default to DESC if invalid)
+        Sort.Direction sortDirection = "ASC".equalsIgnoreCase(direction)
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+        // Create and return Pageable
+        return PageRequest.of(page, size, Sort.by(sortDirection, sortBy));
     }
 
     /**
