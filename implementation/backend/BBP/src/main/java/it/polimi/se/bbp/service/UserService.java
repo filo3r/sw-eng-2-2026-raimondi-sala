@@ -1,9 +1,7 @@
 package it.polimi.se.bbp.service;
 
 import it.polimi.se.bbp.dto.request.UserUpdateRequest;
-import it.polimi.se.bbp.dto.response.UserResponse;
 import it.polimi.se.bbp.entity.User;
-import it.polimi.se.bbp.mapper.response.UserResponseMapper;
 import it.polimi.se.bbp.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -31,11 +29,6 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     /**
-     * Mapper for converting User entities to UserResponse DTOs.
-     */
-    private final UserResponseMapper userResponseMapper;
-
-    /**
      * Updates the current authenticated user's data.
      * Only non-null fields in the request will be updated.
      * @param request update request containing fields to modify
@@ -44,15 +37,14 @@ public class UserService {
      * @throws IllegalArgumentException if username or email already exists
      */
     @Transactional
-    public UserResponse updateCurrentUser(UserUpdateRequest request) {
+    public User updateCurrentUser(UserUpdateRequest request) {
         // Get current authenticated user ID from SecurityContext
         Long currentUserId = getCurrentUserId();
         User user = userRepository.findById(currentUserId).orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
         // Update only non-null fields
         updateUserFields(user, request);
         // Save and return updated user
-        User updatedUser = userRepository.save(user);
-        return userResponseMapper.toResponse(updatedUser);
+        return userRepository.save(user);
     }
 
     /**
@@ -114,10 +106,9 @@ public class UserService {
      * @return current user data
      * @throws IllegalStateException if authenticated user is not found in database
      */
-    public UserResponse getCurrentUser() {
+    public User getCurrentUser() {
         Long currentUserId = getCurrentUserId();
-        User user = userRepository.findById(currentUserId).orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
-        return userResponseMapper.toResponse(user);
+        return userRepository.findById(currentUserId).orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
     }
 
     /**

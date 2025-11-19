@@ -2,6 +2,8 @@ package it.polimi.se.bbp.controller;
 
 import it.polimi.se.bbp.dto.request.UserUpdateRequest;
 import it.polimi.se.bbp.dto.response.UserResponse;
+import it.polimi.se.bbp.entity.User;
+import it.polimi.se.bbp.mapper.response.UserResponseMapper;
 import it.polimi.se.bbp.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,12 +26,18 @@ public class UserController {
     private final UserService userService;
 
     /**
+     *
+     */
+    private final UserResponseMapper userResponseMapper;
+
+    /**
      * Retrieves the current authenticated user's data.
      * @return ResponseEntity with HTTP 200 OK status and user data
      */
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentUser() {
-        UserResponse response = userService.getCurrentUser();
+        User user = userService.getCurrentUser();
+        UserResponse response = userResponseMapper.toResponse(user);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
@@ -42,7 +50,8 @@ public class UserController {
      */
     @PatchMapping("/me")
     public ResponseEntity<UserResponse> updateCurrentUser(@Valid @RequestBody UserUpdateRequest request) {
-        UserResponse response = userService.updateCurrentUser(request);
+        User user = userService.updateCurrentUser(request);
+        UserResponse response = userResponseMapper.toResponse(user);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
