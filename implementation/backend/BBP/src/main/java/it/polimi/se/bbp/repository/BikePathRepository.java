@@ -112,4 +112,34 @@ public interface BikePathRepository extends JpaRepository<BikePath, Long> {
     @Query("SELECT DISTINCT b FROM BikePath b LEFT JOIN FETCH b.obstacles WHERE b.id IN :ids")
     List<BikePath> findByIdsWithObstacles(@Param("ids") List<Long> ids);
 
+    /**
+     * Finds published bike paths within geographic bounding boxes.
+     * Fast filtering at database level using indexed lat/lon columns.
+     * Returns candidates that may include false positives (rectangular approximation).
+     * Precise filtering with Haversine distance is done in the service layer.
+     * Used for: geographic search (step 2 of 3-step search strategy)
+     * @param minOriginLat minimum latitude for origin bounding box
+     * @param maxOriginLat maximum latitude for origin bounding box
+     * @param minOriginLon minimum longitude for origin bounding box
+     * @param maxOriginLon maximum longitude for origin bounding box
+     * @param minDestLat minimum latitude for destination bounding box
+     * @param maxDestLat maximum latitude for destination bounding box
+     * @param minDestLon minimum longitude for destination bounding box
+     * @param maxDestLon maximum longitude for destination bounding box
+     * @return list of candidate bike paths within bounding boxes
+     */
+    @Query("SELECT b FROM BikePath b WHERE b.published = true AND b.originLatitude BETWEEN :minOriginLat AND :maxOriginLat " +
+            "AND b.originLongitude BETWEEN :minOriginLon AND :maxOriginLon AND b.destinationLatitude BETWEEN :minDestLat AND :maxDestLat " +
+            "AND b.destinationLongitude BETWEEN :minDestLon AND :maxDestLon")
+    List<BikePath> findPublishedWithinBoundingBoxes(
+            @Param("minOriginLat") Double minOriginLat,
+            @Param("maxOriginLat") Double maxOriginLat,
+            @Param("minOriginLon") Double minOriginLon,
+            @Param("maxOriginLon") Double maxOriginLon,
+            @Param("minDestLat") Double minDestLat,
+            @Param("maxDestLat") Double maxDestLat,
+            @Param("minDestLon") Double minDestLon,
+            @Param("maxDestLon") Double maxDestLon
+    );
+
 }

@@ -104,6 +104,7 @@ public class SecurityConfig {
         auth
                 // Public endpoints - accessible without authentication
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/search/bike-paths/**").permitAll()
                 // All other endpoints require authentication
                 .anyRequest().authenticated();
     }
