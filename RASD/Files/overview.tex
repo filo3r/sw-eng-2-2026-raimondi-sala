@@ -1,5 +1,47 @@
 \subsection{Product Perspective}
+BBP's system act as an intermediary between the cyclist and the digital inventary of paths. 
+It works as a distributed system made of a mobile app (for live tracking and sensors data acquisition) and a web app (for path visualization, for managing user's paths and for manual path insertions) both web app and mobile app communicate with a central backend.
+The system interact with external entities such a weather's APIs to get weather data and map's APIs to visualize and geolocate paths.
 
+\subsubsection{Scenarios}
+The following scenarios shows the typical interaction with the system, highlighting how BBP reach its main goals and real scenarios.
+
+\paragraph{Scenario 1: Automatic tracking and Data Acquisition Through Sensors}
+\textbf{Actors:} Alice (Registered User), Mobile App, Phone's gyroscope and accelerometer.\\
+Alice with BBP's mobile app installed on her phone starts cycling.
+\begin{enumerate}
+    \item When Alice reaches a speed typical of cycling (between 15 km/h and 20 km/h), BBP's app detects an activity.
+    \item The system starts recording Alice's path by saving GPS coordinates every 500ms.
+    \item While cycling Alice hits a pothole, BBP's app will then register the data acquired through the gyroscope and recognize the presence of a pothole.
+    \item The system will record the GPS coordinates of the pothole as possible pothole.
+    \item Arrived at destination, Alice stops. BBP's app will recognize a prolonged stop and will stop recording the path, marking it as complete.
+    \item The system will create an hypotetical evalutaion of the entire track based on Alice's short stops, and the gyroscope variations.
+    \item BBP will show a summary of the path and will ask Alice to validate the aquired data (time, path and obstacles, in this scenario the pothole).
+    \item Alice confirms the evaluations and the pothole positions. The mobile app will send the data to the server and make them publicly available.
+\end{enumerate}
+
+\paragraph{Scenario 2: Manual Insertion and Path Publishing}
+\textbf{Actors:} Bob (Registered User), Web App.\\
+Bob decides to add a bike path he has just completed to help his local biking community.
+\begin{enumerate}
+    \item Bob logs on the website.
+    \item He selects "Add new path" and uses the interface to select the starting point and the destination point.
+    \item Bob add also a few obsacles he encountered during in his path and marks the path's status at "Good".
+    \item He selects also to make public those informations.
+    \item The system save the data Bob sent and make them available to other users and non-users.
+\end{enumerate}
+
+\paragraph{Scenario 3: Search and Path Visualization}
+\textbf{Actors:} Charlie (Non registered user), Web App.\\
+Charlie needs to quickly see which is the optimal (meaning shortest and with better road quality and fewer obstacles) bike path to reach a destination.
+\begin{enumerate}
+    \item Charlie visits the BBP's website senza without logging in.
+    \item Through the UI he inserts the origin (his position) and the destination.
+    \item The system will elaborate and will find a list of possible paths.
+    \item Two paths are considered the optimals. Path A is the shortest but is marked with status "Fair". Path B is longer but is marked with status "Very Good".
+    \item The system will choose path B, basing his choice on the better road quality.
+    \item Charlie selects Path B and it will open it on his device's map's app.
+\end{enumerate}
 \subsubsection{Use Case Scenarios}
 
 \subsubsection{Domain Model}
