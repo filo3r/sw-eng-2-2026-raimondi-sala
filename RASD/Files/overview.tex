@@ -1,7 +1,7 @@
 \subsection{Product Perspective}
-BBP's system act as an intermediary between the cyclist and the digital inventary of paths. 
+BBP's system acts as an intermediary between the cyclist and the digital inventory of paths. 
 It works as a distributed system made of a mobile app (for live tracking and sensors data acquisition) and a web app (for path visualization, for managing user's paths and for manual path insertions) both web app and mobile app communicate with a central backend.
-The system interact with external entities such a weather's APIs to get weather data and map's APIs to visualize and geolocate paths.
+The System interacts with external entities such a weather's APIs to get weather data and map's APIs to visualize and geolocate paths.
 
 \subsubsection{Scenarios}
 The following scenarios shows the typical interaction with the system, highlighting how BBP reach its main goals and real scenarios.
@@ -12,11 +12,11 @@ Alice with BBP's mobile app installed on her phone starts cycling.
 \begin{enumerate}
     \item When Alice reaches a speed typical of cycling (between 15 km/h and 20 km/h), BBP's app detects an activity.
     \item The system starts recording Alice's path by saving GPS coordinates every 500ms.
-    \item While cycling Alice hits a pothole, BBP's app will then register the data acquired through the gyroscope and recognize the presence of a pothole.
+    \item While cycling Alice hits a pothole, BBP's app will then register the data acquired through the gyroscope and recognizes the presence of a pothole.
     \item The system will record the GPS coordinates of the pothole as possible pothole.
     \item Arrived at destination, Alice stops. BBP's app will recognize a prolonged stop and will stop recording the path, marking it as complete.
-    \item The system will create an hypotetical evalutaion of the entire track based on Alice's short stops, and the gyroscope variations.
-    \item BBP will show a summary of the path and will ask Alice to validate the aquired data (time, path and obstacles, in this scenario the pothole).
+    \item The system will create an hypothetical evaluation of the entire track based on Alice's short stops, and the gyroscope variations.
+    \item BBP will show a summary of the path and will ask Alice to validate the acquired data (time, path and obstacles, in this scenario the pothole).
     \item Alice confirms the evaluations and the pothole positions. The mobile app will send the data to the server and make them publicly available.
 \end{enumerate}
 
@@ -26,28 +26,113 @@ Bob decides to add a bike path he has just completed to help his local biking co
 \begin{enumerate}
     \item Bob logs on the website.
     \item He selects "Add new path" and uses the interface to select the starting point and the destination point.
-    \item Bob add also a few obsacles he encountered during in his path and marks the path's status at "Good".
+    \item Bob adds also a few obstacles he encountered during his path and marks the path's status at "Good".
     \item He selects also to make public those informations.
-    \item The system save the data Bob sent and make them available to other users and non-users.
+    \item The system saves the data Bob sent and makes them available to other users and non-users.
 \end{enumerate}
 
 \paragraph{Scenario 3: Search and Path Visualization}
 \textbf{Actors:} Charlie (Non registered user), Web App.\\
 Charlie needs to quickly see which is the optimal (meaning shortest and with better road quality and fewer obstacles) bike path to reach a destination.
 \begin{enumerate}
-    \item Charlie visits the BBP's website senza without logging in.
+    \item Charlie visits the BBP's website without logging in.
     \item Through the UI he inserts the origin (his position) and the destination.
-    \item The system will elaborate and will find a list of possible paths.
-    \item Two paths are considered the optimals. Path A is the shortest but is marked with status "Fair". Path B is longer but is marked with status "Very Good".
+    \item The system will process and will find a list of possible paths.
+    \item Two paths are considered the optimal. Path A is the shortest but is marked with status "Fair". Path B is longer but is marked with status "Very Good".
     \item The system will choose path B, basing his choice on the better road quality.
     \item Charlie selects Path B and it will open it on his device's map's app.
 \end{enumerate}
-\subsubsection{Use Case Scenarios}
+
+\subsubsection{Shared Phenomena}
+As stated above the interaction between the \textit{World} and the \textit{Machine} is defined by the \textit{Shared Phenomena}, categorized by which domain they are controlled.
+\begin{description}
+    \item[World Controls:] \hfill \\
+    \textit{Real-world events:} Bike movement, vibrations (caused by bad road quality), GPS position changes.\\
+    \textit{User Input:} User inserting his credentials, user validating a Path, User searching a path, User inserts manually a bike path.\\
+    \textit{External Data:} Weather conditions from weather's API, world map received from map's API.
+
+    \item[Machine Controls:] \hfill \\
+    \textit{Visualizations:} Map's rendering, path statistics, paths ranking.\\
+    \textit{Notifications:} Request to validate the automatically detected path.\\
+    \textit{Data Archival:} Bike paths, weather info, user data and obstacles info storage.
+\end{description}
 
 \subsubsection{Domain Model}
 
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\textwidth]{BBP/Images/classDiagram.png}
+    \caption{Class Diagram}
+    \label{fig:classDiagram}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[height=\textwidth]{BBP/Images/stateDiagramAutomatic.png}
+    \caption{State Diagram of Automatic Activity Detection from Mobile App}
+    \label{fig:stateDiagramAutomatic}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[height=\textwidth]{BBP/Images/stateDiagramManual.png}
+    \caption{State Diagram of Manual Insertion through Website}
+    \label{fig:stateDiagramManual}
+\end{figure}
+\clearpage
 \subsection{Product Functions}
+\begin{itemize}
+    \item \textbf{Users managing and registration:}
+    The system distinguishes between registered users and non registered users. If a user is logged in the system can track his activity and the user can manually insert paths.
+    Paths search is accessible to everyone.
+    
+    \item \textbf{Automatic activity tracker:}
+    Mobile app monitors the user's speed, when it detects a speed typical of cycling (between 15km/h and 20 km/h) it starts recording the activity regularly saving GPS coordinates. When the user stops for a significant amount of time, the mobile app recognize the end of the cycling activity.
+    \item \textbf{Obstacle and road quality inferring:}
+    During automatic activity tracking, the mobile app will infer about road quality and obstacles presence through data gathered from phone sensors, such as the gyroscope and accelerometer.
+
+    \item \textbf{Data Validation:}
+    After an automatic recording is finished, the system creates a suggested review of the route. Before saving or publishing, the user can view a summary to confirm, correct, or reject the estimated data (for example, confirming a pothole). This ensures the information is accurate.
+
+    \item \textbf{Manual Creation:}
+    Registered users can manually create new paths via the Web interface or Mobile app. They specify the start and end points, the quality of the road, and obstacles.
+
+    \item \textbf{Search, View, and Ranking:}
+    Users can search for routes by entering a start and end point. The results are shown on a map and ordered by a ranking score.
+
+    \item \textbf{Data Enrichment and Statistics:}
+    For every recorded trip, the system calculates statistics (such as average speed, total distance). It also adds weather data (temperature, wind, conditions) for that specific time and location using external services providers.
+\end{itemize}
 
 \subsection{User Characteristics}
 
+\begin{itemize}
+    \item \textbf{Registered User}
+    \begin{itemize}
+        \item \textbf{Profile:} It includes occasional cyclists, commuter or athletes who often uses the bicycle.
+        \item \textbf{Intent:} To use the system as a personal diary (to track their own activities) and also as a collaboration tool to help other cyclists.
+        \item \textbf{Technical Skills:} Basic skills in using mobile devices and web browsers.
+        \item \textbf{Hardware Equipment:} Must have a smartphone with a working GPS, accelerometer and gyroscope and an active mobile Internet connection to use the automatic tracking mode.
+        \item \textbf{Context of Use}. They interact with the mobile application often in the outdoor environment while moving. This implies that there should be little or no interaction during physical activity to ensure safety. The data validation phase usually occurs at rest, at the end of the activity.
+    \end{itemize}
+
+    \item \textbf{Unregistered User}
+    \begin{itemize}
+        \item \textbf{Profile:} Anyone who needs to find a bicycle path, including tourists or casual users.
+        \item \textbf{Intent:} They use the system exclusively to search for routes between an origin and a destination.
+        \item \textbf{Technical Skills:}. The ability to navigate a website and interact with a digital map is required.
+        \item \textbf{Context of Use:} Usually accessed via web browser to plan a trip.
+    \end{itemize}
+\end{itemize}
+
 \subsection{Assumptions, Dependencies, and Constraints}
+\begin{itemize}
+    \item \textbf{Connectivity:}
+Although tracking can take place offline, an active Internet connection is required for: authentication, synchronization of data with the server, route searching, and retrieval of weather data.
+
+    \item \textbf{Privacy Regulation (GDPR):}
+Since the system collects sensitive data about users' geographical location, the design must adhere to privacy regulations, ensuring data anonymization where necessary.
+
+    \item \textbf{Energy Consumption:}
+The application should be optimized not to completely drain the battery of an average smartphone during a session of reasonable duration.
+\end{itemize}
