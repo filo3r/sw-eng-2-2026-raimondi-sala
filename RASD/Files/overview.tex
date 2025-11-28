@@ -66,19 +66,42 @@ As stated above the interaction between the \textit{World} and the \textit{Machi
     \label{fig:classDiagram}
 \end{figure}
 
+
 \begin{figure}[h!]
     \centering
-    \includegraphics[height=\textwidth]{BBP/Images/stateDiagramAutomatic.png}
-    \caption{State Diagram of Automatic Activity Detection from Mobile App}
-    \label{fig:stateDiagramAutomatic}
+    \includegraphics[width=\linewidth]{BBP/Images/scenario1.pdf}
+    \caption{Manual Trip Recording Lifecycle}
+    \label{fig:scenario1}
 \end{figure}
 
 \begin{figure}[h!]
     \centering
-    \includegraphics[height=\textwidth]{BBP/Images/stateDiagramManual.png}
-    \caption{State Diagram of Manual Insertion through Website}
-    \label{fig:stateDiagramManual}
+    \includegraphics[width=\linewidth]{BBP/Images/scenario2.pdf}
+    \caption{Bike Path Lifecycle}
+    \label{fig:scenario2}
 \end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/scenario3.pdf}
+    \caption{Search \& Discovery Flow}
+    \label{fig:scenario3}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/scenario4.pdf}
+    \caption{Guest to Contributor Flow}
+    \label{fig:scenario4}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/scenario5.pdf}
+    \caption{Automatic Tracking Session}
+    \label{fig:scenario5}
+\end{figure}
+
 \clearpage
 \subsection{Product Functions}
 \begin{itemize}
@@ -125,14 +148,29 @@ As stated above the interaction between the \textit{World} and the \textit{Machi
     \end{itemize}
 \end{itemize}
 
-\subsection{Assumptions, Dependencies, and Constraints}
+\subsection{Assumptions, dependencies and constraints}
+
+\subsubsection{Regulatory policies}
+BBP gathers personal data (email, names, preferences) and sensitive localization data (GPS coordinates) necessary to make the system work.
+It's fundamental that the handling of those data happens in compliance to the General Data Protection Regulation. Users' password will have to be encrypted with secure algorithms and localizations' data must not be published unless explicitly requested by the user. Moreover the system must include Terms of Service that disclaim liability for dangerous tracks giving the responsibility for the actions taken in real world only to the user.
+
+\subsubsection{Domain Assumptions}
+The following assumptions define the operative conditions of the real world that the system considers true to guarantee the correct functioning of its functionalities.
+
 \begin{itemize}
-    \item \textbf{Connectivity:}
-Although tracking can take place offline, an active Internet connection is required for: authentication, synchronization of data with the server, route searching, and retrieval of weather data.
-
-    \item \textbf{Privacy Regulation (GDPR):}
-Since the system collects sensitive data about users' geographical location, the design must adhere to privacy regulations, ensuring data anonymization where necessary.
-
-    \item \textbf{Energy Consumption:}
-The application should be optimized not to completely drain the battery of an average smartphone during a session of reasonable duration.
+    \item \textbf{D1:} Users own smartphones with working GPS, accelerometer and gyroscope and with a sufficient calibration to detect significant movement variations.
+    
+    \item \textbf{D2:} During the usage of GPS tracking, the user's phone has enough battery to sustain a continuous use of GPS and other sensors for the entire time of the trip.
+    
+    \item \textbf{D3:} Users have a working stable internet connection to allow the communication with BBP's server.
+    
+    \item \textbf{D4:}  The accuracy of the GPS signal provided by the devices is sufficient (error less than 15 meters) to enable the system to correctly associate detected or reported obstacles with the corresponding road segment.
+    
+    \item \textbf{D5:} Users provide truthful and accurate feedback during manual validation of automatically collected data and during manual entry of new routes, ensuring the reliability of the crowdsourcing system.
+    
+    \item \textbf{D6:} External services maintain their standard service levels.
+    
+    \item \textbf{D7:} Users' riding behavior respects typical cycling patterns such as speed and accelerations, allowing BBPS' algorithms to distinguish the activity.
+    
+    \item \textbf{D8:} Historical weather conditions retrieved from external services are correct and represents conditions encountered by the user during the trip.
 \end{itemize}
