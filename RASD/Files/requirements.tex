@@ -1,14 +1,532 @@
 \subsection{External Interface Requirements}
 
 \subsubsection{User Interfaces}
+The system allows users to interact with itself through two users interfaces:
+\begin{itemize}
+    \item \textbf{Web Application:} Accessible from a desktop or mobile web browser, it offers complete access to the system's functionalities, including the dashboard, the editor for creating personalized bike paths and the trips statistics.
+    \item \textbf{Mobile Application:} It main objective is the real time tracking of the user with fast obstacle detection.
+\end{itemize}
+\textbf{AGGIUNGERE IMMAGINI UI}
 
 \subsubsection{Hardware Interfaces}
+The mobile app needs several hardware components of users' mobile phones to enable the GPS tracking, the obstacle tracking:
+\begin{itemize}
+    \item \textbf{GPS:} It is used to track geographical location  in real time, calculate the average speed and to track obstacle coordinates.
+    \item \textbf{Accelerometer and Gyroscope:} Used by the mobile application to detect significant vertical shocks and sudden changes in movement, identifying potential road surface anomalies (for example potholes) during automatic tracking.
+\end{itemize}
 
 \subsubsection{Software Interfaces}
+The system uses API and external software components to provides its core functionalities:
+\begin{itemize}
+    \item \textbf{Map API:} Interface used for three critical functionalities:
+    \begin{itemize}
+        \item \textit{Geocoding API:} Used to convert the addresses submitted by the users to geographical coordinates.
+        \item \textit{Directions API:} Used to calculate the optimal bike path between two points and determining the exact distance.
+        \item \textit{Maps SDK:} Used to visualize the maps on the user infertace.
+    \end{itemize}
+    \item \textbf{Weather API:} Interface used to get historical weather data based on time, date and location.
+\end{itemize}
 
 \subsubsection{Communication Interfaces}
+The system utilizes the following protocols for data transfers:
+\begin{itemize}
+    \item \textbf{REST on HTTPS:} All client-server communications take place via RESTful APIs protected by TLS/SSL encryption.
+    \item \textbf{JSON:} Standard format used for the payload of API requests and responses.
+    \item \textbf{JWT (JSON Web Token):} Used in the header of HTTP Authorization to handle the secure and stateless user authentication.
+\end{itemize}
 
 \subsection{Functional Requirements}
+This section lists the functional requirements of the BBP system, grouped by functional area, and describes the main Use Cases.
+
+\subsubsection{List of Functional Requirements}
+
+\paragraph{Authentication \& User Profile}
+\begin{itemize}
+    \item \textbf{[R1]} The system allows users to register with a valid email address and a password.
+    \item \textbf{[R2]} The system allows registered users to log in and get a session token.
+    \item \textbf{[R3]} The system allows registered users to edit their accounts or delete them.
+\end{itemize}
+
+\paragraph{Trip Management}
+\begin{itemize}
+    \item \textbf{[R4]} The system allows registered users to manually insert a bike path specifying the starting point and the destination point, the starting time and the time of the arrival.
+    \item \textbf{[R5]} The system has to automatically calculate the total distance and the average speed of a manually inserted bike path.
+    \item \textbf{[R6]} The system has to enrich users' trips with weather data (temperature, weather conditions, wind speed), if available.
+    \item \textbf{[R7]} The system allows users to automatically track their trips in real time.
+    \item \textbf{[R8]} The system allows users to view their trips history with detailed statistics and map.
+\end{itemize}
+
+\paragraph{Bike Path Management}
+\begin{itemize}
+    \item \textbf{[R9]} The system allows users to create new bike paths by defining a sequence of points on the map.
+    \item \textbf{[R10]} The system calculates the exact geometry and length of the path using an external routing service.
+    \item \textbf{[R11]} The system allows users to add obstacles  to a bike path, specifying the type and severity.
+    \item \textbf{[R12]} The system validates that the reported obstacles are within a specific buffer distance from the path.
+    \item \textbf{[R13]} The system automatically calculates a quality score for each bike path, based on its maintenance status and present obstacles.
+    \item \textbf{[R14]} The system allows the creator of a bike path to set its visibility as private or public.
+\end{itemize} 
+
+\paragraph{Search \& Exploration}
+\begin{itemize}
+    \item \textbf{[R15]} The system allows any user (both registered and non registered) to search for public bike paths  from a point of origin and destination.
+    \item \textbf{[R16]} The system shows search results sorted by descending quality score.
+\end{itemize}
+
+\paragraph{Collaborative Maintenance}
+\begin{itemize}
+    \item \textbf{[R17]} The system allows registered users to report new obstacles on existing public bike paths.
+    \item \textbf{[R18]} The system allows registered users to update the status of existing obstacles.
+    \item \textbf{[R19]} The system automatically recalculates the quality score of a bike path each time its obstacles are updated.
+    \item \textbf{[R20]} The system automatically detects road surface anomalies using the device's sensors and at the end of the trip requests confirmation from the user.
+\end{itemize}
+
+\subsubsection{Use Cases}
+
+The following tables describe the main use cases of the system.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{4cm}|p{10cm}|}
+        \hline
+        Title & \textbf{Manual Trip Insertion} \\
+        \hline
+        Actors & Registered User, The System, External Weather Service \\
+        \hline
+        Entry Condition & The user logs in and goes to "Add Trip" section. \\
+        \hline
+        Event Flow & 
+        (a) The user inserts the starting point, the arrival point and the date and time. \newline
+        (b) The system calculates the distance and the duration. \newline
+        (c) The system saves the trip. \newline
+        (d) The system make an API call to the external weather data provider to get the historical weather data of that location at that time. \newline
+        (e) The system enriches the trip with gathered weather data. \\
+        \hline
+        Exit Condition & The trip with all data is logged in the user's trip history. \\
+        \hline
+        Exception & 
+        \\
+        \hline
+    \end{tabular}
+    \caption{[UC1] Manual Trip Insertion}
+    \label{tab:uc1}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{4cm}|p{10cm}|}
+        \hline
+        Title & \textbf{Creation of a Public Bike Path} \\
+        \hline
+        Actors & Registered User, The System, External Map Service \\
+        \hline
+        Entry Condition & The user logs in and goes to "Create Bike Path" section. \\
+        \hline
+        Event Flow & 
+        (a) The user defines the waypoints of the bike path on the map. \newline
+        (b) The user adds metadata (such as description and status) and obstacles, if any. \newline
+        (c) The user chooses between making the bike path public or private and submits. \newline
+        (d) The system elaborate the exact geometry of the path. \newline
+        (e) The system validates that all obstacles are inside the track. \newline
+        (f) The system elaborate the quality score of the track, and saves it. \\
+        \hline
+        Exit Condition & The bike path has been created and made public or kept private. \\
+        \hline
+        Exception & 
+        Obstacles are not on the path.\\
+        \hline
+    \end{tabular}
+    \caption{[UC2] Creation of a Public Bike Path}
+    \label{tab:uc2}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{4cm}|p{10cm}|}
+        \hline
+        Title & \textbf{Search of Bike Paths} \\
+        \hline
+        Actors & User (Registered or not registered), The System \\
+        \hline
+        Entry Condition & The user is on the "Bike Path Search Page". \\
+        \hline
+        Event Flow & 
+        (a) User inserts the search parameters, that are starting point and destination point. \newline
+        (b) The system finds all the available bike paths. \newline
+        (c) The system orders the results in decreasing order based on the quality score. \newline
+        (d) The user views the list and select a path to see it. \\
+        \hline
+        Exit Condition & The user selects a path to view it. \\
+        \hline
+        Exception & 
+        User choose non valid starting point or non valid arrival point. \\
+        \hline
+    \end{tabular}
+    \caption{[UC3]: Search of Bike Paths}
+    \label{tab:uc3}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{4cm}|p{10cm}|}
+        \hline
+        Title & \textbf{Obstacle Reporting on Path} \\
+        \hline
+        Actors & Registered User, The System \\
+        \hline
+        Entry Condition & The user is viewing the details of an existing public track. \\
+        \hline
+        Event Flow & 
+        (a) The user selects "Report Issue". \newline
+        (b) The user indicates the position, the type, and the severity. \newline
+        (c) The system verifies the geographic coherence of the position relative to the path track. \newline
+        (d) The system saves the new obstacle and automatically recalculates the Quality Score of the path. \newline
+        (e) The update is immediately visible to all users. \\
+        \hline
+        Exit Condition & The path is updated with the new obstacle and the new score. \\
+        \hline
+        Exception & 
+        The obstacle is too far from the path. \\
+        \hline
+    \end{tabular}
+    \caption{[UC4] Obstacle Reporting on Path}
+    \label{tab:uc4}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{4cm}|p{10cm}|}
+        \hline
+        Title & \textbf{Automatic Tracking} \\
+        \hline
+        Actors & User, Mobile App \\
+        \hline
+        Entry Condition & GPS is enabled and the app is open. \\
+        \hline
+        Event Flow & 
+        (a) The app detects a speed plausible for biking and starts periodically recording GPS coordinates. \newline
+        (b) The app logs the data from the accelerometer and gyroscope to detect vertical shocks. \newline
+        (c) The user ends the ride. \newline
+        (d) The app detects the stop of the activity and displays a summary and asks for confirmation of detected anomalies, that are possible obstacles or bad road quality. \newline
+        (e) The user confirms or discards the anomalies. \newline
+        (f) The trip is uploaded to the server. \\
+        \hline
+        Exit Condition & The trip is saved and confirmed anomalies become reported obstacles. \\
+        \hline
+        Exception & 
+        Mobile phone battery dies. \\
+        \hline
+    \end{tabular}
+    \caption{[UC5] Automatic Tracking}
+    \label{tab:uc5}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{4cm}|p{10cm}|}
+        \hline
+        Title & \textbf{User Registration} \\
+        \hline
+        Actors & Unregistered User, The System \\
+        \hline
+        Entry Condition & The user accesses the registration section of the website. \\
+        \hline
+        Event Flow & 
+        (a) The user inserts username, email address, and password. \newline
+        (b) The system validates the email format and password complexity. \newline
+        (c) The system checks that username and email are not already in use. \newline
+        (d) The system encrypts the password and creates the new account. \newline
+        (e) The system automatically generates an access token. \\
+        \hline
+        Exit Condition & The user is registered and authenticated in the system. \\
+        \hline
+        Exception & 
+        Username or email already exists; \newline
+        The system requires a stronger password. \\
+        \hline
+    \end{tabular}
+    \caption{[UC6] User Registration}
+    \label{tab:uc6}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{4cm}|p{10cm}|}
+        \hline
+        Title & \textbf{User Login} \\
+        \hline
+        Actors & Registered User, The System \\
+        \hline
+        Entry Condition & The user opens the application or accesses the reserved area. \\
+        \hline
+        Event Flow & 
+        (a) The user enters their email and password. \newline
+        (b) The system verifies credentials in the database. \newline
+        (c) The system generates a JSON Web Token for the session. \newline
+        (d) The system grants access to the personal dashboard. \\
+        \hline
+        Exit Condition & The user is authenticated and can access protected features. \\
+        \hline
+        Exception & 
+        The user inserts wrong credentials. \\
+        \hline
+    \end{tabular}
+    \caption{[UC7] User Login}
+    \label{tab:uc7}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{4cm}|p{10cm}|}
+        \hline
+        Title & \textbf{Management of Created Paths} \\
+        \hline
+        Actors & Creator User, The System \\
+        \hline
+        Entry Condition & The user views the list of bike paths they created. \\
+        \hline
+        Event Flow & 
+        (a) The user selects an existing bike path. \newline
+        (b) The user chooses to change the status (from Private to Public or vice versa) or delete it. \newline
+        (c.1) If Modify: The system updates path visibility. \newline
+        (c.2) If Delete: The system removes the track and all associated data from the database. \\
+        \hline
+        Exit Condition & The path is updated or removed from the system. \\
+        \hline
+        Exception & 
+        A user attempts to modify a path that does not belong to them. \\
+        \hline
+    \end{tabular}
+    \caption{[UC8] Management of Created Paths}
+    \label{tab:uc8}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{4cm}|p{10cm}|}
+        \hline
+        Title & \textbf{Trip Statistics Visualization} \\
+        \hline
+        Actors & Registered User, The System \\
+        \hline
+        Entry Condition & The user accesses their "Trip History". \\
+        \hline
+        Event Flow & 
+        (a) The system retrieves the paginated list of user trips. \newline
+        (b) For each trip, the system shows the map, distance, duration, average speed, and recorded weather conditions. \newline
+        (c) The user can filter or sort trips (for example filter by date or distance). \\
+        \hline
+        Exit Condition & The user views their performance. \\
+        \hline
+        Exception & 
+        The user has not previous recorded trip. \\
+        \hline
+    \end{tabular}
+    \caption{[UC9] Trip Statistics Visualization}
+    \label{tab:uc9}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{4cm}|p{10cm}|}
+        \hline
+        Title & \textbf{User Profile Update} \\
+        \hline
+        Actors & Registered User, The System \\
+        \hline
+        Entry Condition & The user accesses profile settings. \\
+        \hline
+        Event Flow & 
+        (a) The user modifies their data or changes the password. \newline
+        (b) The system validates new data. \newline
+        (c) The system saves the changes in the database. \\
+        \hline
+        Exit Condition & The user profile is updated. \\
+        \hline
+        Exception & 
+        The user attempts to change their email to one that already exists, the update is rejected \newline
+        The user attempts to change their username to one that already exists, the update is rejected. \newline
+        The user attempts to change their password to a non valid one. \\
+        \hline
+    \end{tabular}
+    \caption{[UC10] User Profile Update}
+    \label{tab:uc10}
+\end{table}
+\subsubsection{Sequence Diagrams}
+The following sequence diagrams represent all the above Use Cases, they represent the interactions between the users and the system at a reasonable high level.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/uc01.pdf}
+    \caption{Manual Trip Insertion}
+    \label{fig:uc1}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/uc02.pdf}
+    \caption{Creation of a Public Bike Path}
+    \label{fig:uc2}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/uc03.pdf}
+    \caption{Search of Bike Paths}
+    \label{fig:uc3}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/uc04.pdf}
+    \caption{Obstacle Reporting on Path}
+    \label{fig:uc4}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/uc05.pdf}
+    \caption{Automatic Tracking}
+    \label{fig:uc5}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/uc06.pdf}
+    \caption{User Registration}
+    \label{fig:uc6}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/uc07.pdf}
+    \caption{User Login}
+    \label{fig:uc7}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/uc08.pdf}
+    \caption{Management of Created Paths}
+    \label{fig:uc8}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/uc09.pdf}
+    \caption{Trip Statistics Visualization}
+    \label{fig:uc9}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\linewidth]{BBP/Images/uc10.pdf}
+    \caption{User Profile Update}
+    \label{fig:uc10}
+\end{figure}
+\clearpage
+
+\subsubsection{Requirement Mapping}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{7cm}|p{7cm}|}
+        \hline
+        \multicolumn{2}{|p{14cm}|}{\textbf{[G1]} Planning best and most efficient bike path} \\
+        \hline
+        \textbf{Requirements} & \textbf{Domain Assumptions} \\
+        \hline
+        \textbf{[R15]} The system shall allow users to search for public bike paths within a specific geographic radius. \newline
+        \textbf{[R16]} The system shall display search results sorted by descending Quality Score. \newline
+        \textbf{[R13]} The system shall automatically calculate a Quality Score based on status and obstacles. & 
+        \textbf{[D3]} Users have a working stable internet connection. \newline
+        \textbf{[D6]} External services (Map providers) maintain their standard service levels. \\
+        \hline
+    \end{tabular}
+    \caption{Mapping for G1}
+    \label{tab:map_g1}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{7cm}|p{7cm}|}
+        \hline
+        \multicolumn{2}{|p{14cm}|}{\textbf{[G2]} Storing the cycling activity of registered users} \\
+        \hline
+        \textbf{Requirements} & \textbf{Domain Assumptions} \\
+        \hline
+        \textbf{[R1]-[R3]} User registration, login, and profile management. \newline
+        \textbf{[R4]} Manual trip recording. \newline
+        \textbf{[R5]} Automatic calculation of total distance and average speed. \newline
+        \textbf{[R6]} Automatic enrichment with historical weather data. \newline
+        \textbf{[R8]} Visualization of trip history and statistics. & 
+        \textbf{[D3]} Users have a working stable internet connection. \newline
+        \textbf{[D6]} External services maintain their standard service levels. \newline
+        \textbf{[D8]} Historical weather conditions retrieved from external services are correct. \\
+        \hline
+    \end{tabular}
+    \caption{Mapping for G2}
+    \label{tab:map_g2}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{7cm}|p{7cm}|}
+        \hline
+        \multicolumn{2}{|p{14cm}|}{\textbf{[G3]} Automatic cycling activity recognizer and recorder} \\
+        \hline
+        \textbf{Requirements} & \textbf{Domain Assumptions} \\
+        \hline
+        \textbf{[R7]} The system should allow users to automatically track trips in real-time via GPS. \newline
+        \textbf{[R20]} The system should automatically detect road anomalies via device sensors. & 
+        \textbf{[D1]} Users own smartphones with working GPS, accelerometer, and gyroscope. \newline
+        \textbf{[D2]} The user's phone has enough battery to sustain continuous sensor usage. \newline
+        \textbf{[D4]} GPS accuracy is sufficient. \newline
+        \textbf{[D7]} Users' riding behavior respects typical cycling patterns. \\
+        \hline
+    \end{tabular}
+    \caption{Mapping for G3}
+    \label{tab:map_g3}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{7cm}|p{7cm}|}
+        \hline
+        \multicolumn{2}{|p{14cm}|}{\textbf{[G4]} Automatically detect cycling stop and verify gathered data} \\
+        \hline
+        \textbf{Requirements} & \textbf{Domain Assumptions} \\
+        \hline
+        \textbf{[R7]} The system shall detect stop logic and display a summary. \newline
+        \textbf{[R20]} The system shall request user confirmation for any automatically detected anomaly before saving it as an obstacle. & 
+        \textbf{[D5]} Users provide truthful and accurate feedback during manual validation of automatically collected data. \\
+        \hline
+    \end{tabular}
+    \caption{Mapping for G4}
+    \label{tab:map_g4}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|p{7cm}|p{7cm}|}
+        \hline
+        \multicolumn{2}{|p{14cm}|}{\textbf{[G5]} Permitting manual path insertions} \\
+        \hline
+        \textbf{Requirements} & \textbf{Domain Assumptions} \\
+        \hline
+        \textbf{[R9]} Creation of new bike paths by defining waypoints. \newline
+        \textbf{[R10]} Automatic calculation of path geometry and length. \newline
+        \textbf{[R11]} Manual addition of obstacles with type and severity. \newline
+        \textbf{[R12]} Validation of obstacle location within path buffer. \newline
+        \textbf{[R14]} Visibility management. & 
+        \textbf{[D3]} Users have a working stable internet connection. \newline
+        \textbf{[D5]} Users provide truthful and accurate feedback during manual entry. \newline
+        \textbf{[D6]} External map services function correctly for geocoding and routing. \\
+        \hline
+    \end{tabular}
+    \caption{Mapping for G5}
+    \label{tab:map_g5}
+\end{table}
+
 
 \subsection{Performance Requirements}
 
