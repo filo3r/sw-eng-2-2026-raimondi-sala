@@ -5,26 +5,26 @@ Best Bike Path is a software system that enables cyclists to create and browse t
 
 \noindent Bicycle paths can be added to the software in two ways:
 \begin{itemize}
-    \item \textbf{Manual mode}: this mode allows users to insert data manually through the web app or smartphone app.
-    \item \textbf{Automated mode}: this mode allows the smartphone app to start recording the path when it notices that the user is cycling, and through GPS the software system will map the route taken by the user. Finally, with the help of the accelerometer and gyroscope, and after user validation, it will automatically report potential potholes or bad road quality. 
+    \item[] \textbf{Manual mode}: this mode allows users to insert data manually through the web app or smartphone app.
+    \item[] \textbf{Automated mode}: this mode allows the smartphone app to start recording the path when it notices that the user is cycling, and through GPS the software system will map the route taken by the user. Finally, with the help of the accelerometer and gyroscope, and after user validation, it will automatically report potential potholes or bad road quality. 
 \end{itemize}
 \noindent Every published path will be searchable by everyone who accesses the website or who downloads the app, regardless of whether they are a registered user or not. This gives everyone the possibility to look for the best bike path between a starting location and a destination, and possibly ranking multiple results in order from the best path to the worst.
 
 \subsubsection{Goals}
 \begin{itemize}
-    \item \textbf{[G1] Planning best and most efficient bike path:} 
+    \item[] \textbf{[G1] Planning best and most efficient bike path:} 
     Allow every user (registered or not) to find the bicycle path from an origin to a destination, prioritizing the road quality and the absence of obstacles.
 
-    \item \textbf{[G2] Storing the cycling activity of registered users:} 
+    \item[] \textbf{[G2] Storing the cycling activity of registered users:} 
     Giving registered users a tool to track their session, and enriching those data with weather conditions, speed, road quality and the presence of obstacles.
 
-    \item \textbf{[G3] Automatic cycling activity recognizer and recorder:} 
+    \item[] \textbf{[G3] Automatic cycling activity recognizer and recorder:} 
     Automatically record the activity a user does with his bicycle, and detecting speed and road quality based on user's phone's sensors.
 
-    \item \textbf{[G4] Automatically detect cycling stop and verify gathered data:} 
+    \item[] \textbf{[G4] Automatically detect cycling stop and verify gathered data:} 
     Prompting the user a confirmation message to accept the ended activity, with the possibility to edit data such as obstacles position and road quality. 
 
-    \item \textbf{[G5] Permitting manual path insertions:} 
+    \item[] \textbf{[G5] Permitting manual path insertions:} 
     Give registered users the possibility to insert bike paths into the system, and enriching the path with data on obstacles and road quality.
 \end{itemize}
 
@@ -33,13 +33,13 @@ This section defines the scope of the Best Bike Paths (BBP) system using the \te
 
 \subsubsection*{The World Phenomena}
 \begin{itemize}
-\item \textbf{WP1:} Users cycle in the physical world on different types of roads.
-\item \textbf{WP2:} The physical world has various conditions, such as road quality, obstacles, weather.
-\item \textbf{WP3:} Users want to find a bike path from an origin to a destination.
-\item \textbf{WP4:} Users want to open the app to record their track.
-\item \textbf{WP5:} Users evaluate the results that the app gives them after they finished cycling.
-\item \textbf{WP6:} Users decide to publish their tracks or not to.
-\item \textbf{WP7:} External service providers update their data independently from BBP.
+\item[] \textbf{WP1:} Users cycle in the physical world on different types of roads.
+\item[] \textbf{WP2:} The physical world has various conditions, such as road quality, obstacles, weather.
+\item[] \textbf{WP3:} Users want to find a bike path from an origin to a destination.
+\item[] \textbf{WP4:} Users want to open the app to record their track.
+\item[] \textbf{WP5:} Users evaluate the results that the app gives them after they finished cycling.
+\item[] \textbf{WP6:} Users decide to publish their tracks or not to.
+\item[] \textbf{WP7:} External service providers update their data independently from BBP.
 \end{itemize}
 
 \subsubsection*{The Machine}
@@ -48,18 +48,18 @@ The BBP system is the software component to be developed.
 \subsubsection*{Shared Phenomena}
 
 \begin{itemize}
-\item \textbf{SP1:} Users send their registration data (email and password) to the system.
-\item \textbf{SP2:} Users send their login credential to the system or press the logout button.
-\item \textbf{SP3:} Data sensors (gyroscope, accelerometer etc) on users phones send raw data to the phone.
-\item \textbf{SP4:} Users manually insert details of the road (road quality, obstacles) through the user interface.
-\item \textbf{SP5:} Users send the search parameters (the start and the destination) to the system.
-\item \textbf{SP6:} The system sends requests to external service providers to get weather data or map data.
-\item \textbf{SP7:} External service providers send weather data and map data to the system.
-\item \textbf{SP8:} The system shows to users maps, paths.
-\item \textbf{SP9:} The system proposes the user a detected path and detected obstacles and road quality for validation.
-\item \textbf{SP10:} Users send a confirmation or disprove the data that the system inferred.
-\item \textbf{SP11:} The system shows the user their path informations such as average speed, distance, weather conditions, road quality and obstacles.
-\item \textbf{SP12:} The users send a confirmation for the publication of the path or send a confirmation to keep the path private.
+\item[] \textbf{SP1:} Users send their registration data (email and password) to the system.
+\item[] \textbf{SP2:} Users send their login credential to the system or press the logout button.
+\item[] \textbf{SP3:} Data sensors (gyroscope, accelerometer etc) on users phones send raw data to the phone.
+\item[] \textbf{SP4:} Users manually insert details of the road (road quality, obstacles) through the user interface.
+\item[] \textbf{SP5:} Users send the search parameters (the start and the destination) to the system.
+\item[] \textbf{SP6:} The system sends requests to external service providers to get weather data or map data.
+\item[] \textbf{SP7:} External service providers send weather data and map data to the system.
+\item[] \textbf{SP8:} The system shows to users maps, paths.
+\item[] \textbf{SP9:} The system proposes the user a detected path and detected obstacles and road quality for validation.
+\item[] \textbf{SP10:} Users send a confirmation or disprove the data that the system inferred.
+\item[] \textbf{SP11:} The system shows the user their path informations such as average speed, distance, weather conditions, road quality and obstacles.
+\item[] \textbf{SP12:} The users send a confirmation for the publication of the path or send a confirmation to keep the path private.
 \end{itemize}
 
 \subsection{Definitions, Acronyms, and Abbreviations}
@@ -105,16 +105,16 @@ x.x & xx-xx-2025 & Raimondi F., Sala M. & xxxx. \\
 This document is organized into six main sections, following the standard structure for Requirement Analysis and Specification Documents:
 
 \begin{itemize}
-    \item \textbf{Introduction:} This section offers a general view of the BPP project, here the scope, main goals and the scope are defined.
+    \item[] \textbf{Introduction:} This section offers a general view of the BPP project, here the scope, main goals and the scope are defined.
 
     
-    \item \textbf{Overall Description:} This section describe the context in which the system operates. Here the system is described with the \textit{World and Machine} approach. Perspectives, user characteristics, the assumptions and the constraints are detailed.
+    \item[] \textbf{Overall Description:} This section describe the context in which the system operates. Here the system is described with the \textit{World and Machine} approach. Perspectives, user characteristics, the assumptions and the constraints are detailed.
     
-    \item \textbf{Specific Requirements:} This section details the external interface requirements, functional requirements, and non-functional requirements.
+    \item[] \textbf{Specific Requirements:} This section details the external interface requirements, functional requirements, and non-functional requirements.
     
-    \item \textbf{Formal Analysis using Alloy:} This section provides a formal model of the critical aspects of the system to validate the consistency and correctness of the specifications.
+    \item[] \textbf{Formal Analysis using Alloy:} This section provides a formal model of the critical aspects of the system to validate the consistency and correctness of the specifications.
     
-    \item \textbf{Effort Spent:} This section shows the number of hours spent by each group member.
+    \item[] \textbf{Effort Spent:} This section shows the number of hours spent by each group member.
     
-    \item \textbf{References:} This section lists the resources used as references in this document.
+    \item[] \textbf{References:} This section lists the resources used as references in this document.
 \end{itemize}
