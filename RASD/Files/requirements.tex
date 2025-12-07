@@ -11,18 +11,18 @@ The system allows users to interact with itself through two users interfaces:
 \subsubsection{Hardware Interfaces}
 The mobile app needs several hardware components of users' mobile phones to enable the GPS tracking, the obstacle tracking:
 \begin{itemize}
-    \item \textbf{GPS:} It is used to track geographical location  in real time, calculate the average speed and to track obstacle coordinates.
-    \item \textbf{Accelerometer and Gyroscope:} Used by the mobile application to detect significant vertical shocks and sudden changes in movement, identifying potential road surface anomalies (for example potholes) during automatic tracking.
+    \item[] \textbf{GPS:} It is used to track geographical location  in real time, calculate the average speed and to track obstacle coordinates.
+    \item[] \textbf{Accelerometer and Gyroscope:} Used by the mobile application to detect significant vertical shocks and sudden changes in movement, identifying potential road surface anomalies (for example potholes) during automatic tracking.
 \end{itemize}
 
 \subsubsection{Software Interfaces}
 The system uses API and external software components to provides its core functionalities:
 \begin{itemize}
-    \item \textbf{Map API:} Interface used for three critical functionalities:
+    \item[] \textbf{Map API:} Interface used for three critical functionalities:
     \begin{itemize}
-        \item \textit{Geocoding API:} Used to convert the addresses submitted by the users to geographical coordinates.
-        \item \textit{Directions API:} Used to calculate the optimal bike path between two points and determining the exact distance.
-        \item \textit{Maps SDK:} Used to visualize the maps on the user infertace.
+        \item[] \textit{Geocoding API:} Used to convert the addresses submitted by the users to geographical coordinates.
+        \item[] \textit{Directions API:} Used to calculate the optimal bike path between two points and determining the exact distance.
+        \item[] \textit{Maps SDK:} Used to visualize the maps on the user infertace.
     \end{itemize}
     \item \textbf{Weather API:} Interface used to get historical weather data based on time, date and location.
 \end{itemize}
@@ -30,9 +30,9 @@ The system uses API and external software components to provides its core functi
 \subsubsection{Communication Interfaces}
 The system utilizes the following protocols for data transfers:
 \begin{itemize}
-    \item \textbf{REST on HTTPS:} All client-server communications take place via RESTful APIs protected by TLS/SSL encryption.
-    \item \textbf{JSON:} Standard format used for the payload of API requests and responses.
-    \item \textbf{JWT (JSON Web Token):} Used in the header of HTTP Authorization to handle the secure and stateless user authentication.
+    \item[] \textbf{REST on HTTPS:} All client-server communications take place via RESTful APIs protected by TLS/SSL encryption.
+    \item[] \textbf{JSON:} Standard format used for the payload of API requests and responses.
+    \item[] \textbf{JWT (JSON Web Token):} Used in the header of HTTP Authorization to handle the secure and stateless user authentication.
 \end{itemize}
 
 \subsection{Functional Requirements}
@@ -42,28 +42,28 @@ This section lists the functional requirements of the BBP system, grouped by fun
 
 \paragraph{Authentication \& User Profile}
 \begin{itemize}
-    \item \textbf{[R1]} The system allows users to register with a valid email address and a password.
-    \item \textbf{[R2]} The system allows registered users to log in and get a session token.
-    \item \textbf{[R3]} The system allows registered users to edit their accounts or delete them.
+    \item[] \textbf{[R1]} The system allows users to register with a valid email address and a password.
+    \item[] \textbf{[R2]} The system allows registered users to log in and get a session token.
+    \item[] \textbf{[R3]} The system allows registered users to edit their accounts or delete them.
 \end{itemize}
 
 \paragraph{Trip Management}
 \begin{itemize}
-    \item \textbf{[R4]} The system allows registered users to manually insert a bike path specifying the starting point and the destination point, the starting time and the time of the arrival.
-    \item \textbf{[R5]} The system has to automatically calculate the total distance and the average speed of a manually inserted bike path.
-    \item \textbf{[R6]} The system has to enrich users' trips with weather data (temperature, weather conditions, wind speed), if available.
-    \item \textbf{[R7]} The system allows users to automatically track their trips in real time.
-    \item \textbf{[R8]} The system allows users to view their trips history with detailed statistics and map.
+    \item[] \textbf{[R4]} The system allows registered users to manually insert a bike path specifying the starting point and the destination point, the starting time and the time of the arrival.
+    \item[] \textbf{[R5]} The system has to automatically calculate the total distance and the average speed of a manually inserted bike path.
+    \item[] \textbf{[R6]} The system has to enrich users' trips with weather data (temperature, weather conditions, wind speed), if available.
+    \item[] \textbf{[R7]} The system allows users to automatically track their trips in real time.
+    \item[] \textbf{[R8]} The system allows users to view their trips history with detailed statistics and map.
 \end{itemize}
 
 \paragraph{Bike Path Management}
 \begin{itemize}
-    \item \textbf{[R9]} The system allows users to create new bike paths by defining a sequence of points on the map.
-    \item \textbf{[R10]} The system calculates the exact geometry and length of the path using an external routing service.
-    \item \textbf{[R11]} The system allows users to add obstacles  to a bike path, specifying the type and severity.
-    \item \textbf{[R12]} The system validates that the reported obstacles are within a specific buffer distance from the path.
-    \item \textbf{[R13]} The system automatically calculates a quality score for each bike path, based on its maintenance status and present obstacles.
-    \item \textbf{[R14]} The system allows the creator of a bike path to set its visibility as private or public.
+    \item[] \textbf{[R9]} The system allows users to create new bike paths by defining a sequence of points on the map.
+    \item[] \textbf{[R10]} The system calculates the exact geometry and length of the path using an external routing service.
+    \item[] \textbf{[R11]} The system allows users to add obstacles  to a bike path, specifying the type and severity.
+    \item[] \textbf{[R12]} The system validates that the reported obstacles are within a specific buffer distance from the path.
+    \item[] \textbf{[R13]} The system automatically calculates a quality score for each bike path, based on its maintenance status and present obstacles.
+    \item[] \textbf{[R14]} The system allows the creator of a bike path to set its visibility as private or public.
 \end{itemize} 
 
 \paragraph{Search \& Exploration}
@@ -74,10 +74,10 @@ This section lists the functional requirements of the BBP system, grouped by fun
 
 \paragraph{Collaborative Maintenance}
 \begin{itemize}
-    \item \textbf{[R17]} The system allows registered users to report new obstacles on existing public bike paths.
-    \item \textbf{[R18]} The system allows registered users to update the status of existing obstacles.
-    \item \textbf{[R19]} The system automatically recalculates the quality score of a bike path each time its obstacles are updated.
-    \item \textbf{[R20]} The system automatically detects road surface anomalies using the device's sensors and at the end of the trip requests confirmation from the user.
+    \item[] \textbf{[R17]} The system allows registered users to report new obstacles on existing public bike paths.
+    \item[] \textbf{[R18]} The system allows registered users to update the status of existing obstacles.
+    \item[] \textbf{[R19]} The system automatically recalculates the quality score of a bike path each time its obstacles are updated.
+    \item[] \textbf{[R20]} The system automatically detects road surface anomalies using the device's sensors and at the end of the trip requests confirmation from the user.
 \end{itemize}
 
 \subsubsection{Use Cases}
@@ -527,25 +527,51 @@ The following sequence diagrams represent all the above Use Cases, they represen
     \label{tab:map_g5}
 \end{table}
 
-
 \subsection{Performance Requirements}
+
+The system must be able to handle an high volume of telemetry data sent in real time by users' mobile phones during biking activities, guaranteeing the necessary scalabilty to handle thousands of concurrent connections without system degradation.
+Given the nature of the mobile app, it's fundamental that mobile phones' resources are optimized to keep the battery consumption within acceptable rate during long activities.
+Moreover, the system must guarantee minimum response times for route calculation and map rendering, ensuring smooth and responsive navigation even in less than optimal connectivity conditions and the update of road quality and obstacle presence must be propagated to all clients quickly enough to not leave any client with old data.
 
 \subsection{Design Constraints}
 
 \subsubsection{Standards compliance}
+\begin{itemize}
+    \item[] \textbf{GDPR \& Privacy:} Since the system gather sensible and private data (such as emails, passwords, users' GPS coordinates), the system development and data handling must be conform of the GDPR, in particular, the users' personal tracks must be kept private unless the users chose otherwise.
+    \item[] \textbf{Security of Data:} Users' credentials and client-server communications must be protected with modern cryptographic standards.
+\end{itemize}
 
 \subsubsection{Hardware limitations}
+\begin{itemize}
+    \item[] \textbf{Device's sensors:} The mobile app is limited by the presence of specific hardware components for the automatic tracking functionality (GPS module, accelerometer and gyroscope), without those sensors the system is not able to provide all functionalities.
+    \item[] \textbf{Mobile Devices:} The UI and mobile app must be optimized to run on most of modern devices without overheating the battery or excessively draining the battery.
+\end{itemize}
 
 \subsubsection{Any other constraint}
+\begin{itemize}
+    \item[] \textbf{Connectivity:} The app must be designed taking into account that the users' internet connection may be unstable during cycling sessions in remote areas, since it will mostly use 4G or 5G connections. The system must include local caching mechanisms.
+    \item[] \textbf{External Dependencies:} The system depends on third-party services for maps and weather data. The design must comply with the usage constraints and rate limiting of the services providers.
+\end{itemize}
 
 \subsection{Software System Attributes}
 
-\subsubsection{Reliability}
+\subsubsection{Reliability} 
+The system must preserve  important information gathered by users. The database must be replicated across several nodes and regularly backed up in order to prevent data loss in the event of server-side hardware failures.
+Reliability on the client side implies the ability to prevent data loss from the live tracking session, even in the case of an application crash or abrupt device shutdown; the system must incorporate mechanisms for frequent local checkpointing.
 
-\subsubsection{Availability}
 
-\subsubsection{Security}
+\subsubsection{Availability} 
+ The BBP system must ensure a high level of availability, especially during expected peak periods, guaranteeing a target uptime of \textbf{99\%}. 
+ The architecture must incorporate redundancy and failover mechanisms for core services. In the event of external service unavailability, the system must gracefully degrade functionality without interrupting the core service.
+ 
+\subsubsection{Security} 
+ BBP handles user credentials that must be stored using robust hashing algorithms. All data in transit between mobile apps, web apps, and servers, must be encrypted using secure protocols. 
+ The system must implement active defenses against common web vulnerabilities.
 
-\subsubsection{Maintainability}
+\subsubsection{Maintenance}
+ The system must use a modular architecture that clearly divides business logic, user interface, and data processing to enable future software evolution.
+ The backend's exposed APIs must be clearly defined and versioned to enable server updates without affecting compatibility with earlier iterations of the mobile application.
 
 \subsubsection{Portability}
+ Regardless of the desktop operating system being used, the system's web component must work with all of the major modern browsers .
+ In order to provide a consistent user experience across a variety of devices, the mobile application must be made to be portable between the most common mobile operative systems.

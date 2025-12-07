@@ -1,5 +1,315 @@
+In this Alloy analysis, we chose to focus on the Trip lifecycle. Specifically, we want to describe the evolution of a cycling session over time, from the initial recording to the final publication, ensuring that data validation steps (Goal G4) are respected.
+
+We point out that the initial state represents the moment a trip is created but has not yet evolved through the system steps.
+
 \subsection{Objectives}
+The objective of this analysis is to verify the consistency of the \textit{Best Bike Paths} dynamic model. In particular ensuring that a trip follows the mandatory sequence of states (\textit{Recording} $\rightarrow$ \textit{Processing} $\rightarrow$ \textit{Validation}) before being published, this model also verifies that the owner of a trip cannot change over time, even if the trip entity is mutable, in the end it ensures that obstacles detected during the ride can be filtered by the user during the validation phase, but become immutable once the trip is published.
+
 
 \subsection{Model Description}
 
+The model defines the static entities (\texttt{User}, \texttt{Obstacle}) and the dynamic entity \texttt{Trip}, whose state and relations evolve over time steps.
+
+\begin{lstlisting}[language=Alloy, caption={Signatures and Facts defined in the Alloy model}, label={lst:alloy-model}]
+// Users are static entities
+sig User {
+    var trips: set Trip
+}
+
+// Obstacles are static entities detected during trips
+sig Obstacle {}
+
+// Enum defining the lifecycle steps of a trip
+enum Step { Recording, Processing, Validation, Published }
+
+// A Trip is linked to a single User and evolves through steps
+var sig Trip {
+    var owner: one User,
+    var currentStep: one Step,
+    var obstacles: set Obstacle
+}
+
+// FACTS
+
+// F1: A trip always belongs to its owner's set
+fact TripOwnership {
+    always (all t: Trip | t in t.owner.trips)
+}
+
+// F2: System Initialization
+// In the first state, all existing trips must be in Recording
+fact NewTrip {
+    all t: Trip | t.currentStep = Recording
+}
+
+// F2b: Creation Constraint
+// Logic: If a trip exists in the next state but not now,
+// it is a NEW trip and must start in Recording.
+fact TripsStartInRecording {
+    always (
+        all t: Trip' | (t not in Trip) implies t.currentStep' = Recording
+    )
+}
+
+// F3: The owner of a trip never changes
+fact ImmutableOwner {
+    always (all t: Trip | (t in Trip') implies t.owner' = t.owner)
+}
+
+// F4: Helper function for state transitions
+fun nextState[s: Step]: one Step {
+    s = Recording  => Processing else
+    s = Processing => Validation else
+    s = Validation => Published else
+    Published  // Published stays Published
+}
+
+// F5: Describes the progression of trips
+// Trips either move to the next step or stay at the current step
+fact StateProgression {
+    always (
+        all t: Trip | t in Trip' implies (
+            t.currentStep' = t.currentStep or
+            t.currentStep' = nextState[t.currentStep]
+        )
+    )
+}
+
+// F5b: Sequential Integrity
+// Explicitly forbids skipping steps to satisfy strict ordering requirements
+fact NoSkippingSteps {
+    always (all t: Trip | (t in Trip and t in Trip') implies (
+        (t.currentStep = Recording) implies 
+            (t.currentStep' = Recording or t.currentStep' = Processing)
+        and
+        (t.currentStep = Processing) implies 
+            (t.currentStep' = Processing or t.currentStep' = Validation)
+        and
+        (t.currentStep = Validation) implies 
+            (t.currentStep' = Validation or t.currentStep' = Published)
+        and
+        (t.currentStep = Published) implies t.currentStep' = Published
+    ))
+}
+
+// F6: Obstacle Consistency
+fact ObstacleConstraint {
+    always (all t: Trip | t in Trip' implies (
+        // Once published, obstacles are immutable
+        (t.currentStep = Published implies t.obstacles' = t.obstacles)
+        and
+        // Obstacles cannot be added during Processing or Validation, only removed
+        (t.currentStep in Processing + Validation implies 
+            t.obstacles' in t.obstacles)
+    ))
+}
+
+// F7: Liveness
+fact EndTrip {
+    all t: Trip | eventually (t not in Trip or t.currentStep = Published)
+}
+\end{lstlisting}
+
 \subsection{Analysis and Validation}
+
+To validate the model, we use \textbf{Predicates} to generate valid scenarios and \textbf{Assertions} to verify that no invalid states are reachable.
+
+\subsubsection{Predicates}
+
+\textbf{Example 1: Correct Path Scenario}
+
+In this example, we verify a typical lifecycle: a trip is created, goes through \texttt{Recording}, \texttt{Processing}, waits for \texttt{Validation}, and finally reaches the \texttt{Published} state.
+
+\begin{lstlisting}[language=Alloy, caption={Predicate: Complete Trip Lifecycle}]
+pred show[] {
+    #Trip = 0
+    // Eventually a trip is created
+    eventually (#Trip = 1)
+    // Eventually the trip reaches the Published state
+    eventually (some t: Trip | t.currentStep = Published)
+}
+run show for 6
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP/Images/alloy101.png}
+    \caption{Time 0-1.}
+    \label{fig:alloy-ex1-01}
+\end{figure}
+\noindent
+At \textbf{Time 0}, the system is in a quiescent state with the User present but no active sessions. Transitioning to \textbf{Time 1}, the User initiates a cycling activity. The model generates a new \texttt{Trip} instance and links it to the User (\texttt{owner}). As constrained by the \texttt{NewTrip} fact, the system strictly initializes the trip's state to \texttt{Recording}, representing the start of sensor data acquisition.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP/Images/alloy112.png}
+    \caption{Time 1-2.}
+    \label{fig:alloy-ex1-12}
+\end{figure}
+\noindent
+The model illustrates the evolution of concurrent sessions. While \texttt{Trip2} through \texttt{Trip5} persist in the \texttt{Recording} phase, \texttt{Trip0} and \texttt{Trip1} advance to the \texttt{Processing} state. This transition validates the \texttt{StateProgression} fact, ensuring that the lifecycle proceeds sequentially from raw data collection to the analysis phase without skipping mandatory steps.
+
+\begin{figure}[H]
+    \centering
+        \includegraphics[width=0.9\textwidth]{BBP/Images/alloy123.png}
+    \caption{Time 2-3.}
+    \label{fig:alloy-ex1-23}
+\end{figure}
+\noindent
+In the transition to the third state, the model exhibits further lifecycle advancements alongside entity dynamics. \texttt{Trip0} and \texttt{Trip3} progress to the \texttt{Validation} phase, while \texttt{Trip2} moves to \texttt{Processing}. Notably, \texttt{Trip5} is removed from the system, decreasing the total trip count.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP//Images/alloy134.png}
+    \caption{Time 3-4.}
+    \label{fig:alloy-ex1-34}
+\end{figure}
+\noindent
+In the final stage, the system reaches the target state. \texttt{Trip0} successfully transitions from \texttt{Validation} to \texttt{Published}, marking the completion of the cycling session.
+
+\clearpage
+\textbf{Example 2: Trip Discarded}
+
+This example illustrates a scenario where the user is not satisfied with the collected data. The trip progresses correctly to the \texttt{Validation} phase, but then it is removed from the system instead of moving to \texttt{Published}.
+
+\begin{lstlisting}[language=Alloy, caption={Predicate: Discarding a Trip}]
+pred discardedAfterRecording[] {
+    eventually (some t: Trip | 
+        t.currentStep = Validation and 
+        // The trip disappears in the next state
+        (t not in Trip') 
+    )
+}
+run discardedAfterRecording for 6
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP//Images/alloy201.png}
+    \caption{Time 0-1.}
+    \label{fig:alloy-ex2-01}
+\end{figure}
+\noindent
+In the initial phase of the discard scenario, all trips start in the \texttt{Recording} state. Moving to the next step, the instance marked for future removal (\texttt{Trip2}), along with others, correctly transitions to \texttt{Processing}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP//Images/alloy212.png}
+    \caption{Time 1-2.}
+    \label{fig:alloy-ex2-12}
+\end{figure}
+\noindent
+In this phase, the targeted instance (\texttt{Trip2}) progresses from \texttt{Processing} to the \texttt{Validation} state.
+\clearpage
+
+\textbf{Example 3: Removing False Positives}
+
+As shown in the model, during the validation step, the user can filter the data. This example represents the removal of "false positives" detected by sensors: the set of obstacles shrinks before the trip becomes public.
+
+\begin{lstlisting}[language=Alloy, caption={Predicate: Obstacle Refinement}]
+pred falsePositiveRemoval[] {
+    some t: Trip | eventually (
+        t.currentStep = Validation and
+        // The number of obstacles decreases in the next step
+        #t.obstacles' < #t.obstacles and
+        t.currentStep' = Published
+    )
+}
+run falsePositiveRemoval for 6
+\end{lstlisting}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP//Images/alloy301.png}
+    \caption{Time 0-1.}
+    \label{fig:alloy-ex3-01}
+\end{figure}
+\noindent
+In the setup for the obstacle refinement scenario, the target instance \texttt{Trip1} begins in the \texttt{Recording} state with associated obstacles. Transitioning to the next step, the trip advances to \texttt{Processing}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP//Images/alloy312.png}
+    \caption{Time 1-2.}
+    \label{fig:alloy-ex3-12}
+\end{figure}
+\noindent
+In this transition, \texttt{Trip1} advances to the \texttt{Validation} phase, establishing the necessary context for the user to review and filter detected anomalies. Concurrently, the system demonstrates its dynamic capacity by initializing new sessions (\texttt{Trip2} and \texttt{Trip3}) in the \texttt{Recording} state.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP//Images/alloy323.png}
+    \caption{Time 2-3.}
+    \label{fig:alloy-ex3-23}
+\end{figure}
+\noindent
+\texttt{Trip1} transitions from \texttt{Validation} to \texttt{Published}. The association with the detected \texttt{Obstacle} is severed. This reduction in the set of linked obstacles satisfies the \texttt{falsePositiveRemoval} predicate.
+\clearpage
+
+\subsubsection{Assertions}
+
+Finally, through assertions, we verify critical safety properties. The checks confirm that strictly invalid behaviors are impossible in our model.
+
+\textbf{Assertion 1: No Skipped Steps}
+
+We ensure that every published trip has strictly followed the mandatory lifecycle (Recording $\rightarrow$ Validation $\rightarrow$ Published).
+
+\begin{lstlisting}[language=Alloy, caption={Assertion: Safety Check for Steps}]
+assert noSkippedSteps {
+    always (all t: Trip |
+        t.currentStep = Published implies
+        (once t.currentStep = Validation) and
+        (once t.currentStep = Recording)
+        )
+}
+check noSkippedSteps for 8
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP//Images/alloy4.png}
+    \caption{}
+    \label{fig:alloy-ex4}
+\end{figure}
+
+\clearpage
+\textbf{Assertion 2: Immutable Published State}
+
+We verify that once a trip reaches the \texttt{Published} state, it cannot revert to a previous state or change its status.
+
+\begin{lstlisting}[language=Alloy, caption={Assertion: Published Persistence}]
+assert publishedStaysPublished {
+    always (all t: Trip |
+        (t.currentStep = Published and t in Trip') implies
+            t.currentStep' = Published
+    )
+}
+check publishedStaysPublished for 8
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP//Images/alloy5.png}
+    \caption{}
+    \label{fig:alloy-ex5}
+\end{figure}
+
+\clearpage
+\textbf{Assertion 3: Immutable Owner}
+
+We verify that once a trip reaches the \texttt{Published} state, it cannot revert to a previous state or change its status.
+
+\begin{lstlisting}[language=Alloy, caption={Assertion: Owner persistence}]
+assert ownerImmutable {
+    always (all t: Trip |
+        t in Trip' implies t.owner' = t.owner
+    )
+}
+check ownerImmutable for 8
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{BBP//Images/alloy6.png}
+    \caption{}
+    \label{fig:alloy-ex6}
+\end{figure}

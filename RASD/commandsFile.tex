@@ -34,6 +34,27 @@
 
 \usepackage{graphicx}
 \usepackage[dvipsnames, table]{xcolor}
+\usepackage{listings}
+\lstdefinelanguage{alloy}{
+  keywords={module, open, sig, var, one, set, extends, in, iff, disj,
+            fact, pred, assert, fun, check, run, for, but, exactly,
+            always, eventually, after, historically, once,
+            implies, else, let, no, some, all, sum, int, Int, Bool, true, false,
+            enum, abstract},
+  sensitive=true,
+  comment=[l]{//},
+  morecomment=[l]{--},
+  morecomment=[s]{/*}{*/},
+  keywordstyle=\bfseries\color{blue},
+  commentstyle=\itshape\color{gray},
+  stringstyle=\color{green!50!black},
+  basicstyle=\ttfamily\small,
+  tabsize=4,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=lines
+}
+\lstset{language=alloy}
 
 \usepackage{pdflscape}
 \usepackage{rotating}
