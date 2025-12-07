@@ -1,110 +1,122 @@
 package it.polimi.se.bbp.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
- * DTO for Trip response.
- * Contains all trip information including route details, timing, performance metrics, and optional weather data.
+ * Response for Trip containing route details, timing, performance metrics, and weather data.
+ * @param id unique identifier
+ * @param recordedById ID of user who recorded this trip
+ * @param recordedByUsername username of user who recorded this trip
+ * @param origin formatted address of starting point
+ * @param originLatitude latitude of origin point
+ * @param originLongitude longitude of origin point
+ * @param destination formatted address of destination point
+ * @param destinationLatitude latitude of destination point
+ * @param destinationLongitude longitude of destination point
+ * @param description optional description or notes
+ * @param startTime start timestamp
+ * @param endTime end timestamp
+ * @param totalDuration total duration in minutes
+ * @param totalDistance total distance in kilometers
+ * @param averageSpeed average speed in km/h
+ * @param maxSpeed maximum speed in km/h (null if not provided)
+ * @param tripPoints GPS coordinates forming the complete route
+ * @param meteorologicalData weather conditions during trip (null if unavailable or trip older than 90 days)
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class TripResponse {
+public record TripResponse(
 
-    /**
-     * Unique identifier of the trip.
-     */
-    private Long id;
+        /*
+         * Unique identifier of the trip.
+         */
+        Long id,
 
-    /**
-     * ID of the user who recorded this trip.
-     */
-    private Long recordedBy;
+        /*
+         * ID of the user who recorded this trip.
+         */
+        Long recordedById,
 
-    /**
-     * Formatted address of the trip's starting point.
-     */
-    private String origin;
+        /*
+         * Username of the user who recorded this trip.
+         */
+        String recordedByUsername,
 
-    /**
-     * Latitude of the origin point.
-     */
-    private Double originLatitude;
+        /*
+         * Formatted address of the starting point.
+         */
+        String origin,
 
-    /**
-     * Longitude of the origin point.
-     */
-    private Double originLongitude;
+        /*
+         * Latitude of the origin point.
+         */
+        Double originLatitude,
 
-    /**
-     * Formatted address of the trip's destination point.
-     */
-    private String destination;
+        /*
+         * Longitude of the origin point.
+         */
+        Double originLongitude,
 
-    /**
-     * Latitude of the destination point.
-     */
-    private Double destinationLatitude;
+        /*
+         * Formatted address of the destination point.
+         */
+        String destination,
 
-    /**
-     * Longitude of the destination point.
-     */
-    private Double destinationLongitude;
+        /*
+         * Latitude of the destination point.
+         */
+        Double destinationLatitude,
 
-    /**
-     * Optional description or notes about the trip.
-     */
-    private String description;
+        /*
+         * Longitude of the destination point.
+         */
+        Double destinationLongitude,
 
-    /**
-     * Date and time when the trip started.
-     */
-    private OffsetDateTime startTime;
+        /*
+         * Optional description or notes about the trip.
+         */
+        String description,
 
-    /**
-     * Date and time when the trip ended.
-     */
-    private OffsetDateTime endTime;
+        /*
+         * Start timestamp.
+         */
+        OffsetDateTime startTime,
 
-    /**
-     * Total duration of the trip in minutes.
-     */
-    private Integer totalDuration;
+        /*
+         * End timestamp.
+         */
+        OffsetDateTime endTime,
 
-    /**
-     * Total distance covered in kilometers.
-     */
-    private BigDecimal totalDistance;
+        /*
+         * Total duration in minutes.
+         */
+        Integer totalDuration,
 
-    /**
-     * Average speed maintained during the trip in km/h.
-     */
-    private BigDecimal averageSpeed;
+        /*
+         * Total distance in kilometers.
+         */
+        BigDecimal totalDistance,
 
-    /**
-     * Maximum speed reached during the trip in km/h.
-     * May be null if not provided.
-     */
-    private BigDecimal maxSpeed;
+        /*
+         * Average speed in km/h.
+         */
+        BigDecimal averageSpeed,
 
-    /**
-     * List of GPS coordinates that form the complete route.
-     */
-    private List<TripPointResponse> tripPoints;
+        /*
+         * Maximum speed in km/h.
+         * Null if not provided.
+         */
+        BigDecimal maxSpeed,
 
-    /**
-     * Optional meteorological data associated with this trip.
-     * Contains weather conditions at the time of the trip.
-     * Will be null if weather data is not available (e.g., trip older than 90 days, API error).
-     */
-    private MeteorologicalDataResponse meteorologicalData;
+        /*
+         * GPS coordinates forming the complete route.
+         */
+        List<TripPointResponse> tripPoints,
 
-}
+        /*
+         * Meteorological data for this trip.
+         * Null if unavailable (e.g., trip older than 90 days, API error).
+         */
+        MeteorologicalDataResponse meteorologicalData
+
+) {}

@@ -4,9 +4,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Enum representing the different types of obstacles that can be found on bike paths in the BBP system.
- * Obstacles can be detected automatically through accelerometer and gyroscope data during trips,
- * or reported manually by users.
+ * Types of obstacles found on bike paths.
+ * Can be detected automatically through sensors or reported manually.
  */
 @Getter
 @RequiredArgsConstructor
@@ -65,7 +64,7 @@ public enum ObstacleType {
     OTHER("Other");
 
     /**
-     * The human-readable description of this obstacle type.
+     * Human-readable description of this obstacle type.
      */
     private final String typeDescription;
 

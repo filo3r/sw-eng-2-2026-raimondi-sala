@@ -2,28 +2,21 @@ package it.polimi.se.bbp.mapper.response;
 
 import it.polimi.se.bbp.dto.response.UserResponse;
 import it.polimi.se.bbp.entity.User;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.MappingConstants;
 
 /**
  * Mapper for converting User entities to UserResponse DTOs.
  */
-@Component
-public class UserResponseMapper {
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+public interface UserResponseMapper {
 
     /**
-     * Converts a User entity to a UserResponse DTO.
-     * Excludes sensitive information like password.
-     * @param user the user entity
-     * @return the user response DTO
+     * Converts User entity to UserResponse DTO.
+     * Password automatically excluded (not mapped to UserResponse).
+     * @param user user entity
+     * @return user response DTO
      */
-    public UserResponse toResponse(User user) {
-        return UserResponse.builder()
-                .id(user.getId())
-                .name(user.getName())
-                .surname(user.getSurname())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .build();
-    }
+    UserResponse toResponse(User user);
 
 }

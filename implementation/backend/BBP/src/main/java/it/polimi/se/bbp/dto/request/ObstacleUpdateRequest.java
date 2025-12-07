@@ -3,61 +3,44 @@ package it.polimi.se.bbp.dto.request;
 import it.polimi.se.bbp.enums.ObstacleSeverity;
 import it.polimi.se.bbp.enums.ObstacleType;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 /**
- * DTO for updating an existing obstacle on a bike path.
- * Supports partial updates - only non-null fields will be updated.
- * The obstacle is identified by its ID, and it must belong to the bike path being updated.
+ * Request for updating an existing obstacle with partial updates.
+ * Only non-null fields will be updated.
+ * Obstacle must belong to the bike path being updated.
+ * @param id unique identifier of the obstacle to update
+ * @param type new type or category (optional, e.g., POTHOLE, DEBRIS, CONSTRUCTION)
+ * @param severity new severity level (optional, e.g., LOW, MEDIUM, HIGH, CRITICAL)
+ * @param active active status (optional, false = resolved but kept for history)
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class ObstacleUpdateRequest {
+public record ObstacleUpdateRequest(
 
-    /**
-     * The unique identifier of the obstacle to update.
-     * This field is required and is used to identify which obstacle should be modified.
-     * The obstacle must belong to the bike path being updated.
-     */
-    @NotNull(message = "Obstacle ID is required")
-    private Long id;
+        /*
+         * Unique identifier of the obstacle to update.
+         * Must belong to the bike path being updated.
+         */
+        @NotNull(message = "Obstacle ID is required")
+        Long id,
 
-    /**
-     *
-     */
-    private Long version;
+        /*
+         * New type or category of the obstacle (optional).
+         * Examples: POTHOLE, DEBRIS, CONSTRUCTION.
+         */
+        ObstacleType type,
 
-    /**
-     * The new type or category of the obstacle (optional).
-     * If provided, the obstacle type will be updated to this value.
-     * If null, the existing type will remain unchanged.
-     * Examples: POTHOLE, DEBRIS, CONSTRUCTION, etc.
-     */
-    private ObstacleType type;
+        /*
+         * New severity level of the obstacle (optional).
+         * Possible values: LOW, MEDIUM, HIGH, CRITICAL.
+         */
+        ObstacleSeverity severity,
 
-    /**
-     * The new severity level of the obstacle (optional).
-     * If provided, the obstacle severity will be updated to this value.
-     * If null, the existing severity will remain unchanged.
-     * Possible values: LOW, MEDIUM, HIGH, CRITICAL.
-     */
-    private ObstacleSeverity severity;
+        /*
+         * Active status (optional).
+         * False = resolved or no longer present, kept for historical tracking.
+         */
+        Boolean active
 
-    /**
-     * Flag indicating whether this obstacle is currently active (optional).
-     * If provided, the active status will be updated to this value.
-     * If null, the existing active status will remain unchanged.
-     * When set to false, the obstacle is considered resolved or no longer present,
-     * but it remains in the database for historical tracking.
-     */
-    private Boolean active;
+        // Note: The location/address of an obstacle cannot be updated.
+        // To change an obstacle's location, mark it inactive and create a new one.
 
-    // Note: The location/address of an obstacle cannot be updated.
-    // To change an obstacle's location, it should be marked as inactive and a new one created.
-
-}
+) {}

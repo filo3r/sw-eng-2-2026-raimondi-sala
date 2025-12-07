@@ -1,6 +1,9 @@
 package it.polimi.se.bbp.service;
 
-import it.polimi.se.bbp.dto.mapbox.GeocodeResult;
+import it.polimi.se.bbp.exception.obstacle.ObstacleNotFoundException;
+import it.polimi.se.bbp.exception.obstacle.ObstacleTooFarException;
+import it.polimi.se.bbp.geo.Coordinate;
+import it.polimi.se.bbp.dto.result.GeocodeResult;
 import it.polimi.se.bbp.dto.request.ObstacleCreateRequest;
 import it.polimi.se.bbp.dto.request.ObstacleUpdateRequest;
 import it.polimi.se.bbp.entity.BikePath;
@@ -8,242 +11,363 @@ import it.polimi.se.bbp.entity.Obstacle;
 import it.polimi.se.bbp.entity.User;
 import it.polimi.se.bbp.mapper.entity.ObstacleMapper;
 import it.polimi.se.bbp.repository.ObstacleRepository;
+import it.polimi.se.bbp.geo.SpatialService;
 import it.polimi.se.bbp.service.mapbox.MapboxService;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
-import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Service for handling obstacle operations.
- * Manages obstacle creation, updates, and validation against bike path routes.
- * Uses JTS Topology Suite for efficient geometric validation.
+ * Service for obstacle operations.
+ * Manages creation, updates, validation against routes, score calculation, and persistence.
+ * Has full responsibility for obstacle lifecycle: business logic, database persistence,
+ * and bidirectional relationship management with BikePath.
+ * Uses SpatialService for geometric validation.
  */
 @Service
 @RequiredArgsConstructor
 public class ObstacleService {
 
     /**
-     * Service for interacting with Mapbox APIs (geocoding).
-     */
-    private final MapboxService mapboxService;
-
-    /**
-     * Mapper for converting obstacle request data to Obstacle entities.
-     */
-    private final ObstacleMapper obstacleMapper;
-
-    /**
-     *
+     * Repository for obstacle data access.
      */
     private final ObstacleRepository obstacleRepository;
 
     /**
-     *
+     * Service for Mapbox API interactions (geocoding).
      */
-    private final EntityManager entityManager;
+    private final MapboxService mapboxService;
 
     /**
-     * GeometryFactory for creating JTS geometric objects.
-     * Thread-safe and reusable.
+     * Service for advanced spatial operations using JTS.
      */
-    private final GeometryFactory geometryFactory;
+    private final SpatialService spatialService;
 
     /**
-     * Parameter k for the logistic model used in obstacle score calculation.
-     * Controls the sensitivity of the penalty: lower k = more severe, higher k = more tolerant.
-     * Interpretation guide:
-     * - k = 1.0: Severe
-     * - k = 1.5: Moderate
-     * - k = 2.0: Tolerant
-     * - k = 3.0: Very tolerant
+     * Mapper for converting request data to Obstacle entities.
+     */
+    private final ObstacleMapper obstacleMapper;
+
+    /**
+     * Parameter k for logistic model in score calculation.
+     * Controls penalty sensitivity: lower k = severe, higher k = tolerant.
+     * Current value (2.0) = moderate tolerance.
      */
     private static final double K = 2.0;
 
     /**
-     * OPTIMIZED: Creates obstacles validating them against the bike path route buffer.
-     * The buffer is calculated ONCE by the caller and reused for all obstacles.
-     * This method performs batch geocoding and batch validation for maximum performance.
-     * Workflow:
-     * 1. Geocode all obstacle addresses in parallel (performance)
-     * 2. Validate all obstacles against the route buffer in a single pass (batch)
-     * 3. Create Obstacle entities
-     * @param obstacleRequests list of requests to create obstacles
-     * @param bikePath the bike path entity to which obstacles belong
-     * @param routeBuffer the geometric buffer of the route (already calculated by caller)
-     * @param createdBy user creating the obstacles
-     * @param createdAt timestamp of creation
-     * @return list of created and validated obstacles
-     * @throws IllegalArgumentException if an obstacle address is invalid or too far from route
-     * @throws IllegalStateException if Mapbox geocoding service is unavailable
+     * Maximum score value (perfect score when no obstacles).
      */
-    public List<Obstacle> createObstacles(List<ObstacleCreateRequest> obstacleRequests, BikePath bikePath, Geometry routeBuffer, User createdBy, OffsetDateTime createdAt) {
-        // Handle empty obstacle list
-        if (obstacleRequests == null || obstacleRequests.isEmpty()) {
-            return new ArrayList<>();
-        }
-        // Step 1: Geocode ALL addresses in parallel (performance optimization)
-        List<String> addresses = obstacleRequests.stream()
-                .map(ObstacleCreateRequest::getAddress)
-                .collect(Collectors.toList());
-        List<GeocodeResult> geocodeResults = mapboxService.geocodeAddressesParallel(addresses);
-        // Step 2: Validate ALL obstacles against the buffer (batch validation)
-        validateObstaclesProximity(geocodeResults, routeBuffer);
-        // Step 3: Create Obstacle entities
-        List<Obstacle> obstacles = new ArrayList<>();
-        for (int i = 0; i < obstacleRequests.size(); i++) {
-            Obstacle obstacle = obstacleMapper.toEntity(
-                    obstacleRequests.get(i),
-                    bikePath,
-                    createdBy,
-                    createdAt,
-                    null,
-                    null,
-                    geocodeResults.get(i),
-                    true
-            );
-            obstacles.add(obstacle);
-        }
-        return obstacles;
+    private static final double MAX_SCORE = 5.0;
+
+    /**
+     * Minimum distance in kilometers to prevent division by zero.
+     * Equivalent to 1 meter.
+     */
+    private static final double MIN_DISTANCE_KM = 0.001;
+
+    /**
+     * Default active status for new obstacles.
+     */
+    private static final boolean DEFAULT_ACTIVE_STATUS = true;
+
+    /**
+     * Temporary position used before final calculation.
+     * Position 0 replaced by actual position after recalculateAllObstaclePositions.
+     */
+    private static final int TEMPORARY_POSITION = 0;
+
+    /**
+     * Creates and saves obstacles validating them against route buffer.
+     * Workflow: validate input → geocode → validate proximity → create entities →
+     * batch save → add to bikePath → recalculate positions.
+     * @param obstacleRequests list of obstacle creation requests
+     * @param bikePath bike path entity (must be saved with ID)
+     * @param routeCoordinates ordered route coordinates
+     * @param routeBuffer geometric buffer around route (pre-calculated)
+     * @param createdBy user creating obstacles
+     * @param createdAt creation timestamp
+     * @throws IllegalArgumentException if input invalid or obstacle too far from route
+     */
+    @Transactional
+    public void createAndSaveObstacles(List<ObstacleCreateRequest> obstacleRequests, BikePath bikePath,
+                                       List<Coordinate> routeCoordinates, Geometry routeBuffer,
+                                       User createdBy, OffsetDateTime createdAt) {
+        if (obstacleRequests == null || obstacleRequests.isEmpty())
+            return;
+        validateCreateObstaclesInput(bikePath, routeCoordinates, routeBuffer, createdBy, createdAt);
+        processNewObstacles(obstacleRequests, bikePath, routeCoordinates, routeBuffer, createdBy, createdAt);
     }
 
     /**
-     * OPTIMIZED: Updates existing obstacles and adds new ones to a bike path using BATCH INSERT.
-     * The route buffer is calculated ONCE by the caller and reused for new obstacles only.
-     * Workflow:
-     * 1. Update existing obstacles in-place (partial update - only non-null fields)
-     * 2. Create, validate, and BATCH INSERT new obstacles (using the pre-calculated buffer)
-     * @param bikePath the bike path to update
+     * Updates existing obstacles and creates new ones for bike path.
+     * Workflow: update existing (in-place, auto-persisted) → process new obstacles
+     * (validate, geocode, create, save, add, recalculate positions).
+     * @param bikePath bike path to update (must have obstacles loaded)
      * @param obstaclesToAdd new obstacles to add (nullable)
      * @param obstaclesToUpdate existing obstacles to modify (nullable)
-     * @param routeBuffer buffer of the route (pre-calculated, used only for new obstacles)
-     * @param updatedBy user performing the update
-     * @param updatedAt timestamp of update
-     * @throws IllegalArgumentException if obstacle ID not found or new obstacle too far from route
-     * @throws IllegalStateException if Mapbox geocoding service is unavailable
+     * @param routeCoordinates ordered route coordinates
+     * @param routeBuffer route buffer (pre-calculated, used only for new obstacles, nullable if none)
+     * @param updatedBy user performing update
+     * @param updatedAt update timestamp
+     * @throws IllegalArgumentException if obstacle ID not found or new obstacle too far
      */
-    public void updateObstacles(BikePath bikePath, List<ObstacleCreateRequest> obstaclesToAdd, List<ObstacleUpdateRequest> obstaclesToUpdate, Geometry routeBuffer, User updatedBy, OffsetDateTime updatedAt) {
-        // Step 1: Update existing obstacles in-place (no geocoding needed, no batch required)
-        if (obstaclesToUpdate != null && !obstaclesToUpdate.isEmpty()) {
+    @Transactional
+    public void updateAndSaveObstacles(BikePath bikePath, List<ObstacleCreateRequest> obstaclesToAdd,
+                                       List<ObstacleUpdateRequest> obstaclesToUpdate,
+                                       List<Coordinate> routeCoordinates, Geometry routeBuffer,
+                                       User updatedBy, OffsetDateTime updatedAt) {
+        // Update existing obstacles (managed entities - auto-persisted)
+        if (obstaclesToUpdate != null && !obstaclesToUpdate.isEmpty())
             updateExistingObstacles(bikePath, obstaclesToUpdate, updatedBy, updatedAt);
-        }
-        // Step 2: BATCH INSERT - Create, validate, and save new obstacles
+        // Create and save new obstacles
         if (obstaclesToAdd != null && !obstaclesToAdd.isEmpty()) {
-            List<Obstacle> newObstacles = createObstacles(obstaclesToAdd, bikePath, routeBuffer, updatedBy, updatedAt);
-            obstacleRepository.saveAll(newObstacles);
-            entityManager.flush();
+            validateCreateObstaclesInput(bikePath, routeCoordinates, routeBuffer, updatedBy, updatedAt);
+            processNewObstacles(obstaclesToAdd, bikePath, routeCoordinates, routeBuffer, updatedBy, updatedAt);
         }
+    }
+
+    /**
+     * Calculates obstacle component of bike path score using inverted logistic model.
+     * Pure function, doesn't modify entities.
+     * Algorithm: filter active → calculate average severity → calculate impact density →
+     * apply logistic model: MAX_SCORE / (1 + impact/k).
+     * Result range: no obstacles = MAX_SCORE, high impact → 0 (asymptotic).
+     * @param obstacles list of obstacles
+     * @param totalDistance bike path distance in km
+     * @return obstacle score in [0.0, MAX_SCORE] with 2 decimal precision
+     */
+    public BigDecimal calculateObstacleScore(List<Obstacle> obstacles, BigDecimal totalDistance) {
+        // Filter active obstacles
+        List<Obstacle> activeObstacles = obstacles.stream()
+                .filter(Obstacle::getActive)
+                .toList();
+        if (activeObstacles.isEmpty())
+            return BigDecimal.valueOf(MAX_SCORE).setScale(2, RoundingMode.HALF_UP);
+        // Calculate impact and apply logistic model
+        double avgSeverity = calculateAverageSeverity(activeObstacles);
+        double distance = Math.max(totalDistance.doubleValue(), MIN_DISTANCE_KM);
+        double impact = calculateImpactDensity(activeObstacles.size(), avgSeverity, distance);
+        double obstacleScore = applyLogisticModel(impact);
+        return BigDecimal.valueOf(obstacleScore).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Recalculates positions for all obstacles and sorts them.
+     * Uses SpatialService to project obstacles onto route and assign 1-indexed positions.
+     * Replaces temporary positions (0) with correct final positions.
+     * Changes auto-persisted via JPA dirty checking.
+     * @param bikePath bike path containing obstacles
+     * @param routeCoordinates ordered route coordinates
+     */
+    private void recalculateAllObstaclePositions(BikePath bikePath, List<Coordinate> routeCoordinates) {
+        List<Obstacle> allObstacles = new ArrayList<>(bikePath.getObstacles());
+        if (allObstacles.isEmpty())
+            return;
+        // Create map of obstacle ID → coordinate (O(n) optimization)
+        Map<Long, Coordinate> obstacleCoordinateMap = allObstacles.stream()
+                .collect(Collectors.toMap(
+                        Obstacle::getId,
+                        obstacle -> Coordinate.toCoordinate(
+                                obstacle.getLatitude(),
+                                obstacle.getLongitude()
+                        )
+                ));
+        // Calculate positions via SpatialService
+        Map<Long, Integer> obstaclePositions = spatialService.orderObstaclesAlongRoute(
+                routeCoordinates,
+                obstacleCoordinateMap
+        );
+        // Update positions (auto-persisted)
+        for (Obstacle obstacle : allObstacles) {
+            Integer position = obstaclePositions.get(obstacle.getId());
+            obstacle.setPositionOnPath(position);
+        }
+        sortObstaclesByPositionOnPath(bikePath.getObstacles());
+    }
+
+    /**
+     * Sorts obstacles collection in memory by position on path.
+     * Ensures consistency with entity ordering after in-memory modifications.
+     * Database OrderBy annotation only applies when loading, so explicit sort needed after updates.
+     * @param obstacles list of obstacles to sort (modified in place)
+     */
+    private void sortObstaclesByPositionOnPath(List<Obstacle> obstacles) {
+        if (obstacles != null && !obstacles.isEmpty())
+            obstacles.sort(Comparator.comparing(Obstacle::getPositionOnPath));
+    }
+
+    /**
+     * Complete workflow for adding new obstacles.
+     * Geocodes, validates, creates, saves, adds to bikePath, and recalculates positions.
+     * Eliminates duplication between createAndSaveObstacles and updateAndSaveObstacles.
+     * @param requests obstacle creation requests
+     * @param bikePath bike path entity (must be saved with ID)
+     * @param routeCoordinates ordered route coordinates
+     * @param routeBuffer geometric buffer around route
+     * @param user user creating/updating obstacles
+     * @param timestamp creation/update timestamp
+     */
+    private void processNewObstacles(List<ObstacleCreateRequest> requests,
+                                     BikePath bikePath,
+                                     List<Coordinate> routeCoordinates,
+                                     Geometry routeBuffer,
+                                     User user,
+                                     OffsetDateTime timestamp) {
+        // Geocode all addresses
+        List<String> addresses = requests.stream()
+                .map(ObstacleCreateRequest::address)
+                .toList();
+        List<GeocodeResult> geocodeResults = mapboxService.geocodeAddresses(addresses);
+        // Validate proximity to route
+        validateObstaclesProximity(geocodeResults, routeBuffer);
+        // Create entities with temporary positions
+        List<Obstacle> obstacles = obstacleMapper.toEntities(
+                requests,
+                geocodeResults,
+                bikePath,
+                user,
+                timestamp,
+                null,
+                null,
+                DEFAULT_ACTIVE_STATUS,
+                Collections.nCopies(requests.size(), TEMPORARY_POSITION)
+        );
+        // Batch save to database
+        List<Obstacle> savedObstacles = obstacleRepository.saveAll(obstacles);
+        // Add to bikePath collection
+        savedObstacles.forEach(bikePath::addObstacle);
+        // Recalculate all positions
+        recalculateAllObstaclePositions(bikePath, routeCoordinates);
+    }
+
+    /**
+     * Validates input parameters for creating obstacles.
+     * @param bikePath bike path (must not be null)
+     * @param routeCoordinates route coordinates (must not be null or empty)
+     * @param routeBuffer route buffer (must not be null)
+     * @param createdBy user creating obstacles (must not be null)
+     * @param createdAt creation timestamp (must not be null)
+     * @throws IllegalArgumentException if any parameter null or invalid
+     */
+    private void validateCreateObstaclesInput(BikePath bikePath, List<Coordinate> routeCoordinates,
+                                              Geometry routeBuffer, User createdBy, OffsetDateTime createdAt) {
+        if (bikePath == null)
+            throw new IllegalArgumentException("BikePath cannot be null");
+        if (routeCoordinates == null || routeCoordinates.isEmpty())
+            throw new IllegalArgumentException("Route coordinates cannot be null or empty");
+        if (routeBuffer == null)
+            throw new IllegalArgumentException("Route buffer cannot be null");
+        if (createdBy == null)
+            throw new IllegalArgumentException("User (createdBy) cannot be null");
+        if (createdAt == null)
+            throw new IllegalArgumentException("Creation timestamp (createdAt) cannot be null");
+    }
+
+    /**
+     * Validates all obstacles are within route buffer using SpatialService.
+     * Ensures reported obstacles are actually on or near bike path.
+     * @param geocodeResults geocoded obstacle coordinates
+     * @param routeBuffer geometric buffer around route
+     * @throws ObstacleTooFarException if any obstacle outside buffer
+     */
+    private void validateObstaclesProximity(List<GeocodeResult> geocodeResults, Geometry routeBuffer) {
+        geocodeResults.stream()
+                .filter(result -> !spatialService.isCoordinateInGeometry(result.coordinate(), routeBuffer))
+                .findFirst()
+                .ifPresent(result -> {
+                    throw new ObstacleTooFarException(
+                            "Obstacle at address '" + result.address() + "' is too far from the bike path route"
+                    );
+                });
+    }
+
+    /**
+     * Validates all obstacles to update belong to specified bike path.
+     * @param bikePath bike path containing obstacles
+     * @param updates list of obstacle update requests
+     * @throws ObstacleNotFoundException if obstacle ID not found in bike path
+     */
+    private void validateObstaclesBelongToBikePath(BikePath bikePath, List<ObstacleUpdateRequest> updates) {
+        Map<Long, Obstacle> obstacleMap = bikePath.getObstacles().stream()
+                .collect(Collectors.toMap(Obstacle::getId, Function.identity()));
+        for (ObstacleUpdateRequest update : updates) {
+            if (!obstacleMap.containsKey(update.id()))
+                throw new ObstacleNotFoundException("Obstacle with ID " + update.id() + " not found in this bike path");
+        }
+    }
+
+    /**
+     * Calculates average severity level across obstacles.
+     * @param obstacles list of obstacles (must not be empty)
+     * @return average severity level, or 0.0 if empty
+     */
+    private double calculateAverageSeverity(List<Obstacle> obstacles) {
+        return obstacles.stream()
+                .mapToInt(obstacle -> obstacle.getSeverity().getSeverityLevel())
+                .average()
+                .orElse(0.0);
+    }
+
+    /**
+     * Calculates impact density for obstacle score.
+     * Formula: (count × avgSeverity) / distance
+     * @param obstacleCount number of active obstacles
+     * @param avgSeverity average severity level
+     * @param distance bike path distance in km (must be > 0)
+     * @return impact density value
+     */
+    private double calculateImpactDensity(int obstacleCount, double avgSeverity, double distance) {
+        return (obstacleCount * avgSeverity) / distance;
+    }
+
+    /**
+     * Applies inverted logistic model to calculate obstacle score.
+     * Formula: MAX_SCORE / (1 + impact/k)
+     * Creates asymptotic penalty: low impact → MAX_SCORE, high impact → 0.
+     * @param impact calculated impact density
+     * @return obstacle score in [0, MAX_SCORE]
+     */
+    private double applyLogisticModel(double impact) {
+        return MAX_SCORE / (1.0 + (impact / K));
     }
 
     /**
      * Updates fields of existing obstacles (partial update).
-     * Only non-null fields in the update request are modified.
-     * Validates that all obstacles to update actually belong to the bike path.
-     * @param bikePath the bike path containing the obstacles
+     * Only non-null fields modified. Changes auto-persisted via JPA dirty checking.
+     * @param bikePath bike path containing obstacles
      * @param updates list of obstacle update requests
-     * @param updatedBy user performing the update
-     * @param updatedAt timestamp of update
-     * @throws IllegalArgumentException if an obstacle ID is not found in the bike path
+     * @param updatedBy user performing update
+     * @param updatedAt update timestamp
+     * @throws ObstacleNotFoundException if obstacle ID not found
      */
-    private void updateExistingObstacles(BikePath bikePath, List<ObstacleUpdateRequest> updates, User updatedBy, OffsetDateTime updatedAt) {
-        // Create a map for efficient obstacle lookup by ID
-        Map<Long, Obstacle> obstacleMap = bikePath.getObstacles().stream().collect(Collectors.toMap(Obstacle::getId, obstacle -> obstacle));
-        // Process each update request
+    private void updateExistingObstacles(BikePath bikePath, List<ObstacleUpdateRequest> updates,
+                                         User updatedBy, OffsetDateTime updatedAt) {
+        validateObstaclesBelongToBikePath(bikePath, updates);
+        // Create map for efficient lookup
+        Map<Long, Obstacle> obstacleMap = bikePath.getObstacles().stream()
+                .collect(Collectors.toMap(Obstacle::getId, Function.identity()));
+        // Process updates
         for (ObstacleUpdateRequest update : updates) {
-            Obstacle obstacle = obstacleMap.get(update.getId());
-            // Validate that the obstacle belongs to this bike path
-            if (obstacle == null)
-                throw new IllegalArgumentException("Obstacle with ID " + update.getId() + " not found in this bike path");
-            //
-            if (!obstacle.getVersion().equals(update.getVersion()))
-                throw new OptimisticLockException("Obstacle with ID " + update.getId() + " has been modified by another user. Please refresh and try again");
-            // Partial update - only update non-null fields
-            if (update.getType() != null)
-                obstacle.setType(update.getType());
-            if (update.getSeverity() != null)
-                obstacle.setSeverity(update.getSeverity());
-            if (update.getActive() != null)
-                obstacle.setActive(update.getActive());
-            // Update audit fields
+            Obstacle obstacle = obstacleMap.get(update.id());
+            // Partial update - only non-null fields
+            if (update.type() != null)
+                obstacle.setType(update.type());
+            if (update.severity() != null)
+                obstacle.setSeverity(update.severity());
+            if (update.active() != null)
+                obstacle.setActive(update.active());
             obstacle.setUpdatedBy(updatedBy);
             obstacle.setUpdatedAt(updatedAt);
         }
-    }
-
-    /**
-     * Validates that ALL obstacles are within the route buffer using JTS geometric operations.
-     * Uses batch validation for optimal performance - the buffer is passed in pre-calculated.
-     * This method ensures that reported obstacles are actually on or near the bike path,
-     * preventing users from adding irrelevant obstacles far from the route.
-     * @param geocodeResults geocoded coordinates of the obstacles
-     * @param routeBuffer geometric buffer around the bike path route
-     * @throws IllegalArgumentException if any obstacle is outside the buffer (too far from route)
-     */
-    private void validateObstaclesProximity(List<GeocodeResult> geocodeResults, Geometry routeBuffer) {
-        for (GeocodeResult result : geocodeResults) {
-            // Create JTS Point for the obstacle
-            Point obstaclePoint = geometryFactory.createPoint(new Coordinate(result.getCoordinate().getLongitude(), result.getCoordinate().getLatitude()));
-            // Check if the point is within the buffer
-            if (!routeBuffer.contains(obstaclePoint))
-                throw new IllegalArgumentException("Obstacle at address '" + result.getAddress() + "' is too far from the bike path route");
-        }
-    }
-
-    /**
-     * Calculates the obstacle component of the bike path score using an inverted logistic model.
-     * Algorithm:
-     * 1. Filter only active obstacles (active=true)
-     * 2. If no active obstacles: return 5.0 (perfect score)
-     * 3. Calculate average severity across active obstacles
-     * 4. Calculate impact density: (numActive × avgSeverity) / distance
-     * 5. Apply logistic model: scoreObstacles = 5.0 / (1 + impact/k)
-     * The logistic model ensures:
-     * - No obstacles → score = 5.0 (maximum)
-     * - Low impact → score ≈ 4-5 (minor penalty)
-     * - Medium impact → score ≈ 2-3 (significant penalty)
-     * - High impact → score → 0 (severe penalty, asymptotic)
-     * The parameter k controls sensitivity:
-     * - Lower k = more severe penalties
-     * - Higher k = more tolerant system
-     * @param obstacles list of obstacles associated with the bike path
-     * @param totalDistance total distance of the bike path in km
-     * @return obstacle score in range [0, 5] with 2 decimal precision
-     */
-    public BigDecimal calculateObstacleScore(List<Obstacle> obstacles, BigDecimal totalDistance) {
-        // Filter active obstacles only
-        List<Obstacle> activeObstacles = obstacles.stream()
-                .filter(Obstacle::getActive)
-                .toList();
-        // If no active obstacles, perfect obstacle score
-        if (activeObstacles.isEmpty())
-            return BigDecimal.valueOf(5.0).setScale(2, RoundingMode.HALF_UP);
-        // Calculate average severity level
-        double avgSeverity = activeObstacles.stream()
-                .mapToInt(obstacle -> obstacle.getSeverity().getSeverityLevel())
-                .average()
-                .orElse(0.0);
-        // Get distance in km (ensure minimum to avoid division by zero)
-        double distance = totalDistance.doubleValue();
-        distance = Math.max(distance, 0.001); // Minimum 1 meter
-        // Calculate impact density: (number × severity) / distance
-        int numActive = activeObstacles.size();
-        double impact = (numActive * avgSeverity) / distance;
-        // Apply inverted logistic model: 5.0 / (1 + impact/k)
-        double obstacleScore = 5.0 / (1.0 + (impact / K));
-        // Return as BigDecimal with 2 decimal precision
-        return BigDecimal.valueOf(obstacleScore).setScale(2, RoundingMode.HALF_UP);
     }
 
 }

@@ -99,7 +99,7 @@ class BikePathServiceTest {
         when(bikePathRepository.findByIdWithPoints(100L)).thenReturn(Optional.of(bp));
 
         // execute
-        BikePath result = bikePathService.createBikePathManual(req);
+        BikePath result = bikePathService.createBikePathManually(req);
 
         // verify
         assertNotNull(result);

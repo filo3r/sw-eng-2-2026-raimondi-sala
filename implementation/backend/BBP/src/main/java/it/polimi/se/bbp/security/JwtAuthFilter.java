@@ -18,9 +18,9 @@ import java.io.IOException;
 import java.util.Collections;
 
 /**
- * JWT Authentication Filter that intercepts HTTP requests to validate JWT tokens.
- * This filter runs once per request and checks for valid JWT tokens in the Authorization header.
- * Stores userId as principal in SecurityContext for efficient retrieval.
+ * JWT Authentication Filter that validates JWT tokens in HTTP requests.
+ * Runs once per request, checks Authorization header for valid JWT tokens.
+ * Stores userId as principal in SecurityContext.
  * All authenticated users have ROLE_USER by default.
  */
 @Component
@@ -28,24 +28,22 @@ import java.util.Collections;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     /**
-     * Service for handling JWT token operations such as extraction, validation, and generation.
+     * Service for JWT token operations (extraction, validation, generation).
      */
     private final JwtService jwtService;
 
     /**
      * Repository to verify user existence.
-     * This ensures that deleted users cannot access the API even with valid tokens.
+     * Ensures deleted users cannot access API even with valid tokens.
      */
     private final UserRepository userRepository;
 
     /**
      * Filters incoming requests to validate JWT tokens.
-     * If a valid token is found, the userId is stored in the security context as principal.
+     * If valid token found, userId stored in security context as principal.
      * @param request HTTP request
      * @param response HTTP response
      * @param filterChain filter chain
-     * @throws ServletException if a servlet error occurs
-     * @throws IOException if an I/O error occurs
      */
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {

@@ -7,27 +7,27 @@ import java.util.Optional;
 
 /**
  * Repository interface for User entity.
- * Provides methods to interact with the user database table.
+ * Provides database access methods for users.
  */
 public interface UserRepository extends JpaRepository<User, Long> {
 
     /**
-     * Finds a user by email.
-     * @param email the email to search for
-     * @return Optional containing the user if found
+     * Finds user by email.
+     * @param email email to search for
+     * @return Optional containing user if found
      */
     Optional<User> findByEmail(String email);
 
     /**
-     * Checks if a username already exists.
-     * @param username the username to check
+     * Checks if username exists.
+     * @param username username to check
      * @return true if username exists, false otherwise
      */
     boolean existsByUsername(String username);
 
     /**
-     * Checks if an email already exists.
-     * @param email the email to check
+     * Checks if email exists.
+     * @param email email to check
      * @return true if email exists, false otherwise
      */
     boolean existsByEmail(String email);

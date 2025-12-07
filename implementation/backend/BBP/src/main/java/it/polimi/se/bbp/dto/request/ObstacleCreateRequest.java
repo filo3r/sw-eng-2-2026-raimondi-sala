@@ -5,49 +5,40 @@ import it.polimi.se.bbp.enums.ObstacleType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 /**
- * DTO for creating a new obstacle on a bike path.
- * Contains the user-provided data needed to create an obstacle.
- * The address will be geocoded to obtain coordinates.
- * The 'active' field is always set to true when creating a new obstacle.
+ * Request for creating a new obstacle on a bike path.
+ * Address will be geocoded to obtain coordinates.
+ * All newly created obstacles are automatically set to active=true.
+ * @param address address or location description (will be geocoded, max 256 chars)
+ * @param type type or category of the obstacle
+ * @param severity severity level of the obstacle
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class ObstacleCreateRequest {
+public record ObstacleCreateRequest(
 
-    /**
-     * The address or location description of the obstacle.
-     * This will be geocoded to obtain latitude and longitude coordinates.
-     * This field is required and cannot exceed 256 characters.
-     */
-    @NotBlank(message = "Obstacle address is required")
-    @Size(max = 256, message = "Obstacle address must not exceed 256 characters")
-    private String address;
+        /*
+         * Address or location description of the obstacle.
+         * Will be geocoded to obtain coordinates.
+         * Maximum 256 characters.
+         */
+        @NotBlank(message = "Obstacle address is required")
+        @Size(max = 256, message = "Obstacle address must not exceed 256 characters")
+        String address,
 
-    /**
-     * The type or category of the obstacle.
-     * This field is required and describes the nature of the problem.
-     * Examples: POTHOLE, DEBRIS, CONSTRUCTION, etc.
-     */
-    @NotNull(message = "Obstacle type is required")
-    private ObstacleType type;
+        /*
+         * Type or category of the obstacle.
+         * Examples: POTHOLE, DEBRIS, CONSTRUCTION.
+         */
+        @NotNull(message = "Obstacle type is required")
+        ObstacleType type,
 
-    /**
-     * The severity level of the obstacle.
-     * This field is required and indicates how serious the problem is.
-     * Possible values: LOW, MEDIUM, HIGH, CRITICAL.
-     */
-    @NotNull(message = "Obstacle severity is required")
-    private ObstacleSeverity severity;
+        /*
+         * Severity level of the obstacle.
+         * Possible values: LOW, MEDIUM, HIGH, CRITICAL.
+         */
+        @NotNull(message = "Obstacle severity is required")
+        ObstacleSeverity severity
 
-    // Note: 'active' field is not included in the request.
-    // All newly created obstacles are automatically set to active=true.
+        // Note: All newly created obstacles are automatically set to active=true.
 
-}
+) {}

@@ -4,6 +4,7 @@ import it.polimi.se.bbp.dto.request.UserUpdateRequest;
 import it.polimi.se.bbp.dto.response.UserResponse;
 import it.polimi.se.bbp.entity.User;
 import it.polimi.se.bbp.mapper.response.UserResponseMapper;
+import it.polimi.se.bbp.service.UserAuthService;
 import it.polimi.se.bbp.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,27 +27,32 @@ public class UserController {
     private final UserService userService;
 
     /**
-     *
+     * Service for authentication operations.
+     */
+    private final UserAuthService userAuthService;
+
+    /**
+     * Mapper for converting User entities to UserResponse DTOs.
      */
     private final UserResponseMapper userResponseMapper;
 
     /**
-     * Retrieves the current authenticated user's data.
-     * @return ResponseEntity with HTTP 200 OK status and user data
+     * Retrieves current authenticated user's data.
+     * @return user data with HTTP 200 OK
      */
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentUser() {
-        User user = userService.getCurrentUser();
+        User user = userAuthService.getAuthenticatedUser();
         UserResponse response = userResponseMapper.toResponse(user);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
     /**
-     * Updates the current authenticated user's data.
+     * Updates current authenticated user's data.
      * Only provided fields will be updated (partial update).
-     * The user can only modify their own data.
-     * @param request the update request containing fields to modify
-     * @return ResponseEntity with HTTP 200 OK status and updated user data
+     * User can only modify their own data.
+     * @param request update request containing fields to modify
+     * @return updated user data with HTTP 200 OK
      */
     @PatchMapping("/me")
     public ResponseEntity<UserResponse> updateCurrentUser(@Valid @RequestBody UserUpdateRequest request) {
@@ -56,10 +62,10 @@ public class UserController {
     }
 
     /**
-     * Deletes the current authenticated user's account.
-     * All associated data (trips, bike paths, etc.) will be deleted according to cascade rules.
-     * After deletion, the JWT token will become invalid automatically.
-     * @return ResponseEntity with HTTP 204 NO CONTENT status
+     * Deletes current authenticated user's account.
+     * All associated data deleted according to cascade rules.
+     * JWT token becomes invalid after deletion.
+     * @return HTTP 204 NO CONTENT
      */
     @DeleteMapping("/me")
     public ResponseEntity<Void> deleteCurrentUser() {

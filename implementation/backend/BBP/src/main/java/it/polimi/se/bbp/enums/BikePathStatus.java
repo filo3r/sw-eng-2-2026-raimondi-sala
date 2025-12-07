@@ -8,9 +8,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Enum representing the maintenance and condition status of a bike path in the BBP system.
- * Each status has an associated score used for path quality assessment and routing calculations.
- * Status information can be provided by users either manually or automatically through GPS tracking.
+ * Maintenance and condition status of a bike path.
+ * Each status has an associated score for quality assessment and routing.
+ * Can be provided manually or through GPS tracking.
  */
 @Getter
 @RequiredArgsConstructor
@@ -43,19 +43,19 @@ public enum BikePathStatus {
     PERMANENTLY_CLOSED(null, "Permanently Closed");
 
     /**
-     * The numeric score associated with this status.
-     * Higher scores indicate better path conditions.
-     * Null for statuses that don't represent quality conditions (e.g., closed or under maintenance).
+     * Numeric score for this status.
+     * Higher scores indicate better conditions.
+     * Null for non-quality statuses (closed or under maintenance).
      */
     private final Integer statusScore;
 
     /**
-     * The human-readable description of this status.
+     * Human-readable description of this status.
      */
     private final String statusDescription;
 
     /**
-     * Immutable map for quick lookup of status by score.
+     * Immutable map for quick lookup by score.
      * Only contains statuses with non-null scores.
      */
     private static final Map<Integer, BikePathStatus> SCORE_MAP =
@@ -67,9 +67,9 @@ public enum BikePathStatus {
                     ));
 
     /**
-     * Retrieves the bike path status corresponding to the given score.
-     * @param score the numeric status score (1-10)
-     * @return the BikePathStatus enum constant matching the score
+     * Retrieves bike path status by score.
+     * @param score numeric status score (1-10)
+     * @return BikePathStatus matching the score
      * @throws IllegalArgumentException if no status exists for the given score
      */
     public static BikePathStatus fromStatusScore(int score) {

@@ -4,6 +4,7 @@ import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -11,70 +12,57 @@ import org.springframework.web.client.RestClient;
 import java.time.Duration;
 
 /**
- * Configuration class for Open-Meteo API integration.
- * Provides a configured RestClient bean for making HTTP requests to Open-Meteo weather services.
- * Open-Meteo is a free, open-source weather API that doesn't require authentication.
- * Uses the Forecast API which can retrieve both forecast and recent historical data.
- * Historical data is available for approximately the last 3 months.
- * Timezone handling: All API calls use 'timezone=UTC' parameter, which returns
- * timestamps in Coordinated Universal Time (UTC/GMT+0). This ensures consistent
- * timestamp formatting across all weather data requests regardless of location.
+ * Configuration for Open-Meteo API integration.
+ * Sets up RestClient for the free weather API service.
+ * Uses Forecast API which provides historical data for the last 3 months.
+ * All timestamps are returned in UTC timezone.
  */
 @Configuration
 @Getter
 public class OpenMeteoConfig {
 
     /**
-     * The base URL for Open-Meteo Forecast API endpoints.
-     * Injected from application.properties via the property 'open-meteo.api.base-url'.
+     * Base URL for Open-Meteo Forecast API.
      */
     @Value("${open-meteo.api.base-url}")
     private String baseUrl;
 
     /**
-     * The endpoint path for forecast weather data (can retrieve historical data for recent dates).
-     * Injected from application.properties via the property 'open-meteo.api.forecast.endpoint'.
+     * Endpoint path for forecast and historical weather data.
      */
     @Value("${open-meteo.api.forecast.endpoint}")
     private String forecastEndpoint;
 
     /**
-     * The timezone parameter for weather data requests.
-     * Set to 'UTC' to receive all timestamps in Coordinated Universal Time.
-     * Injected from application.properties via the property 'open-meteo.api.timezone'.
+     * Timezone parameter for API requests, set to UTC for consistent timestamps.
      */
     @Value("${open-meteo.api.timezone}")
     private String timezone;
 
     /**
-     * Connection and read timeout in milliseconds for HTTP requests to Open-Meteo API.
-     * Injected from application.properties via the property 'open-meteo.api.timeout'.
+     * Connection and read timeout in milliseconds for Open-Meteo API requests.
      */
     @Value("${open-meteo.api.timeout}")
     private int timeout;
 
     /**
-     * Creates and configures a RestClient bean specifically for Open-Meteo API calls.
-     * The client is pre-configured with:
-     * - Base URL pointing to Open-Meteo API
-     * - Connection and read timeouts
-     * - Default headers for JSON content
-     * Note: Open-Meteo is free and doesn't require API keys or authentication.
-     * @return a configured RestClient instance for Open-Meteo API
+     * Creates a RestClient configured for Open-Meteo API calls.
+     * Includes base URL, timeouts, and JSON accept header.
+     * No authentication required as Open-Meteo is a free service.
+     * @return configured RestClient for Open-Meteo API
      */
     @Bean(name = "openMeteoRestClient")
     public RestClient openMeteoRestClient() {
         return RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(clientHttpRequestFactory())
-                .defaultHeader("Content-Type", "application/json")
+                .defaultHeader("Accept", MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 
     /**
-     * Creates a ClientHttpRequestFactory with configured timeouts.
-     * This factory is used by RestClient to create HTTP connections.
-     * @return configured ClientHttpRequestFactory with timeout settings
+     * Creates a request factory with configured timeouts.
+     * @return ClientHttpRequestFactory with connection and read timeouts
      */
     private ClientHttpRequestFactory clientHttpRequestFactory() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();

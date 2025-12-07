@@ -4,48 +4,73 @@ import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterConfig;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import it.polimi.se.bbp.config.mapbox.MapboxConfig;
-import it.polimi.se.bbp.dto.mapbox.Coordinate;
-import it.polimi.se.bbp.dto.mapbox.CyclingRouteResult;
-import it.polimi.se.bbp.dto.mapbox.GeocodeResult;
-import it.polimi.se.bbp.mapper.mapbox.CyclingRouteResultMapper;
-import it.polimi.se.bbp.mapper.mapbox.GeocodeResultMapper;
-import lombok.extern.slf4j.Slf4j;
+import it.polimi.se.bbp.dto.mapbox.MapboxGeocodeResponse;
+import it.polimi.se.bbp.dto.mapbox.MapboxDirectionsResponse;
+import it.polimi.se.bbp.exception.mapbox.*;
+import it.polimi.se.bbp.geo.Coordinate;
+import it.polimi.se.bbp.dto.result.CyclingRouteResult;
+import it.polimi.se.bbp.dto.result.GeocodeResult;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.client.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 /**
  * Service for interacting with Mapbox APIs.
- * Provides geocoding via Search Box API and route calculation for cycling routes.
- * Optimized with:
- * - Caching at chunk level to maximize cache hit rate and API call reuse
- * - Parallel processing using Virtual Threads
- * - Rate limiting to respect Mapbox API limits (10 req/sec geocoding, 5 req/sec directions)
- * - Self-injection pattern to enable cache on internal method calls
+ * Provides geocoding (Search Box API) and cycling route calculation (Directions API).
+ * Optimized with caching at chunk level, parallel processing using Virtual Threads,
+ * and rate limiting (10 req/sec geocoding, 5 req/sec directions).
+ * Uses self-injection pattern to enable cache on internal method calls.
  */
 @Service
-@Slf4j
 public class MapboxService {
 
     /**
-     * Maximum number of waypoints allowed per Mapbox Directions API call.
+     * Maximum waypoints per Mapbox Directions API call.
      */
     private static final int MAX_WAYPOINTS_PER_REQUEST = 25;
 
     /**
-     * RestClient configured specifically for Mapbox API calls.
+     * Maximum geocoding requests per second.
+     */
+    private static final int GEOCODING_REQUESTS_PER_SECOND = 10;
+
+    /**
+     * Maximum directions requests per second.
+     */
+    private static final int DIRECTIONS_REQUESTS_PER_SECOND = 5;
+
+    /**
+     * Rate limiter refresh period in seconds.
+     */
+    private static final int RATE_LIMIT_REFRESH_PERIOD_SECONDS = 1;
+
+    /**
+     * Maximum wait time for rate limiter permission in seconds.
+     */
+    private static final int RATE_LIMITER_TIMEOUT_SECONDS = 5;
+
+    /**
+     * Parallel geocoding batch size.
+     * Controls concurrency towards RateLimiter. Lower values increase stability under
+     * high concurrent load, higher values maximize throughput for single requests.
+     */
+    private static final int GEOCODING_BATCH_SIZE = 10;
+
+    /**
+     * RestClient configured for Mapbox API calls.
      */
     private final RestClient mapboxRestClient;
 
@@ -55,98 +80,86 @@ public class MapboxService {
     private final MapboxConfig mapboxConfig;
 
     /**
-     * Mapper for parsing Mapbox Geocoding API responses into GeocodeResult DTOs.
-     */
-    private final GeocodeResultMapper geocodeResultMapper;
-
-    /**
-     * Mapper for parsing Mapbox Directions API responses into CyclingRouteResult DTOs.
-     */
-    private final CyclingRouteResultMapper cyclingRouteResultMapper;
-
-    /**
      * Executor service for parallel geocoding operations.
      */
     private final ExecutorService executorService;
 
     /**
-     * Rate limiter for geocoding API (10 requests per second).
+     * Rate limiter for geocoding API (10 requests/second).
      */
     private final RateLimiter geocodingRateLimiter;
 
     /**
-     * Rate limiter for directions API (5 requests per second).
+     * Rate limiter for directions API (5 requests/second).
      */
     private final RateLimiter directionsRateLimiter;
 
     /**
-     * Self-reference to this service's Spring proxy.
-     * Used to enable cache interception on internal method calls.
-     * The Lazy annotation prevents circular dependency issues during bean initialization.
+     * Self-reference to Spring proxy.
+     * Enables cache interception on internal method calls.
+     * Lazy annotation prevents circular dependency.
      */
     private final MapboxService self;
 
     /**
-     * Endpoint path for the Mapbox Search Box Forward API.
+     * Mapbox Search Box Forward API endpoint path.
      */
     @Value("${mapbox.api.searchbox.forward.endpoint}")
     private String searchBoxForwardEndpoint;
 
     /**
-     * Endpoint path for the Mapbox Directions API.
+     * Mapbox Directions API endpoint path.
      */
     @Value("${mapbox.api.directions.endpoint}")
     private String directionsEndpoint;
 
     /**
-     * Constructor for dependency injection.
      * Initializes Virtual Thread executor and rate limiters.
-     * @param mapboxRestClient RestClient configured for Mapbox API calls
-     * @param mapboxConfig Configuration bean for Mapbox API settings
-     * @param geocodeResultMapper Mapper for geocoding responses
-     * @param cyclingRouteResultMapper Mapper for directions responses
+     * @param mapboxRestClient RestClient configured for Mapbox API
+     * @param mapboxConfig Mapbox API configuration
+     * @param self self-reference for cache interception
      */
-    public MapboxService(@Qualifier("mapboxRestClient") RestClient mapboxRestClient, MapboxConfig mapboxConfig, GeocodeResultMapper geocodeResultMapper, CyclingRouteResultMapper cyclingRouteResultMapper, @Lazy MapboxService self) {
+    public MapboxService(@Qualifier("mapboxRestClient") RestClient mapboxRestClient, MapboxConfig mapboxConfig, @Lazy MapboxService self) {
         this.mapboxRestClient = mapboxRestClient;
         this.mapboxConfig = mapboxConfig;
-        this.geocodeResultMapper = geocodeResultMapper;
-        this.cyclingRouteResultMapper = cyclingRouteResultMapper;
         this.executorService = Executors.newVirtualThreadPerTaskExecutor();
         this.geocodingRateLimiter = RateLimiter.of("geocoding", RateLimiterConfig.custom()
-                .limitForPeriod(10)
-                .limitRefreshPeriod(Duration.ofSeconds(1))
-                .timeoutDuration(Duration.ofSeconds(5))
+                .limitForPeriod(GEOCODING_REQUESTS_PER_SECOND)
+                .limitRefreshPeriod(Duration.ofSeconds(RATE_LIMIT_REFRESH_PERIOD_SECONDS))
+                .timeoutDuration(Duration.ofSeconds(RATE_LIMITER_TIMEOUT_SECONDS))
                 .build());
         this.directionsRateLimiter = RateLimiter.of("directions", RateLimiterConfig.custom()
-                .limitForPeriod(5)
-                .limitRefreshPeriod(Duration.ofSeconds(1))
-                .timeoutDuration(Duration.ofSeconds(5))
+                .limitForPeriod(DIRECTIONS_REQUESTS_PER_SECOND)
+                .limitRefreshPeriod(Duration.ofSeconds(RATE_LIMIT_REFRESH_PERIOD_SECONDS))
+                .timeoutDuration(Duration.ofSeconds(RATE_LIMITER_TIMEOUT_SECONDS))
                 .build());
         this.self = self;
     }
 
     /**
-     * Converts an address string to geographic coordinates using Mapbox Search Box Forward API.
-     * Results are cached to avoid repeated API calls for the same address.
-     * Rate limited to 10 requests per second.
-     * Searches only for street, address, and POI types.
-     * Exception handling:
-     * - IllegalArgumentException: Invalid address (no results found) → 400 BAD_REQUEST
-     * - IllegalStateException: Mapbox service unavailable → 503 SERVICE_UNAVAILABLE
-     * @param address the address to geocode (e.g., "Via Roma, 10, Milano, Italy")
-     * @return GeocodeResult containing the formatted address and coordinates
-     * @throws IllegalArgumentException if no results are found for the address
-     * @throws IllegalStateException if the Mapbox service is unavailable or rate limit is exceeded
+     * Converts address to coordinates using Mapbox Search Box Forward API.
+     * Results cached, rate limited to 10 req/sec.
+     * Searches street, address, and POI types only.
+     * @param address address to geocode (e.g., "Via Roma, 10, Milano, Italy")
+     * @return GeocodeResult with formatted address and coordinates
+     * @throws IllegalArgumentException if address is null or blank
+     * @throws InvalidAddressException if address not found
+     * @throws MapboxRateLimitException if rate limit exceeded
+     * @throws MapboxTimeoutException if request times out
+     * @throws MapboxApiException if Mapbox returns error or malformed response
      */
     @Cacheable(value = "geocoding", key = "#address.trim().toLowerCase().replaceAll('\\s+', ' ').replaceAll('[,.]', '')", sync = true)
     public GeocodeResult geocodeAddress(String address) {
+        // Defensive check
+        if (address == null || address.isBlank())
+            throw new IllegalArgumentException("Address cannot be null or blank");
+        // Acquire rate limiter permit
         try {
-            // Acquire rate limiter permit (blocks if necessary, throws RequestNotPermitted after timeout)
             RateLimiter.waitForPermission(geocodingRateLimiter);
         } catch (RequestNotPermitted e) {
-            log.warn("Geocoding rate limit exceeded", e);
-            throw new IllegalStateException("Geocoding service is temporarily unavailable due to high traffic. Please try again later.", e);
+            throw new MapboxRateLimitException("Geocoding service is temporarily unavailable due to high traffic. Please try again later.", e);
         }
+        // Execute Mapbox API request and handle infrastructure exceptions
         try {
             // Build the API request URL with query parameters
             String url = UriComponentsBuilder.fromPath(searchBoxForwardEndpoint)
@@ -156,61 +169,101 @@ public class MapboxService {
                     .queryParam("limit", 1)
                     .queryParam("language", "en")
                     .toUriString();
-            // Execute HTTP GET request and retrieve response body as String
-            String response = mapboxRestClient.get()
+            // Execute HTTP GET request and deserialize JSON response
+            MapboxGeocodeResponse response = mapboxRestClient.get()
                     .uri(url)
                     .retrieve()
-                    .body(String.class);
+                    .body(MapboxGeocodeResponse.class);
+            // Defensive null check (should never happen with RestClient)
+            if (response == null)
+                throw new MapboxApiException("Received null response from Mapbox API");
             // Parse JSON response and create GeocodeResult DTO
-            return geocodeResultMapper.fromJsonResponse(response);
-        } catch (IllegalArgumentException e) {
-            // Invalid address → 400
+            return response.toGeocodeResult(address);
+        } catch (InvalidAddressException | MapboxApiException e) {
+            // Domain exceptions - re-throw without wrapping
             throw e;
-        } catch (IllegalStateException e) {
-            // Mapbox service unavailable → 503
-            log.error("Mapbox geocoding service unavailable", e);
-            throw e;
+        } catch (ResourceAccessException e) {
+            // Timeout or network connection failure
+            throw new MapboxTimeoutException("Geocoding request timed out. Please try again.", e);
+        } catch (HttpClientErrorException e) {
+            // HTTP 4xx errors - special handling for rate limit (429)
+            if (e.getStatusCode().value() == 429)
+                throw new MapboxRateLimitException("Mapbox API rate limit exceeded. Please try again later.", e);
+            throw new MapboxApiException(String.format("Mapbox API client error: %s", e.getStatusCode()), e);
+        } catch (HttpServerErrorException e) {
+            // HTTP 5xx errors - Mapbox server issues
+            throw new MapboxApiException(String.format("Mapbox API server error: %s", e.getStatusCode()), e);
+        } catch (RestClientException e) {
+            // Other REST errors (JSON parsing, encoding, etc.)
+            throw new MapboxApiException("Mapbox API request failed", e);
         } catch (Exception e) {
-            // Any other error (network issues, etc.) - wrap as service unavailable → 503
-            log.error("Unexpected error during geocoding", e);
-            throw new IllegalStateException("Mapbox geocoding service is currently unavailable", e);
+            // Safety net for unexpected errors
+            throw new MapboxApiException("Unexpected error during geocoding", e);
         }
     }
 
     /**
-     * Geocodes multiple addresses in parallel for improved performance.
-     * Uses CompletableFuture with Virtual Threads to execute geocoding requests concurrently.
-     * Each request respects the rate limit of 10 requests/second and benefits from caching.
-     * Calls geocodeAddress via self-reference to ensure cache interception works correctly.
+     * Geocodes multiple addresses in parallel using Virtual Threads.
+     * Processes in batches (GEOCODING_BATCH_SIZE) to control concurrency towards RateLimiter.
+     * Chunks processed sequentially to maintain predictable resource consumption.
+     * Calls geocodeAddress via self-reference to enable caching.
      * @param addresses list of addresses to geocode
-     * @return list of GeocodeResult in the same order as the input addresses
+     * @return list of GeocodeResult in same order as input
+     * @throws IllegalArgumentException if addresses is null or empty
+     * @throws InvalidAddressException if any address is invalid
+     * @throws MapboxRateLimitException if rate limit exceeded
+     * @throws MapboxTimeoutException if any request times out
+     * @throws MapboxApiException if Mapbox returns errors or malformed responses
      */
-    public List<GeocodeResult> geocodeAddressesParallel(List<String> addresses) {
-        // Create a CompletableFuture for each address
-        List<CompletableFuture<GeocodeResult>> futures = addresses.stream()
-                .map(address -> CompletableFuture.supplyAsync(() -> self.geocodeAddress(address), executorService))
-                .toList();
-        // Wait for all futures to complete and collect results
-        return futures.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList());
+    public List<GeocodeResult> geocodeAddresses(List<String> addresses) {
+        // Defensive check
+        if (addresses == null || addresses.isEmpty())
+            throw new IllegalArgumentException("Addresses list cannot be null or empty");
+        List<GeocodeResult> finalResults = new ArrayList<>();
+        // Process in chunks to respect rate limit
+        for (int i = 0; i < addresses.size(); i += GEOCODING_BATCH_SIZE) {
+            int end = Math.min(i + GEOCODING_BATCH_SIZE, addresses.size());
+            List<String> batch = addresses.subList(i, end);
+            // Launch parallel tasks for this batch
+            List<CompletableFuture<GeocodeResult>> futures = new ArrayList<>();
+            for (String address : batch) {
+                CompletableFuture<GeocodeResult> future = CompletableFuture.supplyAsync(() -> self.geocodeAddress(address), executorService);
+                futures.add(future);
+            }
+            try {
+                // Wait for all batch tasks to complete
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+                for (CompletableFuture<GeocodeResult> f : futures) {
+                    finalResults.add(f.join());
+                }
+            } catch (CompletionException e) {
+                // Unwrap and re-throw original exception (hides CompletableFuture implementation detail)
+                Throwable cause = e.getCause();
+                switch (cause) {
+                    case InvalidAddressException ex -> throw ex;
+                    case MapboxRateLimitException ex -> throw ex;
+                    case MapboxTimeoutException ex -> throw ex;
+                    case MapboxApiException ex -> throw ex;
+                    case MapboxServiceException ex -> throw ex;
+                    case RuntimeException ex -> throw ex;
+                    case null, default -> throw new MapboxApiException("Unexpected error during batch geocoding", cause);
+                }
+            }
+        }
+        return finalResults;
     }
 
     /**
-     * Calculates a cycling route through multiple waypoints using Mapbox Directions API.
-     * Rate limited to 5 requests per second.
-     * Handles routes with more than 25 waypoints by splitting them into multiple API calls.
-     * Caching strategy: Delegates to calculateSingleRoute via self-reference (Spring proxy),
-     * which is cached at the chunk level. This allows route segments with overlapping
-     * waypoints to be reused across different complete routes, maximizing cache efficiency
-     * and minimizing API calls.
-     * Exception handling:
-     * - IllegalArgumentException: Invalid waypoints (no route found, no segment) → 400 BAD_REQUEST
-     * - IllegalStateException: Mapbox service unavailable → 503 SERVICE_UNAVAILABLE
-     * @param waypoints ordered list of coordinates that define the route (min 2, no max)
-     * @return CyclingRouteResult containing all route coordinates and total distance
-     * @throws IllegalArgumentException if waypoints are invalid or no route can be found
-     * @throws IllegalStateException if the Mapbox service is unavailable
+     * Calculates cycling route through multiple waypoints using Mapbox Directions API.
+     * Rate limited to 5 req/sec. Handles >25 waypoints by splitting into multiple API calls.
+     * Delegates to calculateSingleRoute via self-reference for chunk-level caching.
+     * @param waypoints ordered coordinates defining route (min 2, no max)
+     * @return CyclingRouteResult with all route coordinates and total distance
+     * @throws IllegalArgumentException if waypoints is null or has fewer than 2 points
+     * @throws InvalidRouteException if no route can be calculated
+     * @throws MapboxRateLimitException if rate limit exceeded
+     * @throws MapboxTimeoutException if request times out
+     * @throws MapboxApiException if Mapbox returns error or malformed response
      */
     public CyclingRouteResult calculateCyclingRoute(List<Coordinate> waypoints) {
         // Validate input
@@ -224,33 +277,31 @@ public class MapboxService {
     }
 
     /**
-     * Calculates a route for a single set of waypoints (≤25).
-     * INTERNAL USE ONLY: This method is part of the internal caching and chunking strategy.
-     * External services should use calculateCyclingRoute instead, which handles routes of any size.
-     * This method is public only because Spring's proxy-based AOP requires it for @Cacheable to work.
-     * Results are cached based on the waypoint list to avoid redundant API calls.
-     * This method is cached at the chunk level, allowing route segments to be reused
-     * across different complete routes that share common waypoint sequences.
-     * The cache key is the entire waypoint list, so identical sequences of coordinates
-     * will hit the cache, even when called as part of different larger routes.
-     * Note: This method must be called via the Spring proxy (self-reference) to enable
-     * caching on internal calls. Direct calls (this.calculateSingleRoute) will bypass
-     * the cache proxy.
-     * Rate limited to 5 requests per second.
-     * @param waypoints list of coordinates (2-25 waypoints)
-     * @return cycling route result with coordinates and distance
-     * @throws IllegalArgumentException if waypoints are invalid or no route can be found
-     * @throws IllegalStateException if the Mapbox service is unavailable or rate limit is exceeded
+     * Calculates route for single set of waypoints (≤25).
+     * INTERNAL USE ONLY - public for Spring AOP @Cacheable to work.
+     * External services should use calculateCyclingRoute.
+     * Cached at chunk level, allowing route segments to be reused across different routes.
+     * Must be called via Spring proxy (self-reference) to enable caching.
+     * Rate limited to 5 req/sec.
+     * @param waypoints coordinates (2-25 waypoints)
+     * @return cycling route with coordinates and distance
+     * @throws IllegalArgumentException if waypoints invalid or no route found
+     * @throws MapboxRateLimitException if rate limit exceeded
+     * @throws MapboxTimeoutException if request times out
+     * @throws MapboxApiException if Mapbox service unavailable
      */
     @Cacheable(value = "cyclingRoute", key = "#waypoints", sync = true)
     public CyclingRouteResult calculateSingleRoute(List<Coordinate> waypoints) {
+        // Defensive check
+        if (waypoints == null || waypoints.size() < 2 || waypoints.size() > MAX_WAYPOINTS_PER_REQUEST)
+            throw new IllegalArgumentException(String.format("Waypoints must be between 2 and %d and cannot be null", MAX_WAYPOINTS_PER_REQUEST));
+        // Acquire rate limiter permit
         try {
-            // Acquire rate limiter permit (blocks if necessary, throws RequestNotPermitted after timeout)
             RateLimiter.waitForPermission(directionsRateLimiter);
         } catch (RequestNotPermitted e) {
-            log.warn("Routing rate limit exceeded", e);
-            throw new IllegalStateException("Routing service is temporarily unavailable due to high traffic. Please try again later.", e);
+            throw new MapboxRateLimitException("Routing service is temporarily unavailable due to high traffic. Please try again later.", e);
         }
+        // Execute Mapbox API request and handle infrastructure exceptions
         try {
             // Build coordinates parameter: "lon1,lat1;lon2,lat2;..."
             String coordinatesParam = waypoints.stream()
@@ -264,32 +315,44 @@ public class MapboxService {
                     .queryParam("overview", "full")
                     .buildAndExpand(coordinatesParam)
                     .toUriString();
-            // Execute HTTP GET request
-            String response = mapboxRestClient.get()
+            // Execute HTTP GET request and deserialize JSON response
+            MapboxDirectionsResponse response = mapboxRestClient.get()
                     .uri(url)
                     .retrieve()
-                    .body(String.class);
+                    .body(MapboxDirectionsResponse.class);
+            // Defensive null check
+            if (response == null)
+                throw new MapboxApiException("Received null response from Mapbox Directions API");
             // Parse JSON response and create CyclingRouteResult DTO
-            return cyclingRouteResultMapper.fromJsonResponse(response);
-        } catch (IllegalArgumentException e) {
-            // Invalid waypoints → 400
+            return response.toCyclingRouteResult();
+        } catch (InvalidRouteException | MapboxApiException e) {
+            // Domain exceptions - re-throw without wrapping
             throw e;
-        } catch (IllegalStateException e) {
-            // Mapbox service unavailable → 503
-            log.error("Mapbox routing service unavailable", e);
-            throw e;
+        } catch (ResourceAccessException e) {
+            // Timeout or network connection failure
+            throw new MapboxTimeoutException("Routing request timed out. Please try again.", e);
+        } catch (HttpClientErrorException e) {
+            // HTTP 4xx errors - special handling for rate limit (429)
+            if (e.getStatusCode().value() == 429)
+                throw new MapboxRateLimitException("Mapbox API rate limit exceeded. Please try again later.", e);
+            throw new MapboxApiException(String.format("Mapbox API client error: %s", e.getStatusCode()), e);
+        } catch (HttpServerErrorException e) {
+            // HTTP 5xx errors - Mapbox server issues
+            throw new MapboxApiException(String.format("Mapbox API server error: %s", e.getStatusCode()), e);
+        } catch (RestClientException e) {
+            // Other REST errors (JSON parsing, encoding, etc.)
+            throw new MapboxApiException("Mapbox API request failed", e);
         } catch (Exception e) {
-            // Any other error → 503
-            log.error("Unexpected error during calculating route", e);
-            throw new IllegalStateException("Mapbox routing service is currently unavailable", e);
+            // Safety net for unexpected errors
+            throw new MapboxApiException("Unexpected error during route calculation", e);
         }
     }
 
     /**
-     * Calculates a route for waypoints exceeding the 25-waypoint limit.
-     * Splits waypoints into overlapping chunks and combines the results.
-     * Each chunk is calculated via self-reference to enable caching.
-     * @param waypoints list of coordinates (>25 waypoints)
+     * Calculates route for waypoints exceeding 25-waypoint limit.
+     * Splits into overlapping chunks and combines results.
+     * Each chunk calculated via self-reference to enable caching.
+     * @param waypoints coordinates (>25 waypoints)
      * @return combined cycling route result
      */
     private CyclingRouteResult calculateMultiChunkRoute(List<Coordinate> waypoints) {
@@ -304,18 +367,19 @@ public class MapboxService {
             // Calculate route for this chunk
             CyclingRouteResult chunkResult = self.calculateSingleRoute(chunk);
             // Add coordinates to result (avoid duplicates on overlap)
-            if (allRouteCoordinates.isEmpty())
+            if (allRouteCoordinates.isEmpty()) {
                 // First chunk: add all coordinates
-                allRouteCoordinates.addAll(chunkResult.getRouteCoordinates());
-            else
-                // Subsequent chunks: skip first coordinate (it's the last of previous chunk)
-                allRouteCoordinates.addAll(chunkResult.getRouteCoordinates().subList(1, chunkResult.getRouteCoordinates().size()));
-            // Add distance
-            totalDistance += chunkResult.getDistanceInMeters();
+                allRouteCoordinates.addAll(chunkResult.routeCoordinates());
+            } else {
+                List<Coordinate> chunkCoords = chunkResult.routeCoordinates();
+                // Skip first point to avoid duplication
+                allRouteCoordinates.addAll(chunkCoords.subList(1, chunkCoords.size()));
+            }
+            totalDistance += chunkResult.distanceInMeters();
             // Move to next chunk (overlap last waypoint)
             start = end - 1;
         }
-        return cyclingRouteResultMapper.toCyclingRouteResult(allRouteCoordinates, totalDistance);
+        return new CyclingRouteResult(allRouteCoordinates, totalDistance);
     }
 
 }

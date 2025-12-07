@@ -8,9 +8,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Enum representing the severity level of an obstacle on a bike path in the BBP system.
- * Severity levels are used to assess the impact of obstacles on cycling safety and route quality.
- * Obstacles can be detected automatically through device sensors or reported manually by users.
+ * Severity level of an obstacle on a bike path.
+ * Used to assess impact on cycling safety and route quality.
+ * Can be detected automatically or reported manually.
  */
 @Getter
 @RequiredArgsConstructor
@@ -25,18 +25,18 @@ public enum ObstacleSeverity {
     CRITICAL(4, "Critical");
 
     /**
-     * The numeric level associated with this severity.
+     * Numeric level for this severity.
      * Higher values indicate more severe obstacles.
      */
     private final int severityLevel;
 
     /**
-     * The human-readable description of this severity level.
+     * Human-readable description of this severity level.
      */
     private final String severityDescription;
 
     /**
-     * Immutable map for quick lookup of severity by level.
+     * Immutable map for quick lookup by level.
      */
     private static final Map<Integer, ObstacleSeverity> LEVEL_MAP =
             Stream.of(values())
@@ -46,9 +46,9 @@ public enum ObstacleSeverity {
                     ));
 
     /**
-     * Retrieves the obstacle severity corresponding to the given level.
-     * @param level the numeric severity level (1-4)
-     * @return the ObstacleSeverity enum constant matching the level
+     * Retrieves obstacle severity by level.
+     * @param level numeric severity level (1-4)
+     * @return ObstacleSeverity matching the level
      * @throws IllegalArgumentException if no severity exists for the given level
      */
     public static ObstacleSeverity fromSeverityLevel(int level) {

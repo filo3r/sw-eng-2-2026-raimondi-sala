@@ -6,73 +6,59 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.util.List;
 
 /**
- * Request DTO for manually creating a bike path by providing addresses.
- * Contains the user-provided data needed to create a bike path,
- * including addresses that will be geocoded and used to calculate the cycling route,
- * and optional obstacles along the path.
+ * Request for manually creating a bike path by providing addresses.
+ * Addresses will be geocoded and used to calculate the cycling route.
+ * Supports optional obstacles that will be validated against the route.
+ * @param addresses ordered list of addresses defining the bike path route (min 2: origin and destination)
+ * @param description optional description or notes about the bike path (max 500 chars)
+ * @param status current condition status affecting score calculation
+ * @param published visibility flag (true = public and editable by anyone, false = private)
+ * @param obstacles list of obstacles along the path (can be empty)
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class BikePathManualCreateRequest {
+public record BikePathManualCreateRequest(
 
-    /**
-     * Ordered list of addresses that define the bike path route.
-     * The first address is the origin, the last is the destination.
-     * Intermediate addresses are waypoints.
-     * This field is required and must contain at least 2 addresses.
-     * Each address will be geocoded to obtain coordinates, and a cycling route
-     * will be calculated through all waypoints.
-     */
-    @NotNull(message = "Addresses list is required")
-    @NotEmpty(message = "At least 2 addresses are required (origin and destination)")
-    @Size(min = 2, message = "At least 2 addresses are required (origin and destination)")
-    private List<@NotBlank(message = "Address cannot be blank") @Size(max = 256, message = "Address must not exceed 256 characters") String> addresses;
+        /*
+         * Ordered list of addresses defining the bike path route.
+         * First is origin, last is destination, intermediate are waypoints.
+         * Minimum 2 addresses required.
+         */
+        @NotNull(message = "Addresses list is required")
+        @NotEmpty(message = "At least 2 addresses are required (origin and destination)")
+        @Size(min = 2, message = "At least 2 addresses are required (origin and destination)")
+        List<@NotBlank(message = "Address cannot be blank") @Size(max = 256, message = "Address must not exceed 256 characters") String> addresses,
 
-    /**
-     * Optional description or notes about the bike path.
-     * Maximum length is 500 characters.
-     * This can include information about the route characteristics,
-     * points of interest, or any other relevant details.
-     */
-    @Size(max = 500, message = "Description must not exceed 500 characters")
-    private String description;
+        /*
+         * Optional description or notes about the bike path.
+         * Maximum 500 characters.
+         */
+        @Size(max = 500, message = "Description must not exceed 500 characters")
+        String description,
 
-    /**
-     * The current condition status of the bike path.
-     * This field is required and indicates the maintenance level and usability.
-     * Possible values include: EXCELLENT, GOOD, SUFFICIENT, POOR, UNDER_MAINTENANCE, etc.
-     * The status affects the bike path score calculation.
-     */
-    @NotNull(message = "Status is required")
-    private BikePathStatus status;
+        /*
+         * Current condition status of the bike path.
+         * Affects score calculation.
+         */
+        @NotNull(message = "Status is required")
+        BikePathStatus status,
 
-    /**
-     * Flag indicating whether this bike path should be published and visible to all users.
-     * This field is required.
-     * When true, the path is visible to all users and can be updated by anyone.
-     * When false, the path is only visible to its creator and can only be updated by the creator.
-     */
-    @NotNull(message = "Published flag is required")
-    private Boolean published;
+        /*
+         * Visibility flag.
+         * True = visible to all and editable by anyone.
+         * False = visible and editable only by creator.
+         */
+        @NotNull(message = "Published flag is required")
+        Boolean published,
 
-    /**
-     * List of obstacles along the bike path.
-     * This field is required but can be an empty list if there are no obstacles.
-     * Each obstacle contains an address (to be geocoded), type, and severity.
-     * Obstacles will be validated to ensure they are within a reasonable distance
-     * from the calculated bike path route.
-     */
-    @NotNull(message = "Obstacles list is required (use empty list if no obstacles)")
-    private List<@Valid ObstacleCreateRequest> obstacles;
+        /*
+         * List of obstacles along the bike path.
+         * Can be empty if no obstacles.
+         * Validated to be within reasonable distance from route.
+         */
+        @NotNull(message = "Obstacles list is required (use empty list if no obstacles)")
+        List<@Valid ObstacleCreateRequest> obstacles
 
-}
+) {}

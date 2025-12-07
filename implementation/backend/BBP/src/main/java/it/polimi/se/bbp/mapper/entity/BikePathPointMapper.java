@@ -1,56 +1,56 @@
 package it.polimi.se.bbp.mapper.entity;
 
-import it.polimi.se.bbp.dto.mapbox.Coordinate;
+import it.polimi.se.bbp.geo.Coordinate;
 import it.polimi.se.bbp.entity.BikePath;
 import it.polimi.se.bbp.entity.BikePathPoint;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Builder;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingConstants;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * Mapper for converting route coordinates to BikePathPoint entities.
  */
-@Component
-public class BikePathPointMapper {
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING,
+        builder = @Builder(disableBuilder = true))
+public interface BikePathPointMapper {
 
     /**
-     * Converts a single route coordinate to a BikePathPoint entity.
-     * Timestamp is set to null for manually created bike paths.
-     * For GPS-tracked bike paths (future functionality), timestamp should be provided separately.
-     * @param coordinate the route coordinate from MapboxService
-     * @param bikePath the bike path entity to associate with this point
-     * @param sequentialPosition the sequential position in the route (1-indexed)
+     * Converts single route coordinate to BikePathPoint entity.
+     * @param coordinate route coordinate from MapboxService
+     * @param bikePath bike path entity to associate with this point
+     * @param timestamp optional timestamp for this point
+     * @param sequentialPosition sequential position in route (1-indexed)
      * @return bike path point entity
      */
-    public BikePathPoint toEntity(Coordinate coordinate, BikePath bikePath, OffsetDateTime timestamp, int sequentialPosition) {
-        return BikePathPoint.builder()
-                .bikePath(bikePath)
-                .latitude(coordinate.getLatitude())
-                .longitude(coordinate.getLongitude())
-                .timestamp(timestamp)
-                .sequentialPosition(sequentialPosition)
-                .build();
-    }
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "bikePath", source = "bikePath")
+    @Mapping(target = "latitude", source = "coordinate.latitude")
+    @Mapping(target = "longitude", source = "coordinate.longitude")
+    @Mapping(target = "timestamp", source = "timestamp")
+    @Mapping(target = "sequentialPosition", source = "sequentialPosition")
+    BikePathPoint toEntity(Coordinate coordinate, BikePath bikePath, OffsetDateTime timestamp, int sequentialPosition);
 
     /**
-     * Converts a list of route coordinates to BikePathPoint entities.
-     * Each coordinate is assigned a sequential position (1-indexed).
-     * Timestamp is set to null for manually created bike paths.
-     * The sequential position allows reconstruction of the route in the correct order.
-     * @param coordinates the list of route coordinates from MapboxService
-     * @param bikePath the bike path entity to associate with these points
+     * Converts list of route coordinates to list of BikePathPoint entities.
+     * Handles iteration and sequential numbering, preserving order.
+     * @param coordinates list of route coordinates
+     * @param bikePath bike path entity
+     * @param timestamps optional list of timestamps (can be null or shorter than coordinates)
      * @return list of bike path point entities ordered by sequential position
      */
-    public List<BikePathPoint> toEntities(List<Coordinate> coordinates, BikePath bikePath, List<OffsetDateTime> timestamps) {
-        List<BikePathPoint> bikePathPoints = new ArrayList<>();
+    default List<BikePathPoint> toEntities(List<Coordinate> coordinates, BikePath bikePath, List<OffsetDateTime> timestamps) {
+        if (coordinates == null)
+            return new ArrayList<>();
+        List<BikePathPoint> points = new ArrayList<>(coordinates.size());
         for (int i = 0; i < coordinates.size(); i++) {
-            OffsetDateTime timestamp = (timestamps != null && i < timestamps.size()) ? timestamps.get(i) : null;
-            BikePathPoint bikePathPoint = toEntity(coordinates.get(i), bikePath, timestamp, i + 1);
-            bikePathPoints.add(bikePathPoint);
+            OffsetDateTime ts = (timestamps != null && i < timestamps.size()) ? timestamps.get(i) : null;
+            points.add(toEntity(coordinates.get(i), bikePath, ts, i + 1));
         }
-        return bikePathPoints;
+        return points;
     }
 
 }

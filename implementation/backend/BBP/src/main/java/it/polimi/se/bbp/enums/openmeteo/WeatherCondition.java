@@ -8,9 +8,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Enum representing weather conditions retrieved from the Open-Meteo API for trip meteorological data.
- * Weather codes follow the WMO Weather interpretation codes standard used by Open-Meteo.
- * This data is used to enrich trip information when available from external weather services.
+ * Weather conditions from Open-Meteo API for trip meteorological data.
+ * Uses WMO Weather interpretation codes standard.
  * https://open-meteo.com/
  */
 @Getter
@@ -71,36 +70,37 @@ public enum WeatherCondition {
     /** Thunderstorm with slight hail. */
     THUNDERSTORM_SLIGHT_HAIL(96, "Thunderstorm with slight hail"),
     /** Thunderstorm with heavy hail. */
-    THUNDERSTORM_HEAVY_HAIL(99, "Thunderstorm with heavy hail");
+    THUNDERSTORM_HEAVY_HAIL(99, "Thunderstorm with heavy hail"),
+    /** Fallback for unrecognized weather codes. */
+    UNKNOWN(-1, "Unknown weather condition");
 
     /**
-     * The WMO weather code from Open-Meteo API.
-     * Used to map API responses to weather conditions.
+     * WMO weather code from Open-Meteo API.
      */
     private final int weatherCode;
 
     /**
-     * The human-readable description of this weather condition.
+     * Human-readable description of this weather condition.
      */
     private final String weatherDescription;
 
     /**
-     * Immutable map for quick lookup of weather condition by code.
+     * Immutable map for quick lookup by weather code.
+     * Filters out UNKNOWN to avoid lookup by placeholder code (-1).
      */
     private static final Map<Integer, WeatherCondition> CODE_MAP =
-            Stream.of(values()).collect(Collectors.toUnmodifiableMap(WeatherCondition::getWeatherCode, condition -> condition));
+            Stream.of(values())
+                    .filter(w -> w != UNKNOWN)
+                    .collect(Collectors.toUnmodifiableMap(WeatherCondition::getWeatherCode, condition -> condition));
 
     /**
-     * Retrieves the weather condition corresponding to the given WMO weather code.
-     * @param code the WMO weather code from Open-Meteo API
-     * @return the WeatherCondition enum constant matching the code
-     * @throws IllegalArgumentException if no weather condition exists for the given code
+     * Retrieves weather condition by WMO weather code.
+     * Returns UNKNOWN if code is not recognized, preventing errors for unexpected API codes.
+     * @param code WMO weather code from Open-Meteo API
+     * @return matching WeatherCondition or UNKNOWN if not found
      */
     public static WeatherCondition fromWeatherCode(int code) {
-        WeatherCondition condition = CODE_MAP.get(code);
-        if (condition == null)
-            throw new IllegalArgumentException("Unknown weather code: " + code);
-        return condition;
+        return CODE_MAP.getOrDefault(code, UNKNOWN);
     }
 
 }

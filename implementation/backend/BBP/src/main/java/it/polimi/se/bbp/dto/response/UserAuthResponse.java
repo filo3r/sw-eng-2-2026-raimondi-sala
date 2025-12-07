@@ -1,28 +1,20 @@
 package it.polimi.se.bbp.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 /**
- * Data Transfer Object for authentication response.
- * Contains the JWT token and user id.
+ * Response for user authentication containing JWT token and user ID.
+ * @param token JWT access token for subsequent authenticated requests
+ * @param userId user ID
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class UserAuthResponse {
+public record UserAuthResponse(
 
-    /**
-     * JWT access token.
-     */
-    private String token;
+        /*
+         * JWT access token.
+         */
+        String token,
 
-    /**
-     * User ID.
-     */
-    private Long userId;
+        /*
+         * User ID.
+         */
+        Long userId
 
-}
+) {}

@@ -5,70 +5,62 @@ import io.github.resilience4j.ratelimiter.RateLimiterConfig;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import it.polimi.se.bbp.config.openmeteo.OpenMeteoConfig;
 import it.polimi.se.bbp.dto.openmeteo.OpenMeteoResponse;
+import it.polimi.se.bbp.dto.result.MeteorologicalDataResult;
 import it.polimi.se.bbp.entity.MeteorologicalData;
 import it.polimi.se.bbp.entity.Trip;
 import it.polimi.se.bbp.enums.openmeteo.WeatherCondition;
+import it.polimi.se.bbp.exception.openmeteo.OpenMeteoApiException;
+import it.polimi.se.bbp.exception.openmeteo.OpenMeteoRateLimitException;
+import it.polimi.se.bbp.exception.openmeteo.OpenMeteoTimeoutException;
+import it.polimi.se.bbp.exception.openmeteo.WeatherDataNotAvailableException;
 import it.polimi.se.bbp.mapper.entity.MeteorologicalDataMapper;
-import it.polimi.se.bbp.mapper.openmeteo.OpenMeteoResponseMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.client.*;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
- * Service for interacting with the Open-Meteo Forecast API.
+ * Service for interacting with Open-Meteo Forecast API.
  * Retrieves historical and forecast weather data for specific locations and times.
- * Handles all business logic including finding the closest hour to trip start time.
- * All timestamp handling is done in UTC for consistency across timezones.
- * Optimized with:
- * - Caching with 2-decimal coordinate precision (~1 km) and hour-rounded timestamps
- * - Aligned cache key generation with closest hour logic for consistency
- * - Rate limiting to respect Open-Meteo API limits (10 req/sec based on 600 calls/min limit)
- * - UTC timezone handling for multi-timezone support
+ * All timestamp handling in UTC for consistency across timezones.
+ * Optimized with automatic JSON parsing/validation, caching (2-decimal coordinates,
+ * hour-rounded timestamps), rate limiting (10 req/sec), and self-injection for cache.
  */
 @Service
 @Slf4j
 public class OpenMeteoService {
 
     /**
-     * Configuration for Open-Meteo API (base URL, endpoints, timeout, timezone).
+     * Maximum weather requests per second.
      */
-    private final OpenMeteoConfig openMeteoConfig;
+    private static final int OPENMETEO_REQUESTS_PER_SECOND = 10;
 
     /**
-     * REST client configured specifically for Open-Meteo API calls.
+     * Rate limiter refresh period in seconds.
      */
-    private final RestClient restClient;
+    private static final int RATE_LIMIT_REFRESH_PERIOD_SECONDS = 1;
 
     /**
-     * Mapper for parsing JSON responses from Open-Meteo API.
+     * Maximum wait time for rate limiter permission in seconds.
      */
-    private final OpenMeteoResponseMapper responseMapper;
+    private static final int RATE_LIMITER_TIMEOUT_SECONDS = 5;
 
     /**
-     * Mapper for converting weather data parameters to MeteorologicalData entities.
+     * Maximum days in past for weather data retrieval.
+     * Open-Meteo Forecast API provides historical data for approximately last 3 months.
      */
-    private final MeteorologicalDataMapper meteorologicalDataMapper;
-
-    /**
-     * Rate limiter for Open-Meteo API (10 requests per second, based on 600 calls/min limit).
-     */
-    private final RateLimiter rateLimiter;
+    private static final int MAX_DAYS_IN_PAST = 90;
 
     /**
      * Formatter for parsing ISO 8601 timestamps from Open-Meteo API.
-     * Open-Meteo returns timestamps in format "2025-11-11T14:00" (without Z suffix)
-     * when timezone=UTC is specified in the API request.
-     * Format: "2025-11-11T14:00"
+     * Format: "2025-11-11T14:00" (without Z suffix when timezone=UTC specified).
      */
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -79,124 +71,174 @@ public class OpenMeteoService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
     /**
-     * Maximum number of days in the past for which weather data can be retrieved.
-     * Open-Meteo Forecast API provides historical data for approximately the last 3 months.
+     * Open-Meteo API configuration (base URL, endpoints, timeout, timezone).
      */
-    private static final int MAX_DAYS_IN_PAST = 90;
+    private final OpenMeteoConfig openMeteoConfig;
 
     /**
-     * Constructor for dependency injection.
-     * Initializes rate limiter based on Open-Meteo API limits.
-     * @param openMeteoConfig Configuration for Open-Meteo API
-     * @param restClient REST client configured for Open-Meteo API calls
-     * @param responseMapper Mapper for parsing JSON responses
-     * @param meteorologicalDataMapper Mapper for creating MeteorologicalData entities
+     * REST client configured for Open-Meteo API calls.
+     * Handles JSON deserialization into DTOs automatically.
      */
-    public OpenMeteoService(OpenMeteoConfig openMeteoConfig, @Qualifier("openMeteoRestClient") RestClient restClient, OpenMeteoResponseMapper responseMapper, MeteorologicalDataMapper meteorologicalDataMapper) {
+    private final RestClient restClient;
+
+    /**
+     * Mapper for converting weather data parameters to MeteorologicalData entities.
+     */
+    private final MeteorologicalDataMapper meteorologicalDataMapper;
+
+    /**
+     * Rate limiter for Open-Meteo API (10 req/sec, based on 600 calls/min limit).
+     */
+    private final RateLimiter rateLimiter;
+
+    /**
+     * Self-reference to Spring proxy.
+     * Enables cache interception on internal method calls.
+     * Lazy annotation prevents circular dependency.
+     */
+    private final OpenMeteoService self;
+
+    /**
+     * Initializes rate limiter based on Open-Meteo API limits.
+     * @param openMeteoConfig Open-Meteo API configuration
+     * @param restClient REST client configured for Open-Meteo API
+     * @param meteorologicalDataMapper mapper for creating MeteorologicalData entities
+     * @param self self-reference for cache interception
+     */
+    public OpenMeteoService(OpenMeteoConfig openMeteoConfig, @Qualifier("openMeteoRestClient") RestClient restClient, MeteorologicalDataMapper meteorologicalDataMapper, @Lazy OpenMeteoService self) {
         this.openMeteoConfig = openMeteoConfig;
         this.restClient = restClient;
-        this.responseMapper = responseMapper;
         this.meteorologicalDataMapper = meteorologicalDataMapper;
         this.rateLimiter = RateLimiter.of("openMeteo", RateLimiterConfig.custom()
-                .limitForPeriod(10)
-                .limitRefreshPeriod(Duration.ofSeconds(1))
-                .timeoutDuration(Duration.ofSeconds(5))
+                .limitForPeriod(OPENMETEO_REQUESTS_PER_SECOND)
+                .limitRefreshPeriod(Duration.ofSeconds(RATE_LIMIT_REFRESH_PERIOD_SECONDS))
+                .timeoutDuration(Duration.ofSeconds(RATE_LIMITER_TIMEOUT_SECONDS))
                 .build());
+        this.self = self;
     }
 
     /**
-     * Retrieves weather data for a specific location and time.
-     * Results are cached to avoid repeated API calls for the same location and time.
-     * Rate limited to 10 requests per second.
-     * All timestamp operations are performed in UTC for consistency across timezones.
-     * Cache strategy:
-     * - Coordinates are rounded to 2 decimals (~1 km precision) to group nearby locations
-     * - Time is rounded to the nearest hour in UTC (14:00-14:29 → 14:00, 14:30-15:29 → 15:00)
-     * - This ensures cache key alignment with the findClosestHourIndex logic
-     * Process:
-     * 1. Converts startTime to UTC if not already
-     * 2. Validates that the start time is within the supported historical range (last 90 days)
-     * 3. Constructs API URL with latitude, longitude, and date parameters (in UTC)
-     * 4. Makes HTTP GET request to Open-Meteo Forecast API with timezone=UTC
-     * 5. Parses JSON response into OpenMeteoResponse DTO
-     * 6. Finds the hour closest to the provided start time (comparing in UTC)
-     * 7. Extracts weather values for that specific hour
-     * 8. Converts to MeteorologicalData entity
-     * Exception handling:
-     * - IllegalArgumentException: Invalid parameters (time out of range, no data) → 400 BAD_REQUEST
-     * - IllegalStateException: Open-Meteo service unavailable or rate limit exceeded → 503 SERVICE_UNAVAILABLE
-     * @param latitude the latitude coordinate of the location
-     * @param longitude the longitude coordinate of the location
-     * @param startTime the trip start time to find the closest weather data for (any timezone, will be converted to UTC)
-     * @param trip the trip entity to associate with the meteorological data
-     * @return MeteorologicalData entity with weather conditions closest to start time
-     * @throws IllegalArgumentException if start time is older than 90 days, coordinates are invalid, or no weather data is available
-     * @throws IllegalStateException if Open-Meteo API is unavailable or rate limit is exceeded
+     * Retrieves weather data and creates MeteorologicalData entity.
+     * Public method for services to call. Fetches via fetchWeatherData then converts to entity.
+     * @param latitude latitude coordinate
+     * @param longitude longitude coordinate
+     * @param startTime trip start time
+     * @param trip trip entity to associate with meteorological data
+     * @return MeteorologicalData entity ready to be persisted
+     */
+    public MeteorologicalData getWeatherData(Double latitude, Double longitude, OffsetDateTime startTime, Trip trip) {
+        // Get cached weather data (DTO)
+        MeteorologicalDataResult result = self.fetchWeatherData(latitude, longitude, startTime);
+        // Convert to entity with the specific trip
+        return meteorologicalDataMapper.toEntity(
+                trip,
+                result.weatherCondition(),
+                result.temperature(),
+                result.humidity(),
+                result.windSpeed()
+        );
+    }
+
+    /**
+     * Retrieves weather data for specific location and time.
+     * Results cached, rate limited to 10 req/sec, all timestamp operations in UTC.
+     * Cache strategy: coordinates rounded to 2 decimals (~1 km), time rounded to nearest hour in UTC.
+     * @param latitude latitude coordinate (-90 to 90, validated by caller)
+     * @param longitude longitude coordinate (-180 to 180, validated by caller)
+     * @param startTime trip start time (any timezone, converted to UTC)
+     * @return MeteorologicalDataResult with weather conditions closest to start time
+     * @throws IllegalArgumentException if parameters are null
+     * @throws WeatherDataNotAvailableException if start time older than 90 days or no data found
+     * @throws OpenMeteoRateLimitException if rate limit exceeded
+     * @throws OpenMeteoTimeoutException if request times out
+     * @throws OpenMeteoApiException if Open-Meteo returns error or malformed response
      */
     @Cacheable(value = "weatherData", key = "T(java.lang.String).format('%.2f_%.2f_%s', #latitude, #longitude, @openMeteoService.roundToNearestHour(#startTime))", sync = true)
-    public MeteorologicalData getWeatherData(Double latitude, Double longitude, OffsetDateTime startTime, Trip trip) {
+    public MeteorologicalDataResult fetchWeatherData(Double latitude, Double longitude, OffsetDateTime startTime) {
+        // Defensive check
+        if (latitude == null || longitude == null || startTime == null)
+            throw new IllegalArgumentException("Parameters cannot be null: latitude, longitude, startTime, and trip are required");
+        // Acquire rate limiter permit
         try {
-            // Acquire rate limiter permit (blocks if necessary, throws RequestNotPermitted after timeout)
             RateLimiter.waitForPermission(rateLimiter);
         } catch (RequestNotPermitted e) {
-            log.warn("Weather service rate limit exceeded", e);
-            throw new IllegalStateException("Weather service is temporarily unavailable due to high traffic. Please try again later.", e);
+            OpenMeteoRateLimitException exception = new OpenMeteoRateLimitException("Weather service is temporarily unavailable due to high traffic. Please try again later.", e);
+            log.warn("Open-Meteo rate limit exceeded while acquiring permit", exception);
+            throw exception;
         }
+        // Execute Open-Meteo API request and handle infrastructure exceptions
         try {
-            // Convert startTime to UTC if not already (for consistent processing)
+            // Convert startTime to UTC for consistent processing
             OffsetDateTime utcStartTime = startTime.withOffsetSameInstant(ZoneOffset.UTC);
             // Validate that the start time is within the supported historical range
             validateStartTimeRange(utcStartTime);
             // Build the API request URL with coordinates and date parameters
             String url = buildWeatherApiUrl(latitude, longitude, utcStartTime);
-            // Execute HTTP GET request and retrieve response body as String
-            String jsonResponse = restClient.get()
+            // Execute HTTP GET request and retrieve response body directly as OpenMeteoResponse DTO
+            OpenMeteoResponse response = restClient.get()
                     .uri(url)
                     .retrieve()
-                    .body(String.class);
-            // Parse JSON response into OpenMeteoResponse DTO
-            OpenMeteoResponse response = responseMapper.fromJsonResponse(jsonResponse);
-            // Find closest hour using UTC time comparison
-            int closestIndex = findClosestHourIndex(response.getHourlyData().getTime(), utcStartTime);
+                    .body(OpenMeteoResponse.class);
+            // Check for null response
+            if (response == null) {
+                OpenMeteoApiException exception = new OpenMeteoApiException("Received null response from Open-Meteo API");
+                log.error("Open-Meteo API returned null response", exception);
+                throw exception;
+            }
+            // Find the closest hour and extract weather data
+            int closestIndex = findClosestHourIndex(response.hourlyData().time(), utcStartTime);
             // Extract weather values for the closest hour
-            OpenMeteoResponse.HourlyData hourlyData = response.getHourlyData();
-            Double temperature = hourlyData.getTemperatureValues().get(closestIndex);
-            Integer humidity = hourlyData.getHumidityValues().get(closestIndex);
-            Double windSpeed = hourlyData.getWindSpeedValues().get(closestIndex);
-            Integer weatherCode = hourlyData.getWeatherCodeValues().get(closestIndex);
+            OpenMeteoResponse.HourlyData hourlyData = response.hourlyData();
+            Double temperature = hourlyData.temperatureValues().get(closestIndex);
+            Integer humidity = hourlyData.humidityValues().get(closestIndex);
+            Double windSpeed = hourlyData.windSpeedValues().get(closestIndex);
+            Integer weatherCode = hourlyData.weatherCodeValues().get(closestIndex);
             WeatherCondition weatherCondition = WeatherCondition.fromWeatherCode(weatherCode);
-            // Convert to MeteorologicalData entity and return
-            return meteorologicalDataMapper.toEntity(trip, weatherCondition, temperature, humidity, windSpeed);
-        } catch (IllegalArgumentException e) {
-            // Invalid parameters → 400
+            // Return result DTO
+            return new MeteorologicalDataResult(weatherCondition, temperature, humidity, windSpeed);
+        } catch (WeatherDataNotAvailableException | OpenMeteoApiException e) {
+            // Domain exceptions - re-throw without wrapping
             throw e;
-        } catch (IllegalStateException e) {
-            // Service unavailable → 503
-            log.error("OpenMeteo service unavailable", e);
-            throw e;
+        } catch (ResourceAccessException e) {
+            // Timeout or network connection failure
+            OpenMeteoTimeoutException exception = new OpenMeteoTimeoutException("Weather request timed out. Please try again.", e);
+            log.warn("Open-Meteo API request timed out", exception);
+            throw exception;
+        } catch (HttpClientErrorException e) {
+            // HTTP 4xx errors - special handling for rate limit (429)
+            if (e.getStatusCode().value() == 429) {
+                OpenMeteoRateLimitException exception = new OpenMeteoRateLimitException("Open-Meteo API rate limit exceeded. Please try again later.", e);
+                log.warn("Open-Meteo API rate limit exceeded (HTTP 429)", exception);
+                throw exception;
+            }
+            OpenMeteoApiException exception = new OpenMeteoApiException(String.format("Open-Meteo API client error: %s", e.getStatusCode()), e);
+            log.error("Open-Meteo API client error (HTTP {})", e.getStatusCode().value(), exception);
+            throw exception;
+        } catch (HttpServerErrorException e) {
+            // HTTP 5xx errors - Open-Meteo server issues
+            OpenMeteoApiException exception = new OpenMeteoApiException(String.format("Open-Meteo API server error: %s", e.getStatusCode()), e);
+            log.error("Open-Meteo API server error (HTTP {})", e.getStatusCode().value(), exception);
+            throw exception;
+        } catch (RestClientException e) {
+            // Other REST errors (JSON parsing, encoding, etc.)
+            OpenMeteoApiException exception = new OpenMeteoApiException("Open-Meteo API request failed", e);
+            log.error("Open-Meteo API request failed", exception);
+            throw exception;
         } catch (Exception e) {
-            // Any other error (network issues, etc.) - wrap as service unavailable → 503
-            log.error("Unexpected error fetching weather data", e);
-            throw new IllegalStateException("Open-Meteo weather service is currently unavailable", e);
+            // Safety net for unexpected errors
+            OpenMeteoApiException exception = new OpenMeteoApiException("Unexpected error during weather data retrieval", e);
+            log.error("Unexpected error during Open-Meteo weather data retrieval", exception);
+            throw exception;
         }
     }
 
     /**
-     * Rounds an OffsetDateTime to the nearest hour in UTC for cache key generation.
-     * This ensures cache keys are aligned with the findClosestHourIndex logic.
-     * All rounding is performed in UTC to ensure consistency across different timezones.
-     * Rounding logic:
-     * - 00-29 minutes: rounds down to current hour
-     * - 30-59 minutes: rounds up to next hour
-     * Examples (all converted to UTC first):
-     * - 2025-11-13T14:00+01:00 → 2025-11-13T13:00Z → 2025-11-13T13:00Z
-     * - 2025-11-13T14:10+01:00 → 2025-11-13T13:10Z → 2025-11-13T13:00Z
-     * - 2025-11-13T14:29+01:00 → 2025-11-13T13:29Z → 2025-11-13T13:00Z
-     * - 2025-11-13T14:30+01:00 → 2025-11-13T13:30Z → 2025-11-13T14:00Z
-     * - 2025-11-13T14:45-05:00 → 2025-11-13T19:45Z → 2025-11-13T20:00Z
-     * - 2025-11-13T14:59-05:00 → 2025-11-13T19:59Z → 2025-11-13T20:00Z
-     * @param dateTime the date and time to round (any timezone)
-     * @return OffsetDateTime rounded to the nearest hour in UTC
+     * Rounds OffsetDateTime to nearest hour in UTC for cache key generation.
+     * Ensures cache keys aligned with findClosestHourIndex logic.
+     * All rounding in UTC for consistency across timezones.
+     * Rounding: 00-29 minutes rounds down, 30-59 minutes rounds up.
+     * @param dateTime date and time to round (any timezone)
+     * @return OffsetDateTime rounded to nearest hour in UTC
      */
     public OffsetDateTime roundToNearestHour(OffsetDateTime dateTime) {
         // Convert to UTC first to ensure consistent rounding across timezones
@@ -210,17 +252,12 @@ public class OpenMeteoService {
     }
 
     /**
-     * Builds the complete Open-Meteo API URL with all required parameters in UTC.
-     * Converts the provided dateTime to UTC before extracting the date to ensure
-     * the correct calendar day is requested for the weather data.
-     * Example URL:
-     * https://api.open-meteo.com/v1/forecast?latitude=45.3597&longitude=9.3250
-     * &hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code
-     * &start_date=2025-11-13&end_date=2025-11-13&timezone=UTC
-     * @param latitude the latitude coordinate
-     * @param longitude the longitude coordinate
-     * @param dateTime the date and time to get weather data for (should already be in UTC from caller)
-     * @return the complete API URL as a String
+     * Builds complete Open-Meteo API URL with all required parameters in UTC.
+     * Converts dateTime to UTC before extracting date for correct calendar day.
+     * @param latitude latitude coordinate
+     * @param longitude longitude coordinate
+     * @param dateTime date and time for weather data (should already be UTC from caller)
+     * @return complete API URL
      */
     private String buildWeatherApiUrl(Double latitude, Double longitude, OffsetDateTime dateTime) {
         // Ensure we're in UTC before extracting date (should already be UTC from caller, but double-check)
@@ -233,29 +270,17 @@ public class OpenMeteoService {
                 "&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code" +
                 "&start_date=" + date +
                 "&end_date=" + date +
-                "&timezone=" + openMeteoConfig.getTimezone();  // Must be "UTC" in configuration
+                "&timezone=" + openMeteoConfig.getTimezone();
     }
 
     /**
-     * Finds the index of the hour in the time array that is closest to the given start time.
-     * Uses absolute time difference to find the nearest hour.
-     * All comparisons are performed in UTC for consistency.
-     * Algorithm:
-     * 1. Convert startTime to UTC if not already
-     * 2. Parse all timestamp strings from Open-Meteo (format: "2025-11-11T14:00" without Z)
-     * 3. Convert parsed LocalDateTime to UTC OffsetDateTime
-     * 4. Calculate absolute time difference between each hour and startTime (both in UTC)
-     * 5. Return the index with minimum difference
-     * Example:
-     * - startTime: 2025-11-13T12:00:00-05:00 (New York) → converts to 2025-11-13T17:00:00Z
-     * - time array from Open-Meteo: ["2025-11-13T16:00", "2025-11-13T17:00", "2025-11-13T18:00"]
-     * - parsed as UTC: [16:00Z, 17:00Z, 18:00Z]
-     * - differences: [60 min, 0 min, 60 min]
-     * - returns: index 1 (17:00Z - exact match)
-     * @param timeArray array of ISO 8601 timestamp strings from Open-Meteo (without Z suffix, in UTC)
-     * @param startTime the trip start time to match against (should already be in UTC from caller)
-     * @return the index of the closest hour in the array
-     * @throws IllegalArgumentException if no valid timestamp is found
+     * Finds index of hour in time array closest to given start time.
+     * Uses absolute time difference, all comparisons in UTC.
+     * @param timeArray ISO 8601 timestamps from Open-Meteo (without Z suffix, in UTC)
+     * @param startTime trip start time to match (should already be UTC from caller)
+     * @return index of closest hour in array
+     * @throws WeatherDataNotAvailableException if no valid timestamp found
+     * @throws OpenMeteoApiException if any timestamp has invalid format
      */
     private int findClosestHourIndex(List<String> timeArray, OffsetDateTime startTime) {
         // Ensure startTime is in UTC for comparison (should already be from caller, but double-check)
@@ -271,30 +296,31 @@ public class OpenMeteoService {
                 OffsetDateTime hourTime = localDateTime.atOffset(ZoneOffset.UTC);
                 // Calculate time difference in minutes (UTC comparison)
                 long differenceInMinutes = Math.abs(ChronoUnit.MINUTES.between(utcStartTime, hourTime));
-                // Update closest index if this hour is closer
+                // Update the closest index if this hour is closer
                 if (differenceInMinutes < minDifference) {
                     minDifference = differenceInMinutes;
                     closestIndex = i;
                 }
-            } catch (Exception e) {
-                // Skip invalid timestamp and continue
-                continue;
+            } catch (DateTimeException e) {
+                // Malformed timestamp = API error
+                OpenMeteoApiException exception = new OpenMeteoApiException(String.format("Invalid timestamp format in API response: %s", timeArray.get(i)), e);
+                log.error("Invalid timestamp format received from Open-Meteo API", exception);
+                throw exception;
             }
         }
         // Throw exception if no valid timestamp was found
         if (closestIndex == -1) {
-            throw new IllegalArgumentException("No valid weather data found for the trip start time");
+            throw new WeatherDataNotAvailableException("No valid weather data found for the trip start time");
         }
         return closestIndex;
     }
 
     /**
-     * Validates that the start time is within the supported historical data range.
-     * Open-Meteo Forecast API provides historical data for approximately the last 90 days.
-     * If the start time is older than this, weather data cannot be retrieved.
-     * All date calculations are performed in UTC.
-     * @param startTime the trip start time to validate (should already be in UTC from caller)
-     * @throws IllegalArgumentException if start time is older than 90 days from now
+     * Validates start time is within supported historical data range.
+     * Open-Meteo provides historical data for approximately last 90 days.
+     * All date calculations in UTC.
+     * @param startTime trip start time to validate (should already be UTC from caller)
+     * @throws WeatherDataNotAvailableException if start time older than 90 days from now
      */
     private void validateStartTimeRange(OffsetDateTime startTime) {
         // Use UTC for current time to ensure consistent validation across timezones
@@ -303,7 +329,7 @@ public class OpenMeteoService {
         long daysDifference = ChronoUnit.DAYS.between(startTime, now);
         // Throw exception if start time is too far in the past
         if (daysDifference > MAX_DAYS_IN_PAST) {
-            throw new IllegalArgumentException(
+            throw new WeatherDataNotAvailableException(
                     String.format("Weather data is not available for trips older than %d days. Trip is %d days old.",
                             MAX_DAYS_IN_PAST, daysDifference)
             );

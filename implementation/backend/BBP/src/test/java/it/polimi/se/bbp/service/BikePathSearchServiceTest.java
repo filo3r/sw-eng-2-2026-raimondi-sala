@@ -2,7 +2,7 @@ package it.polimi.se.bbp.service;
 
 import it.polimi.se.bbp.dto.mapbox.Coordinate;
 import it.polimi.se.bbp.dto.mapbox.GeocodeResult;
-import it.polimi.se.bbp.dto.request.BikePathSearchRequest;
+import it.polimi.se.bbp.dto.request.BikePathFinderRequest;
 import it.polimi.se.bbp.entity.BikePath;
 import it.polimi.se.bbp.repository.BikePathRepository;
 import it.polimi.se.bbp.service.mapbox.MapboxService;
@@ -33,7 +33,7 @@ class BikePathSearchServiceTest {
     @Test
     void searchBikePaths_filtersByDistance() {
         // setup
-        BikePathSearchRequest req = new BikePathSearchRequest();
+        BikePathFinderRequest req = new BikePathFinderRequest();
         req.setOriginAddress("origin");
         req.setDestinationAddress("dest");
         req.setOriginRadiusKm(1.0);

@@ -1,49 +1,45 @@
 package it.polimi.se.bbp.dto.response;
 
 import it.polimi.se.bbp.enums.openmeteo.WeatherCondition;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 /**
- * DTO for MeteorologicalData response.
- * Contains weather information associated with a trip.
+ * Response for MeteorologicalData containing weather information for a trip.
+ * @param weatherCondition weather condition enum (e.g., CLEAR_SKY, RAIN, SNOW)
+ * @param weatherDescription human-readable weather description
+ * @param temperature ambient temperature in degrees Celsius (range: -99.9 to +99.9)
+ * @param humidity relative humidity as percentage (range: 0 to 100)
+ * @param windSpeed wind speed in km/h (range: 0.0 to 999.9)
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class MeteorologicalDataResponse {
+public record MeteorologicalDataResponse(
 
-    /**
-     * The weather condition during the trip.
-     * Enum representing the overall weather state (e.g., CLEAR_SKY, RAIN, SNOW).
-     */
-    private WeatherCondition weatherCondition;
+        /*
+         * Weather condition enum.
+         * Examples: CLEAR_SKY, RAIN, SNOW.
+         */
+        WeatherCondition weatherCondition,
 
-    /**
-     * The weather condition description in human-readable format.
-     * Example: "Clear sky", "Rain: Moderate intensity"
-     */
-    private String weatherDescription;
+        /*
+         * Human-readable weather description.
+         * Example: "Clear sky", "Rain: Moderate intensity"
+         */
+        String weatherDescription,
 
-    /**
-     * The ambient temperature during the trip in degrees Celsius.
-     * Range: -99.9 to +99.9
-     */
-    private Double temperature;
+        /*
+         * Ambient temperature in degrees Celsius.
+         * Range: -99.9 to +99.9
+         */
+        Double temperature,
 
-    /**
-     * The relative humidity during the trip as a percentage.
-     * Range: 0 to 100
-     */
-    private Integer humidity;
+        /*
+         * Relative humidity as percentage.
+         * Range: 0 to 100
+         */
+        Integer humidity,
 
-    /**
-     * The wind speed during the trip in km/h.
-     * Range: 0.0 to 999.9
-     */
-    private Double windSpeed;
+        /*
+         * Wind speed in km/h.
+         * Range: 0.0 to 999.9
+         */
+        Double windSpeed
 
-}
+) {}

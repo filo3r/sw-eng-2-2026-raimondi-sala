@@ -2,36 +2,32 @@ package it.polimi.se.bbp.mapper.entity;
 
 import it.polimi.se.bbp.dto.request.UserRegisterRequest;
 import it.polimi.se.bbp.entity.User;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Builder;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingConstants;
 
 /**
  * Mapper for converting user registration requests to User entities.
  */
-@Component
-@RequiredArgsConstructor
-public class UserMapper {
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING,
+        builder = @Builder(disableBuilder = true))
+public interface UserMapper {
 
     /**
-     * Password encoder for encoding user passwords.
+     * Converts UserRegisterRequest to User entity.
+     * Password must be pre-encoded before calling this method.
+     * @param request registration request
+     * @param encodedPassword already encoded password string
+     * @return user entity
      */
-    private final PasswordEncoder passwordEncoder;
-
-    /**
-     * Converts a UserRegisterRequest to a User entity.
-     * The password is encoded before setting it.
-     * @param request the registration request
-     * @return the user entity
-     */
-    public User toEntity(UserRegisterRequest request) {
-        return User.builder()
-                .name(request.getName())
-                .surname(request.getSurname())
-                .username(request.getUsername())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .build();
-    }
+    @Mapping(target = "password", source = "encodedPassword")
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "recordedTrips", ignore = true)
+    @Mapping(target = "createdBikePaths", ignore = true)
+    @Mapping(target = "updatedBikePaths", ignore = true)
+    @Mapping(target = "createdObstacles", ignore = true)
+    @Mapping(target = "updatedObstacles", ignore = true)
+    User toEntity(UserRegisterRequest request, String encodedPassword);
 
 }

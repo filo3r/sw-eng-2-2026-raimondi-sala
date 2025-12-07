@@ -2,43 +2,31 @@ package it.polimi.se.bbp.mapper.response;
 
 import it.polimi.se.bbp.dto.response.BikePathPointResponse;
 import it.polimi.se.bbp.entity.BikePathPoint;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.MappingConstants;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Mapper for converting BikePathPoint entities to BikePathPointResponse DTOs.
- * Handles the transformation of bike path point data for API responses.
  */
-@Component
-public class BikePathPointResponseMapper {
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+public interface BikePathPointResponseMapper {
 
     /**
-     * Converts a single BikePathPoint entity to a BikePathPointResponse DTO.
-     * Maps all coordinate and metadata fields from the entity to the response format.
-     * @param bikePathPoint the bike path point entity
-     * @return the bike path point response DTO
+     * Converts BikePathPoint entity to BikePathPointResponse DTO.
+     * MapStruct automatically maps fields with matching names.
+     * @param bikePathPoint bike path point entity
+     * @return bike path point response DTO
      */
-    public BikePathPointResponse toResponse(BikePathPoint bikePathPoint) {
-        return BikePathPointResponse.builder()
-                .latitude(bikePathPoint.getLatitude())
-                .longitude(bikePathPoint.getLongitude())
-                .timestamp(bikePathPoint.getTimestamp())
-                .sequentialPosition(bikePathPoint.getSequentialPosition())
-                .build();
-    }
+    BikePathPointResponse toResponse(BikePathPoint bikePathPoint);
 
     /**
-     * Converts a list of BikePathPoint entities to a list of BikePathPointResponse DTOs.
-     * Maintains the order of points as provided in the input list.
-     * @param bikePathPoints the list of bike path point entities
-     * @return the list of bike path point response DTOs
+     * Converts list of BikePathPoint entities to list of BikePathPointResponse DTOs.
+     * Maintains order of points, MapStruct generates loop logic automatically.
+     * @param bikePathPoints list of bike path point entities
+     * @return list of bike path point response DTOs
      */
-    public List<BikePathPointResponse> toResponses(List<BikePathPoint> bikePathPoints) {
-        return bikePathPoints.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
+    List<BikePathPointResponse> toResponses(List<BikePathPoint> bikePathPoints);
 
 }

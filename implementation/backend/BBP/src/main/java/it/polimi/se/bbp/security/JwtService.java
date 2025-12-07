@@ -15,31 +15,31 @@ import java.util.function.Function;
 
 /**
  * Service for JWT token generation and validation.
- * Handles all JWT-related operations including token creation, parsing, and validation.
+ * Handles token creation, parsing, and validation operations.
  */
 @Service
 public class JwtService {
 
     /**
-     * Secret key used for signing JWT tokens.
-     * This key is loaded from application.properties (jwt.secret).
-     * Must be a Base64-encoded string of at least 256 bits for HS256 algorithm.
+     * Secret key for signing JWT tokens.
+     * Loaded from application.properties (jwt.secret).
+     * Must be Base64-encoded string of at least 256 bits for HS256 algorithm.
      */
     @Value("${jwt.secret}")
     private String secretKey;
 
     /**
      * JWT token expiration time in milliseconds.
-     * This value is loaded from application.properties (jwt.expiration).
+     * Loaded from application.properties (jwt.expiration).
      * Default: 86400000 ms = 24 hours.
      */
     @Value("${jwt.expiration}")
     private long jwtExpiration;
 
     /**
-     * Extracts the user ID (subject) from the JWT token.
+     * Extracts user ID (subject) from JWT token.
      * @param token JWT token
-     * @return user ID extracted from the token
+     * @return user ID extracted from token
      */
     public Long extractUserId(String token) {
         String userIdString = extractClaim(token, Claims::getSubject);
@@ -47,11 +47,11 @@ public class JwtService {
     }
 
     /**
-     * Extracts a specific claim from the JWT token.
+     * Extracts specific claim from JWT token.
      * @param token JWT token
-     * @param claimsResolver function to extract the desired claim
-     * @param <T> type of the claim
-     * @return the extracted claim
+     * @param claimsResolver function to extract desired claim
+     * @param <T> type of claim
+     * @return extracted claim
      */
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
@@ -59,7 +59,7 @@ public class JwtService {
     }
 
     /**
-     * Generates a JWT token for the given user ID.
+     * Generates JWT token for given user ID.
      * @param userId user ID
      * @return generated JWT token
      */
@@ -68,8 +68,8 @@ public class JwtService {
     }
 
     /**
-     * Generates a JWT token with additional claims.
-     * @param extraClaims additional claims to include in the token
+     * Generates JWT token with additional claims.
+     * @param extraClaims additional claims to include in token
      * @param userId user ID
      * @return generated JWT token
      */
@@ -78,7 +78,7 @@ public class JwtService {
     }
 
     /**
-     * Builds a JWT token with specified claims and expiration.
+     * Builds JWT token with specified claims and expiration.
      * @param extraClaims additional claims
      * @param userId user ID
      * @param expiration expiration time in milliseconds
@@ -96,7 +96,7 @@ public class JwtService {
     }
 
     /**
-     * Validates if the token is valid for the given user ID.
+     * Validates if token is valid for given user ID.
      * @param token JWT token
      * @param userId user ID
      * @return true if token is valid, false otherwise
@@ -107,7 +107,7 @@ public class JwtService {
     }
 
     /**
-     * Checks if the token is expired.
+     * Checks if token is expired.
      * @param token JWT token
      * @return true if token is expired, false otherwise
      */
@@ -116,7 +116,7 @@ public class JwtService {
     }
 
     /**
-     * Extracts the expiration date from the token.
+     * Extracts expiration date from token.
      * @param token JWT token
      * @return expiration date
      */
@@ -125,7 +125,7 @@ public class JwtService {
     }
 
     /**
-     * Extracts all claims from the token.
+     * Extracts all claims from token.
      * @param token JWT token
      * @return all claims
      */
@@ -139,7 +139,7 @@ public class JwtService {
     }
 
     /**
-     * Gets the signing key for JWT token.
+     * Gets signing key for JWT token.
      * @return signing key
      */
     private SecretKey getSignInKey() {

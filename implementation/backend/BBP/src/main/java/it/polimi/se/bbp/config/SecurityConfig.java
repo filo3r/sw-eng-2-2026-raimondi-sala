@@ -1,5 +1,6 @@
 package it.polimi.se.bbp.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import it.polimi.se.bbp.security.JwtAuthFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.configurers.SessionManagementConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -26,10 +28,12 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Security configuration for the application.
- * Configures JWT-based authentication, authorization, CORS, and security policies.
+ * Security configuration for JWT-based authentication and authorization.
+ * Configures stateless session management, CORS policies, public/protected endpoints,
+ * and custom error handlers for unauthorized and forbidden access.
  */
 @Configuration
 @EnableWebSecurity
@@ -38,35 +42,39 @@ import java.util.List;
 public class SecurityConfig {
 
     /**
-     * Custom JWT authentication filter that intercepts requests to validate JWT tokens.
+     * JWT authentication filter that validates tokens on incoming requests.
      */
     private final JwtAuthFilter jwtAuthFilter;
 
     /**
-     * Comma-separated list of allowed origins for CORS configuration.
-     * Read from application.properties: security.cors.allowed-origins
+     * ObjectMapper for serializing JSON error responses.
+     */
+    private final ObjectMapper objectMapper;
+
+    /**
+     * Comma-separated list of allowed origins for CORS.
      */
     @Value("${security.cors.allowed-origins}")
     private String allowedOrigins;
 
     /**
-     * BCrypt password encoding strength (computational cost).
-     * Read from application.properties: security.password.bcrypt-strength
+     * BCrypt password encoding strength (computational cost factor).
      */
     @Value("${security.password.bcrypt-strength}")
     private int bcryptStrength;
 
     /**
-     * Flag to enable/disable H2 console access.
-     * Read from application.properties: spring.h2.console.enabled
+     * Flag to enable H2 console access for development.
      */
     @Value("${spring.h2.console.enabled}")
     private boolean h2ConsoleEnabled;
 
     /**
-     * Configures the security filter chain.
-     * Defines authentication, authorization, CORS, and session management policies.
-     * @param http HttpSecurity object
+     * Configures the main security filter chain.
+     * Sets up CORS, disables CSRF, defines authorization rules, enables stateless sessions,
+     * adds JWT filter, and configures custom exception handlers.
+     * Conditionally enables H2 console frame options if h2ConsoleEnabled is true.
+     * @param http HttpSecurity builder
      * @return configured SecurityFilterChain
      * @throws Exception if configuration fails
      */
@@ -85,52 +93,54 @@ public class SecurityConfig {
         // Configure headers for H2 console only if enabled
         if (h2ConsoleEnabled) {
             httpSecurity.headers(headers -> headers
-                    .frameOptions(frame -> frame.sameOrigin())
+                    .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
             );
         }
         return httpSecurity.build();
     }
 
     /**
-     * Configures authorization rules for HTTP requests.
-     * Defines which endpoints are public and which require authentication.
-     * @param auth AuthorizationManagerRequestMatcherRegistry
+     * Configures authorization rules for HTTP endpoints.
+     * Public endpoints: auth, finder bike-paths, mapbox access-token, H2 console (if enabled).
+     * All other endpoints require authentication.
+     * @param auth authorization registry
      */
     private void configureAuthorization(AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry auth) {
         // Allow H2 console access only if enabled (development)
         if (h2ConsoleEnabled) {
             auth.requestMatchers("/h2-console/**").permitAll();
         }
+        // Public endpoints - accessible without authentication
         auth
-                // Public endpoints - accessible without authentication
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/search/bike-paths/**").permitAll()
+                .requestMatchers("/api/finder/bike-paths/**").permitAll()
+                .requestMatchers("/api/mapbox/access-token/**").permitAll()
                 // All other endpoints require authentication
                 .anyRequest().authenticated();
     }
 
     /**
-     * Configures session management to be stateless (for JWT).
-     * @param session SessionManagementConfigurer
+     * Configures stateless session management for JWT authentication.
+     * No server-side session storage is used.
+     * @param session session management configurer
      */
     private void configureSessionManagement(SessionManagementConfigurer<HttpSecurity> session) {
         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS);
     }
 
     /**
-     * Configures CORS (Cross-Origin Resource Sharing) settings.
-     * Allows the frontend to communicate with the backend from a different origin.
-     * @return CorsConfigurationSource with configured CORS policies
+     * Configures CORS to allow frontend communication from different origins.
+     * Parses allowed origins from configuration, enables credentials,
+     * and allows all HTTP methods and headers.
+     * @return configured CORS configuration source
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Parse allowed origins from configuration (comma-separated list)
         configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
-        // Allowed HTTP methods
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // Allowed headers (Authorization is crucial for JWT)
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
+        configuration.setAllowedMethods(List.of("*"));
+        configuration.setAllowedHeaders(List.of("*"));
         // Allow credentials (cookies, authorization headers)
         configuration.setAllowCredentials(true);
         // Cache preflight response for 1 hour
@@ -142,50 +152,57 @@ public class SecurityConfig {
     }
 
     /**
-     * Configures the password encoder using BCrypt.
-     * The strength can be configured via application properties.
-     * @return BCryptPasswordEncoder with configured strength
+     * Creates a BCrypt password encoder with configured strength.
+     * Strength must be between 4 and 31.
+     * @return configured BCryptPasswordEncoder
+     * @throws IllegalArgumentException if strength is out of valid range
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
+        if (bcryptStrength < 4 || bcryptStrength > 31)
+            throw new IllegalArgumentException("BCrypt strength must be between 4 and 31");
         return new BCryptPasswordEncoder(bcryptStrength);
     }
 
     /**
-     * Custom authentication entry point for handling unauthorized access (401).
-     * Returns a JSON response when authentication fails or token is missing/invalid.
-     * @return AuthenticationEntryPoint
+     * Creates authentication entry point that handles unauthorized access (401).
+     * Returns JSON error response when authentication fails or token is invalid.
+     * @return configured AuthenticationEntryPoint
      */
     @Bean
     public AuthenticationEntryPoint authenticationEntryPoint() {
         return (request, response, authException) -> {
             response.setContentType("application/json;charset=UTF-8");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write(String.format(
-                    "{\"timestamp\":\"%s\",\"status\":401,\"error\":\"Unauthorized\",\"message\":\"%s\",\"path\":\"%s\"}",
-                    LocalDateTime.now(),
-                    authException.getMessage(),
-                    request.getRequestURI()
-            ));
+            Map<String, Object> errorDetails = Map.of(
+                    "timestamp", LocalDateTime.now().toString(),
+                    "status", 401,
+                    "error", "Unauthorized",
+                    "message", authException.getMessage(),
+                    "path", request.getRequestURI()
+            );
+            response.getWriter().write(objectMapper.writeValueAsString(errorDetails));
         };
     }
 
     /**
-     * Custom access denied handler for handling forbidden access (403).
-     * Returns a JSON response when a user tries to access a resource without proper permissions.
-     * @return AccessDeniedHandler
+     * Creates access denied handler for forbidden access (403).
+     * Returns JSON error response when user lacks required permissions.
+     * @return configured AccessDeniedHandler
      */
     @Bean
     public AccessDeniedHandler accessDeniedHandler() {
         return (request, response, accessDeniedException) -> {
             response.setContentType("application/json;charset=UTF-8");
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.getWriter().write(String.format(
-                    "{\"timestamp\":\"%s\",\"status\":403,\"error\":\"Forbidden\",\"message\":\"%s\",\"path\":\"%s\"}",
-                    LocalDateTime.now(),
-                    accessDeniedException.getMessage(),
-                    request.getRequestURI()
-            ));
+            Map<String, Object> errorDetails = Map.of(
+                    "timestamp", LocalDateTime.now().toString(),
+                    "status", 403,
+                    "error", "Forbidden",
+                    "message", accessDeniedException.getMessage(),
+                    "path", request.getRequestURI()
+            );
+            response.getWriter().write(objectMapper.writeValueAsString(errorDetails));
         };
     }
 

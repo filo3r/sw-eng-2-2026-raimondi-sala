@@ -2,104 +2,120 @@ package it.polimi.se.bbp.dto.response;
 
 import it.polimi.se.bbp.enums.ObstacleSeverity;
 import it.polimi.se.bbp.enums.ObstacleType;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
 
 /**
- * DTO for Obstacle response.
- * Contains information about an obstacle reported on a bike path,
- * including its location, type, severity, and status.
+ * Response for Obstacle containing location, type, severity, and status.
+ * Includes both active and resolved obstacles for historical tracking.
+ * @param id unique identifier
+ * @param createdById ID of user who reported this obstacle (null if user deleted)
+ * @param createdByUsername username of user who reported this obstacle (null if user deleted)
+ * @param createdAt creation timestamp
+ * @param updatedById ID of user who last updated this obstacle (null if never updated or user deleted)
+ * @param updatedByUsername username of user who last updated this obstacle (null if never updated or user deleted)
+ * @param updatedAt last update timestamp (null if never updated)
+ * @param address formatted address of obstacle location (geocoded)
+ * @param latitude latitude coordinate in decimal degrees (range: -90.0 to +90.0)
+ * @param longitude longitude coordinate in decimal degrees (range: -180.0 to +180.0)
+ * @param type type or category of the obstacle
+ * @param typeDescription human-readable obstacle type (e.g., "Pothole", "Debris", "Construction")
+ * @param severity severity level of the obstacle
+ * @param severityDescription human-readable severity level (e.g., "Low", "Medium", "High", "Critical")
+ * @param active flag indicating if obstacle is currently present (false = resolved but kept for history)
+ * @param positionOnPath position of obstacle along the bike path route
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class ObstacleResponse {
+public record ObstacleResponse(
 
-    /**
-     * The unique identifier of the obstacle.
-     */
-    private Long id;
+        /*
+         * Unique identifier of the obstacle.
+         */
+        Long id,
 
-    /**
-     *
-     */
-    private Long version;
+        /*
+         * ID of the user who reported this obstacle.
+         * Null if user deleted.
+         */
+        Long createdById,
 
-    /**
-     * The ID of the user who originally reported or created this obstacle.
-     * Will be null if the user who created it has been deleted from the system.
-     */
-    private Long createdBy;
+        /*
+         * Username of the user who reported this obstacle.
+         * Null if user deleted.
+         */
+        String createdByUsername,
 
-    /**
-     * The date and time when this obstacle was first reported.
-     */
-    private OffsetDateTime createdAt;
+        /*
+         * Creation timestamp.
+         */
+        OffsetDateTime createdAt,
 
-    /**
-     * The ID of the user who last updated this obstacle.
-     * Will be null if the obstacle has never been updated or if the user who updated it has been deleted.
-     */
-    private Long updatedBy;
+        /*
+         * ID of the user who last updated this obstacle.
+         * Null if never updated or user deleted.
+         */
+        Long updatedById,
 
-    /**
-     * The date and time of the last update to this obstacle.
-     * Will be null if the obstacle has never been updated.
-     */
-    private OffsetDateTime updatedAt;
+        /*
+         * Username of the user who last updated this obstacle.
+         * Null if never updated or user deleted.
+         */
+        String updatedByUsername,
 
-    /**
-     * The formatted address or description of the location where the obstacle is present.
-     * This is the geocoded address returned by the mapping service.
-     */
-    private String address;
+        /*
+         * Last update timestamp.
+         * Null if never updated.
+         */
+        OffsetDateTime updatedAt,
 
-    /**
-     * Latitude coordinate of the obstacle's location in decimal degrees.
-     * Valid range: -90.0 to +90.0
-     */
-    private Double latitude;
+        /*
+         * Formatted address of obstacle location.
+         * Geocoded address from mapping service.
+         */
+        String address,
 
-    /**
-     * Longitude coordinate of the obstacle's location in decimal degrees.
-     * Valid range: -180.0 to +180.0
-     */
-    private Double longitude;
+        /*
+         * Latitude coordinate in decimal degrees.
+         * Valid range: -90.0 to +90.0
+         */
+        Double latitude,
 
-    /**
-     * The type or category of the obstacle.
-     * Enum representing the nature of the problem.
-     */
-    private ObstacleType type;
+        /*
+         * Longitude coordinate in decimal degrees.
+         * Valid range: -180.0 to +180.0
+         */
+        Double longitude,
 
-    /**
-     * The human-readable description of the obstacle type.
-     * Example: "Pothole", "Debris", "Construction"
-     */
-    private String typeDescription;
+        /*
+         * Type or category of the obstacle.
+         */
+        ObstacleType type,
 
-    /**
-     * The severity level of the obstacle.
-     * Enum indicating how serious the problem is.
-     */
-    private ObstacleSeverity severity;
+        /*
+         * Human-readable obstacle type description.
+         * Example: "Pothole", "Debris", "Construction"
+         */
+        String typeDescription,
 
-    /**
-     * The human-readable description of the severity level.
-     * Example: "Low", "Medium", "High", "Critical"
-     */
-    private String severityDescription;
+        /*
+         * Severity level of the obstacle.
+         */
+        ObstacleSeverity severity,
 
-    /**
-     * Flag indicating whether this obstacle is currently active and present.
-     * When false, the obstacle has been resolved or is no longer present,
-     * but remains in the database for historical tracking.
-     */
-    private Boolean active;
+        /*
+         * Human-readable severity level description.
+         * Example: "Low", "Medium", "High", "Critical"
+         */
+        String severityDescription,
 
-}
+        /*
+         * Active status flag.
+         * False = resolved or no longer present, kept for historical tracking.
+         */
+        Boolean active,
+
+        /*
+         * Position of obstacle along the bike path route.
+         */
+        Integer positionOnPath
+
+) {}

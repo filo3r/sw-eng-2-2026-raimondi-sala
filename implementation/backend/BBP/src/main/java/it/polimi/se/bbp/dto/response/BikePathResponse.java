@@ -1,134 +1,156 @@
 package it.polimi.se.bbp.dto.response;
 
 import it.polimi.se.bbp.enums.BikePathStatus;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
 /**
- * DTO for BikePath response.
- * Contains all bike path information including route details, status, quality score,
- * GPS coordinates, and associated obstacles.
+ * Response for BikePath containing complete route details, status, score, and obstacles.
+ * @param id unique identifier
+ * @param version version for optimistic locking
+ * @param createdById ID of the user who created this bike path
+ * @param createdByUsername username of the user who created this bike path
+ * @param createdAt creation timestamp
+ * @param updatedById ID of the user who last updated this bike path (null if never updated)
+ * @param updatedByUsername username of the user who last updated this bike path (null if never updated)
+ * @param updatedAt last update timestamp (null if never updated)
+ * @param origin formatted address of starting point
+ * @param originLatitude latitude of origin point
+ * @param originLongitude longitude of origin point
+ * @param destination formatted address of destination point
+ * @param destinationLatitude latitude of destination point
+ * @param destinationLongitude longitude of destination point
+ * @param description optional description or notes
+ * @param score overall quality score (range: 0.0 to 5.0, computed from status and obstacles)
+ * @param status current condition status
+ * @param statusDescription human-readable status description
+ * @param totalDistance total distance in kilometers
+ * @param published visibility flag (true = public and editable by anyone, false = private)
+ * @param bikePathPoints GPS coordinates forming the complete route (ordered by sequential position)
+ * @param obstacles list of obstacles along the path (includes active and inactive for history)
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class BikePathResponse {
+public record BikePathResponse(
 
-    /**
-     * Unique identifier of the bike path.
-     */
-    private Long id;
+        /*
+         * Unique identifier of the bike path.
+         */
+        Long id,
 
-    /**
-     *
-     */
-    private Long version;
+        /*
+         * Version for optimistic locking.
+         */
+        Long version,
 
-    /**
-     * ID of the user who originally created this bike path.
-     */
-    private Long createdBy;
+        /*
+         * ID of the user who created this bike path.
+         */
+        Long createdById,
 
-    /**
-     * Date and time when this bike path was created.
-     */
-    private OffsetDateTime createdAt;
+        /*
+         * Username of the user who created this bike path.
+         */
+        String createdByUsername,
 
-    /**
-     * ID of the user who last updated this bike path.
-     * Will be null if the bike path has never been updated or if the user who updated it has been deleted.
-     */
-    private Long updatedBy;
+        /*
+         * Creation timestamp.
+         */
+        OffsetDateTime createdAt,
 
-    /**
-     * Date and time of the last update to this bike path.
-     * Will be null if the bike path has never been updated.
-     */
-    private OffsetDateTime updatedAt;
+        /*
+         * ID of the user who last updated this bike path.
+         * Null if never updated.
+         */
+        Long updatedById,
 
-    /**
-     * Formatted address of the bike path's starting point.
-     */
-    private String origin;
+        /*
+         * Username of the user who last updated this bike path.
+         * Null if never updated.
+         */
+        String updatedByUsername,
 
-    /**
-     * Latitude of the origin point.
-     */
-    private Double originLatitude;
+        /*
+         * Last update timestamp.
+         * Null if never updated.
+         */
+        OffsetDateTime updatedAt,
 
-    /**
-     * Longitude of the origin point.
-     */
-    private Double originLongitude;
+        /*
+         * Formatted address of the starting point.
+         */
+        String origin,
 
-    /**
-     * Formatted address of the bike path's destination point.
-     */
-    private String destination;
+        /*
+         * Latitude of the origin point.
+         */
+        Double originLatitude,
 
-    /**
-     * Latitude of the destination point.
-     */
-    private Double destinationLatitude;
+        /*
+         * Longitude of the origin point.
+         */
+        Double originLongitude,
 
-    /**
-     * Longitude of the destination point.
-     */
-    private Double destinationLongitude;
+        /*
+         * Formatted address of the destination point.
+         */
+        String destination,
 
-    /**
-     * Optional description or notes about the bike path.
-     */
-    private String description;
+        /*
+         * Latitude of the destination point.
+         */
+        Double destinationLatitude,
 
-    /**
-     * Overall quality score of the bike path.
-     * Range: 0.0 to 5.0
-     * Computed based on the path status, obstacles, and other factors.
-     */
-    private BigDecimal score;
+        /*
+         * Longitude of the destination point.
+         */
+        Double destinationLongitude,
 
-    /**
-     * Current condition status of the bike path.
-     * Enum indicating the maintenance level and usability.
-     */
-    private BikePathStatus status;
+        /*
+         * Optional description or notes about the bike path.
+         */
+        String description,
 
-    /**
-     * Human-readable description of the bike path status.
-     * Example: "Excellent", "Good", "Under Maintenance"
-     */
-    private String statusDescription;
+        /*
+         * Overall quality score of the bike path.
+         * Range: 0.0 to 5.0
+         * Computed from status, obstacles, and other factors.
+         */
+        BigDecimal score,
 
-    /**
-     * Total distance of the bike path in kilometers.
-     */
-    private BigDecimal totalDistance;
+        /*
+         * Current condition status.
+         */
+        BikePathStatus status,
 
-    /**
-     * Flag indicating whether this bike path is published and visible to all users.
-     * When true, the path is public and can be updated by any user.
-     * When false, the path is private and only visible/editable by its creator.
-     */
-    private Boolean published;
+        /*
+         * Human-readable status description.
+         * Example: "Excellent", "Good", "Under Maintenance"
+         */
+        String statusDescription,
 
-    /**
-     * List of GPS coordinates that form the complete route of the bike path.
-     * Points are ordered by sequential position to reconstruct the path geometry.
-     */
-    private List<BikePathPointResponse> bikePathPoints;
+        /*
+         * Total distance in kilometers.
+         */
+        BigDecimal totalDistance,
 
-    /**
-     * List of obstacles reported along this bike path.
-     * Includes both active and inactive obstacles for historical tracking.
-     */
-    private List<ObstacleResponse> obstacles;
+        /*
+         * Visibility flag.
+         * True = public and editable by anyone.
+         * False = private and only visible/editable by creator.
+         */
+        Boolean published,
 
-}
+        /*
+         * GPS coordinates forming the complete route.
+         * Ordered by sequential position.
+         */
+        List<BikePathPointResponse> bikePathPoints,
+
+        /*
+         * Obstacles reported along this bike path.
+         * Includes active and inactive for historical tracking.
+         */
+        List<ObstacleResponse> obstacles
+
+) {}

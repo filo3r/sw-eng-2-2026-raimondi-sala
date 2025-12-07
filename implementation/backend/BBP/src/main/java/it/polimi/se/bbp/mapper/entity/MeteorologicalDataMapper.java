@@ -3,31 +3,33 @@ package it.polimi.se.bbp.mapper.entity;
 import it.polimi.se.bbp.entity.MeteorologicalData;
 import it.polimi.se.bbp.entity.Trip;
 import it.polimi.se.bbp.enums.openmeteo.WeatherCondition;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Builder;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingConstants;
 
 /**
  * Mapper for converting weather data parameters to MeteorologicalData entities.
  */
-@Component
-public class MeteorologicalDataMapper {
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING,
+        builder = @Builder(disableBuilder = true))
+public interface MeteorologicalDataMapper {
 
     /**
-     * Converts weather data parameters to a MeteorologicalData entity.
-     * @param trip the trip entity to associate with the meteorological data
-     * @param weatherCondition the weather condition enum
-     * @param temperature the temperature in degrees Celsius
-     * @param humidity the relative humidity percentage
-     * @param windSpeed the wind speed in km/h
-     * @return the meteorological data entity
+     * Converts weather data parameters to MeteorologicalData entity.
+     * @param trip trip entity to associate with meteorological data
+     * @param weatherCondition weather condition enum
+     * @param temperature temperature in degrees Celsius
+     * @param humidity relative humidity percentage
+     * @param windSpeed wind speed in km/h
+     * @return meteorological data entity
      */
-    public MeteorologicalData toEntity(Trip trip, WeatherCondition weatherCondition, Double temperature, Integer humidity, Double windSpeed) {
-        return MeteorologicalData.builder()
-                .trip(trip)
-                .weatherCondition(weatherCondition)
-                .temperature(temperature)
-                .humidity(humidity)
-                .windSpeed(windSpeed)
-                .build();
-    }
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "trip", source = "trip")
+    @Mapping(target = "weatherCondition", source = "weatherCondition")
+    @Mapping(target = "temperature", source = "temperature")
+    @Mapping(target = "humidity", source = "humidity")
+    @Mapping(target = "windSpeed", source = "windSpeed")
+    MeteorologicalData toEntity(Trip trip, WeatherCondition weatherCondition, Double temperature, Integer humidity, Double windSpeed);
 
 }

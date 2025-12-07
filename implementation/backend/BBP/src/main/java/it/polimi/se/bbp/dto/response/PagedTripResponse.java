@@ -1,76 +1,67 @@
 package it.polimi.se.bbp.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.List;
 
 /**
- * DTO for paginated trip response.
- * Contains a page of trips along with pagination metadata.
- * Used to return a subset of user's trips with information about total available data.
+ * Response for paginated trips with navigation metadata.
+ * Returns a subset of trips with pagination information.
+ * @param content list of trips in current page (with all details including points and meteorological data)
+ * @param currentPage current page number (0-indexed)
+ * @param pageSize number of items per page
+ * @param totalElements total number of trips across all pages
+ * @param totalPages total number of pages (calculated as ceil(totalElements / pageSize))
+ * @param hasNext flag indicating if next page is available
+ * @param hasPrevious flag indicating if previous page is available
+ * @param firstPage flag indicating if this is the first page (currentPage == 0)
+ * @param lastPage flag indicating if this is the last page (currentPage == totalPages - 1)
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class PagedTripResponse {
+public record PagedTripResponse(
 
-    /**
-     * List of trips in the current page.
-     * Contains the actual trip data with all details including points and meteorological data.
-     */
-    private List<TripResponse> content;
+        /*
+         * List of trips in current page.
+         * Includes all details (points and meteorological data).
+         */
+        List<TripResponse> content,
 
-    /**
-     * Current page number (0-indexed).
-     * First page is 0, second page is 1, etc.
-     */
-    private int currentPage;
+        /*
+         * Current page number (0-indexed).
+         */
+        int currentPage,
 
-    /**
-     * Number of items per page (page size).
-     * Example: 20 means each page contains up to 20 trips.
-     */
-    private int pageSize;
+        /*
+         * Number of items per page.
+         */
+        int pageSize,
 
-    /**
-     * Total number of trips available across all pages.
-     * Example: If user has 157 trips total, this will be 157.
-     */
-    private long totalElements;
+        /*
+         * Total number of trips across all pages.
+         */
+        long totalElements,
 
-    /**
-     * Total number of pages available.
-     * Calculated as: ceil(totalElements / pageSize)
-     * Example: 157 trips with pageSize=20 results in 8 pages
-     */
-    private int totalPages;
+        /*
+         * Total number of pages.
+         * Calculated as: ceil(totalElements / pageSize)
+         */
+        int totalPages,
 
-    /**
-     * Flag indicating if there is a next page available.
-     * True if currentPage is less than totalPages minus 1
-     */
-    private boolean hasNext;
+        /*
+         * Flag indicating if next page is available.
+         */
+        boolean hasNext,
 
-    /**
-     * Flag indicating if there is a previous page available.
-     * True if currentPage is greater than 0
-     */
-    private boolean hasPrevious;
+        /*
+         * Flag indicating if previous page is available.
+         */
+        boolean hasPrevious,
 
-    /**
-     * Flag indicating if this is the first page.
-     * Equivalent to: currentPage == 0
-     */
-    private boolean firstPage;
+        /*
+         * Flag indicating if this is the first page.
+         */
+        boolean firstPage,
 
-    /**
-     * Flag indicating if this is the last page.
-     * Equivalent to: currentPage == totalPages minus 1
-     */
-    private boolean lastPage;
+        /*
+         * Flag indicating if this is the last page.
+         */
+        boolean lastPage
 
-}
+) {}

@@ -1,43 +1,39 @@
 package it.polimi.se.bbp.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 /**
- * Data Transfer Object for user response.
- * Contains user information without sensitive data like password.
+ * Response for user information without sensitive data.
+ * Excludes password and other sensitive fields.
+ * @param id user ID
+ * @param name user's first name
+ * @param surname user's last name
+ * @param username unique username
+ * @param email user's email address
  */
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class UserResponse {
+public record UserResponse(
 
-    /**
-     * User ID.
-     */
-    private Long id;
+        /*
+         * User ID.
+         */
+        Long id,
 
-    /**
-     * User's first name.
-     */
-    private String name;
+        /*
+         * User's first name.
+         */
+        String name,
 
-    /**
-     * User's last name.
-     */
-    private String surname;
+        /*
+         * User's last name.
+         */
+        String surname,
 
-    /**
-     * Unique username.
-     */
-    private String username;
+        /*
+         * Unique username.
+         */
+        String username,
 
-    /**
-     * User's email address.
-     */
-    private String email;
+        /*
+         * User's email address.
+         */
+        String email
 
-}
+) {}

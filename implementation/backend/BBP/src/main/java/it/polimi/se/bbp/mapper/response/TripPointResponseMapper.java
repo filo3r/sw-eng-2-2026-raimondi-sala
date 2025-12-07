@@ -2,40 +2,29 @@ package it.polimi.se.bbp.mapper.response;
 
 import it.polimi.se.bbp.dto.response.TripPointResponse;
 import it.polimi.se.bbp.entity.TripPoint;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.MappingConstants;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Mapper for converting TripPoint entities to TripPointResponse DTOs.
  */
-@Component
-public class TripPointResponseMapper {
+@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+public interface TripPointResponseMapper {
 
     /**
-     * Converts a single TripPoint entity to a TripPointResponse DTO.
-     * @param tripPoint the trip point entity
-     * @return the trip point response DTO
+     * Converts TripPoint entity to TripPointResponse DTO.
+     * @param tripPoint trip point entity
+     * @return trip point response DTO
      */
-    public TripPointResponse toResponse(TripPoint tripPoint) {
-        return TripPointResponse.builder()
-                .latitude(tripPoint.getLatitude())
-                .longitude(tripPoint.getLongitude())
-                .sequentialPosition(tripPoint.getSequentialPosition())
-                .timestamp(tripPoint.getTimestamp())
-                .build();
-    }
+    TripPointResponse toResponse(TripPoint tripPoint);
 
     /**
-     * Converts a list of TripPoint entities to a list of TripPointResponse DTOs.
-     * @param tripPoints the list of trip point entities
-     * @return the list of trip point response DTOs
+     * Converts list of TripPoint entities to list of TripPointResponse DTOs.
+     * @param tripPoints list of trip point entities
+     * @return list of trip point response DTOs
      */
-    public List<TripPointResponse> toResponses(List<TripPoint> tripPoints) {
-        return tripPoints.stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
+    List<TripPointResponse> toResponses(List<TripPoint> tripPoints);
 
 }

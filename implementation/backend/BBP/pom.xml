@@ -17,140 +17,146 @@
 
     <properties>
         <java.version>25</java.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+        <lombok.version>1.18.42</lombok.version>
+        <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+        <jjwt.version>0.13.0</jjwt.version>
+        <resilience4j.version>2.3.0</resilience4j.version>
+        <caffeine.version>3.2.3</caffeine.version>
+        <jts.version>1.20.0</jts.version>
     </properties>
 
     <dependencies>
-        <!-- Spring Data JPA: database management with Hibernate ORM -->
-        <!-- Allows mapping Java entities to SQL tables and querying with repositories -->
+        <!-- Spring Data JPA for database management with Hibernate ORM -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-        <!-- Spring Security: framework for authentication and authorization -->
-        <!-- Handles application security, user roles and endpoint protection -->
+        <!-- Spring Security for authentication and authorization -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
-        <!-- JJWT (Java JWT): library for creating and validating JWT tokens -->
-        <!-- Used to generate signed tokens (JWT) for authentication and authorization -->
-        <!-- Core API: provides classes like Jwts.builder(), JwtParser, and related interfaces -->
+        <!-- JJWT API for JWT token creation and validation -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
-            <version>0.13.0</version>
+            <version>${jjwt.version}</version>
         </dependency>
-        <!-- JJWT Implementation: provides the runtime implementation of the jjwt-api -->
-        <!-- Includes cryptographic algorithms (HS256, RS256, etc.) and Base64 encoding logic -->
-        <!-- Declared as runtime since it’s needed only when the application runs, not for compilation -->
+        <!-- JJWT Implementation with cryptographic algorithms -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
-            <version>0.13.0</version>
+            <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
-        <!-- JJWT Jackson Serializer: integrates Jackson for JSON parsing and serialization -->
-        <!-- Required to convert JWT payloads (claims) to/from JSON, fully compatible with Spring Boot -->
-        <!-- Alternative modules exist (e.g. jjwt-gson), but Jackson is recommended for Spring projects -->
+        <!-- JJWT Jackson for JSON serialization of JWT payloads -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
-            <version>0.13.0</version>
+            <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
-        <!-- Validation: input data validation (e.g. @NotNull, @Email, @Size) -->
-        <!-- Enables automatic validation of DTOs and request bodies -->
+        <!-- Validation for input data validation annotations -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-        <!-- Spring Web: for creating REST APIs -->
-        <!-- Includes Spring MVC, embedded Tomcat, and everything to handle HTTP requests -->
+        <!-- Spring Web for REST API creation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
-        <!-- H2 Database: in-memory database for development and testing -->
-        <!-- Lightweight SQL database that runs in RAM, no installation required -->
+        <!-- H2 in-memory database for development and testing -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!-- Lombok: reduces boilerplate code -->
-        <!-- Automatically generates getters, setters, constructors with annotations (@Data, @Getter, etc.) -->
+        <!-- Lombok to reduce boilerplate code -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
-        <!-- Spring Boot Test: libraries for unit and integration testing -->
-        <!-- Includes JUnit, Mockito, AssertJ and other testing tools -->
+        <!-- MapStruct for compile-time bean mapping -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>${mapstruct.version}</version>
+        </dependency>
+        <!-- Spring Boot Test for unit and integration testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Spring Security Test: utilities for testing protected endpoints -->
-        <!-- Allows simulating authenticated users in tests (@WithMockUser) -->
+        <!-- Spring Security Test for testing protected endpoints -->
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Resilience4j Rate Limiter: provides rate limiting capabilities -->
-        <!-- Limits the number of requests per time window to protect APIs from overload and abuse -->
-        <!-- Integrates with Spring Boot for declarative rate limiting via annotations (@RateLimiter) -->
+        <!-- Resilience4j for rate limiting API requests -->
         <dependency>
             <groupId>io.github.resilience4j</groupId>
             <artifactId>resilience4j-ratelimiter</artifactId>
-            <version>2.3.0</version>
+            <version>${resilience4j.version}</version>
         </dependency>
-        <!-- Caffeine: high-performance caching library -->
-        <!-- Successor to Guava Cache with better performance and memory efficiency -->
+        <!-- Caffeine high-performance caching library -->
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>
             <artifactId>caffeine</artifactId>
-            <version>3.2.3</version>
+            <version>${caffeine.version}</version>
         </dependency>
-        <!-- Spring Boot Cache: provides caching abstraction and integration -->
-        <!-- Includes CaffeineCacheManager and other cache-related Spring classes -->
+        <!-- Spring Boot Cache for caching abstraction -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
-        <!-- JTS Topology Suite: library for spatial geometry operations -->
-        <!-- Used to verify if obstacles belong to bike paths through geometric operations -->
+        <!-- JTS for spatial geometry operations -->
         <dependency>
             <groupId>org.locationtech.jts</groupId>
             <artifactId>jts-core</artifactId>
-            <version>1.20.0</version>
+            <version>${jts.version}</version>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Maven Compiler Plugin: configures Java compilation -->
-            <!-- Required for Lombok to work as annotation processor -->
+            <!-- Maven Compiler Plugin for annotation processing -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <annotationProcessorPaths>
+                        <!-- MapStruct processor BEFORE Lombok for correct code generation -->
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>${mapstruct.version}</version>
+                        </path>
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                        <!-- Lombok-MapStruct binding for integration -->
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok-mapstruct-binding</artifactId>
+                            <version>${lombok-mapstruct-binding.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
-            <!-- Spring Boot Maven Plugin: creates executable JAR -->
-            <!-- Allows running 'mvn package' to get a .jar file with all dependencies -->
+            <!-- Spring Boot Maven Plugin for executable JAR creation -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <!-- Excludes Lombok from final JAR (only needed at compile-time) -->
+                    <!-- Exclude Lombok from final JAR (compile-time only) -->
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>
