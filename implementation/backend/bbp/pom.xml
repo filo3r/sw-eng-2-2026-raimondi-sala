@@ -10,7 +10,7 @@
     </parent>
 
     <groupId>it.polimi.se</groupId>
-    <artifactId>BBP</artifactId>
+    <artifactId>bbp</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>BBP</name>
     <description>Best Bike Paths</description>
