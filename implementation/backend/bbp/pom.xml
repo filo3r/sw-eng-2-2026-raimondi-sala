@@ -124,6 +124,8 @@
     </dependencies>
 
     <build>
+        <!-- Set JAR name without version suffix -->
+        <finalName>bbp-backend</finalName>
         <plugins>
             <!-- Maven Compiler Plugin for annotation processing -->
             <plugin>

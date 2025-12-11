@@ -6,15 +6,26 @@
   "scripts": {
     "dev": "bunx --bun vite",
     "build": "vue-tsc -b && bunx --bun vite build",
+    "build:prod": "bun run build && bun build --compile ./server.ts --outfile bbp-frontend",
     "preview": "bunx --bun vite preview"
   },
   "dependencies": {
-    "vue": "^3.5.24"
+    "axios": "^1.13.2",
+    "mapbox-gl": "^3.17.0",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.24",
+    "vue-router": "^4.6.3"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.17",
+    "@types/bun": "^1.3.4",
     "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/tsconfig": "^0.8.1",
+    "autoprefixer": "^10.4.22",
+    "daisyui": "^5.5.8",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.17",
     "typescript": "~5.9.3",
     "vite": "^7.2.4",
     "vue-tsc": "^3.1.4"
