@@ -20,6 +20,8 @@
   },
   "include": [
     "vite.config.ts",
-    "server.ts"
+    "server.ts",
+    "tailwind.config.ts",
+    "postcss.config.ts"
   ]
 }
