@@ -4,7 +4,7 @@
  * @throws {Error} If key not found in production
  */
 export const getMapboxApiKey = (): string => {
-    // Development: from .env.local
+    // Development: from .env
     if (import.meta.env.DEV) {
         return import.meta.env.VITE_MAPBOX_API_KEY || "";
     }

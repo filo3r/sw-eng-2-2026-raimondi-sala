@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { Search, MapPin, Bike, User, PanelRightClose, PanelRightOpen } from 'lucide-vue-next'
+import ToastContainer from '@/components/ToastContainer.vue'
 
 const isDrawerOpen = ref(false)
 const route = useRoute()
@@ -65,4 +66,6 @@ watch(() => route.path, () => {
       </div>
     </div>
   </div>
+
+  <ToastContainer />
 </template>
