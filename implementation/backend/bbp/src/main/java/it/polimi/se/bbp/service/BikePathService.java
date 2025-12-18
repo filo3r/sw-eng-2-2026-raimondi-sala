@@ -158,7 +158,7 @@ public class BikePathService {
         // Load bike path with all relationships
         BikePath bikePath = loadCompleteBikePath(bikePathId);
         // Validate update permissions
-        validateUpdatePermissions(bikePath, user.getId());
+        validateUpdatePermissions(bikePath, user.getId(), request);
         // Check optimistic locking
         checkOptimisticLock(request, bikePath);
         OffsetDateTime now = OffsetDateTime.now();
@@ -354,15 +354,21 @@ public class BikePathService {
     /**
      * Validates permissions for updating bike path.
      * Creator always allowed; other users only if published.
+     * Only creator can change published from true to false.
      * @param bikePath bike path being updated
      * @param userId ID of user attempting update
+     * @param request update request to check for restricted field changes
      * @throws AccessDeniedException if user lacks permission
      */
-    private void validateUpdatePermissions(BikePath bikePath, Long userId) {
+    private void validateUpdatePermissions(BikePath bikePath, Long userId, BikePathUpdateRequest request) {
         boolean isCreator = bikePath.getCreatedBy().getId().equals(userId);
         boolean isPublished = bikePath.getPublished();
+        // Non-creator cannot update private bike paths
         if (!isCreator && !isPublished)
             throw new AccessDeniedException("You can only update your own private bike paths");
+        // Only creator can change published from true to false
+        if (!isCreator && request.published() != null && !request.published())
+            throw new AccessDeniedException("Only the creator can change a bike path from public to private");
     }
 
     /**
