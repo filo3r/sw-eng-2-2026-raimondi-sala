@@ -1,31 +1,36 @@
 \subsection{Purpose}
-Best Bike Path is a software system that enables cyclists to create and browse through an inventory of bike paths.
+Best Bike Paths is a software system that enables cyclists to create and browse through an inventory of bike paths.
 
-\noindent For \textbf{registered users} it serves as a personal cycling log with the possibility to keep track of their activities and share them with the public. The software will provide registered users with useful information about each trip, such as the total covered distance, the average speed, the weather conditions, the temperature, the humidity, and the wind speed. Registered users can also report the quality of the roads and the presence of obstacles.
+\noindent For \textbf{registered users} it serves as a personal cycling log to track their trips and as a tool to contribute bike path information to the community. The application provides useful data about each trip, such as the total covered distance, average speed, and other performance metrics. When available, it can enrich trip records with meteorological information (such as weather conditions, temperature, humidity, and wind speed).
+Registered cyclists can also report details about bike paths, including the quality status of the roads and the presence of obstacles.
 
-\noindent Bicycle paths can be added to the software in two ways:
+\noindent Both trips and bike paths can be added to the software in two ways:
 \begin{itemize}
-    \item[] \textbf{Manual mode}: this mode allows users to insert data manually through the web app or smartphone app.
-    \item[] \textbf{Automated mode}: this mode allows the smartphone app to start recording the path when it notices that the user is cycling, and through GPS the software system will map the route taken by the user. Finally, with the help of the accelerometer and gyroscope, and after user validation, it will automatically report potential potholes or bad road quality. 
+    \item[] \textbf{Manual mode}: this mode allows users to manually insert the streets composing their route and report the location of any obstacles encountered, through the web app or smartphone app.
+    \item[] \textbf{Automated mode}: this mode allows the smartphone app to start recording when it detects that the user is cycling. Through GPS, the software will map the route taken, while the accelerometer and gyroscope detect potential obstacles. After user validation, the recorded data will be saved in the system. 
 \end{itemize}
-\noindent Every published path will be searchable by everyone who accesses the website or who downloads the app, regardless of whether they are a registered user or not. This gives everyone the possibility to look for the best bike path between a starting location and a destination, and possibly ranking multiple results in order from the best path to the worst.
+\noindent Details about bike paths can be made publishable by the owner, making them visible and accessible to the entire community.
+Every user, registered or not, can access the system to search for bike paths between a starting location and a destination. BBP visualizes available paths on a map and ranks them based on a quality score computed from the path status and the presence of obstacles.
 
 \subsubsection{Goals}
 \begin{itemize}
     \item[] \textbf{[G1] Planning best and most efficient bike path:} 
-    Allow every user (registered or not) to find the bicycle path from an origin to a destination, prioritizing the road quality and the absence of obstacles.
+    Allow every user (registered or not) to find bicycle paths from an origin to a destination, ranked by a quality score computed from the path status and the presence of obstacles.
 
     \item[] \textbf{[G2] Storing the cycling activity of registered users:} 
-    Giving registered users a tool to track their session, and enriching those data with weather conditions, speed, road quality and the presence of obstacles.
+    Give registered users a tool to track their cycling sessions, enriching trip data with performance metrics (distance, speed, duration) and, when available, meteorological information.
 
     \item[] \textbf{[G3] Automatic cycling activity recognizer and recorder:} 
-    Automatically record the activity a user does with his bicycle, and detecting speed and road quality based on user's phone's sensors.
+    Automatically record the cycling route via GPS and detect potential obstacles based on the user's phone sensors (accelerometer and gyroscope).
 
     \item[] \textbf{[G4] Automatically detect cycling stop and verify gathered data:} 
-    Prompting the user a confirmation message to accept the ended activity, with the possibility to edit data such as obstacles position and road quality. 
+    Prompt the user with a confirmation message to accept the ended activity, with the possibility to confirm or correct detected obstacles before they are recorded.
 
-    \item[] \textbf{[G5] Permitting manual path insertions:} 
-    Give registered users the possibility to insert bike paths into the system, and enriching the path with data on obstacles and road quality.
+    \item[] \textbf{[G5] Permitting manual insertions:} 
+    Give registered users the possibility to manually insert trips and bike paths, specifying streets, timings, status, and obstacles.
+
+    \item[] \textbf{[G6] Publication control:} 
+    Allow users to control bike path visibility by making them publishable to the community or keeping them private.
 \end{itemize}
 
 \subsection{Scope}
@@ -38,7 +43,7 @@ This section defines the scope of the Best Bike Paths (BBP) system using the \te
 \item[] \textbf{WP3:} Users want to find a bike path from an origin to a destination.
 \item[] \textbf{WP4:} Users want to open the app to record their track.
 \item[] \textbf{WP5:} Users evaluate the results that the app gives them after they finished cycling.
-\item[] \textbf{WP6:} Users decide to publish their tracks or not to.
+\item[] \textbf{WP6:} Users decide to publish their bike paths or not to.
 \item[] \textbf{WP7:} External service providers update their data independently from BBP.
 \end{itemize}
 
@@ -49,17 +54,23 @@ The BBP system is the software component to be developed.
 
 \begin{itemize}
 \item[] \textbf{SP1:} Users send their registration data (email and password) to the system.
-\item[] \textbf{SP2:} Users send their login credential to the system or press the logout button.
-\item[] \textbf{SP3:} Data sensors (gyroscope, accelerometer etc) on users phones send raw data to the phone.
-\item[] \textbf{SP4:} Users manually insert details of the road (road quality, obstacles) through the user interface.
-\item[] \textbf{SP5:} Users send the search parameters (the start and the destination) to the system.
-\item[] \textbf{SP6:} The system sends requests to external service providers to get weather data or map data.
-\item[] \textbf{SP7:} External service providers send weather data and map data to the system.
-\item[] \textbf{SP8:} The system shows to users maps, paths.
-\item[] \textbf{SP9:} The system proposes the user a detected path and detected obstacles and road quality for validation.
-\item[] \textbf{SP10:} Users send a confirmation or disprove the data that the system inferred.
-\item[] \textbf{SP11:} The system shows the user their path informations such as average speed, distance, weather conditions, road quality and obstacles.
-\item[] \textbf{SP12:} The users send a confirmation for the publication of the path or send a confirmation to keep the path private.
+\item[] \textbf{SP2:} Users send their login credentials to the system or press the logout button.
+\item[] \textbf{SP3:} BBP app acquires sensor data (gyroscope, accelerometer) from the user's phone.
+\item[] \textbf{SP4:} Users manually insert trip details (origin, destination, timings) through the user interface.
+\item[] \textbf{SP5:} Users manually insert bike path details (streets, status, obstacles) through the user interface.
+\item[] \textbf{SP6:} Users send the search parameters (the origin and the destination) to the system.
+\item[] \textbf{SP7:} The system sends requests to external service providers to get weather data or map data.
+\item[] \textbf{SP8:} External service providers send weather data and map data to the system.
+\item[] \textbf{SP9:} The system shows to users maps and paths.
+\item[] \textbf{SP10:} The system proposes detected obstacles to the user for validation.
+\item[] \textbf{SP11:} Users send a confirmation or correction of the detected obstacles.
+\item[] \textbf{SP12:} Users request their trip history and the system displays trip information such as average speed, distance, and weather conditions.
+\item[] \textbf{SP13:} Users send a confirmation for the publication of the bike path or send a confirmation to keep the bike path private.
+\item[] \textbf{SP14:} Users request to update their bike paths (status and published flag) or delete them, and the system processes the modification.
+\item[] \textbf{SP15:} Users add or update obstacles on bike paths (type, severity, active status) through the user interface.
+\item[] \textbf{SP16:} Users request to delete their trips, and the system processes the deletion.
+\item[] \textbf{SP17:} Users request to update or delete their account, and the system processes the modification.
+\item[] \textbf{SP18:} Users report new obstacles on existing public bike paths through the user interface.
 \end{itemize}
 
 \subsection{Definitions, Acronyms, and Abbreviations}
@@ -70,13 +81,37 @@ The BBP system is the software component to be developed.
 \hline
 \textbf{Term / Acronym} & \textbf{Definition} \\
 \hline
-\textbf{BBP} & Best Bike Paths. \\
+\textbf{API} & Application Programming Interface \\
 \hline
-\textbf{RASD} & Requirement Analysis and Specification Document. \\
+\textbf{BBP} & Best Bike Paths \\
 \hline
-\textbf{DD} & Design Document. \\
+\textbf{CRUD} & Create, Read, Update, Delete \\
 \hline
-\textbf{GPS} & Global Positioning System. \\
+\textbf{DD} & Design Document \\
+\hline
+\textbf{DTO} & Data Transfer Object \\
+\hline
+\textbf{GDPR} & General Data Protection Regulation \\
+\hline
+\textbf{GPS} & Global Positioning System \\
+\hline
+\textbf{HTTPS} & Hypertext Transfer Protocol Secure \\
+\hline
+\textbf{JSON} & JavaScript Object Notation \\
+\hline
+\textbf{JWT} & JSON Web Token \\
+\hline
+\textbf{Quality Score} & Path quality score calculated based on number of obstacles and time taken for going from one place to another \\
+\hline
+\textbf{RASD} & Requirement Analysis and Specification Document \\
+\hline
+\textbf{REST} & Representational State Transfer \\
+\hline
+\textbf{SDK} & Software Development Kit \\
+\hline
+\textbf{LLM} & Large Language Model \\
+\hline
+\textbf{AI} & Artificial Intelligence \\
 \hline
 \end{tabular}
 \caption{Definitions, Acronyms, and Abbreviations}
@@ -90,7 +125,7 @@ The BBP system is the software component to be developed.
 \hline
 \textbf{Version} & \textbf{Date} & \textbf{Authors} \\
 \hline
-1.0 & 16-12-2025 & Raimondi F., Sala M. \\
+1.0 & 22-12-2025 & Raimondi F., Sala M. \\
 \hline
 \end{tabular}
 \caption{Document Revision History}
@@ -105,16 +140,11 @@ The BBP system is the software component to be developed.
 This document is organized into six main sections, following the standard structure for Requirement Analysis and Specification Documents:
 
 \begin{itemize}
-    \item[] \textbf{Introduction:} This section offers a general view of the BPP project, here the scope, main goals and the scope are defined.
-
-    
-    \item[] \textbf{Overall Description:} This section describe the context in which the system operates. Here the system is described with the \textit{World and Machine} approach. Perspectives, user characteristics, the assumptions and the constraints are detailed.
-    
+    \item[] \textbf{Introduction:} This section offers a general view of the BBP project, here the purpose and scope are defined.
+    \item[] \textbf{Overall Description:} This section describes the context in which the system operates. Here the system is described with the \textit{World and Machine} approach. Perspectives, user characteristics, assumptions and constraints are detailed.
     \item[] \textbf{Specific Requirements:} This section details the external interface requirements, functional requirements, and non-functional requirements.
-    
     \item[] \textbf{Formal Analysis using Alloy:} This section provides a formal model of the critical aspects of the system to validate the consistency and correctness of the specifications.
-    
+    \item[] \textbf{Use of Generative AI Tools:} This section describes the AI tools employed during document preparation, including writing assistance and UI mockup generation, along with verification processes.
     \item[] \textbf{Effort Spent:} This section shows the number of hours spent by each group member.
-    
     \item[] \textbf{References:} This section lists the resources used as references in this document.
 \end{itemize}
