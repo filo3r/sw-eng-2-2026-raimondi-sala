@@ -21,15 +21,15 @@ watch(() => route.path, () => {
 <template>
   <div class="drawer lg:drawer-open">
     <input id="my-drawer-4" type="checkbox" class="drawer-toggle" v-model="isDrawerOpen" />
-    <div class="drawer-content">
-      <nav class="navbar w-full bg-base-300">
+    <div class="drawer-content flex flex-col h-screen">
+      <nav class="navbar w-full bg-base-300 shrink-0">
         <label for="my-drawer-4" class="btn btn-square btn-ghost">
           <PanelRightOpen v-if="!isDrawerOpen" :size="16" />
           <PanelRightClose v-else :size="16" />
         </label>
         <div class="px-4">Best Bike Paths</div>
       </nav>
-      <div class="p-4">
+      <div class="flex-1">
         <RouterView />
       </div>
     </div>

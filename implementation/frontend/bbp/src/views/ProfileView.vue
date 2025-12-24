@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { User, Mail, Lock, UserCircle } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
@@ -28,7 +28,12 @@ const loading = ref(false)
 const showDeleteModal = ref(false)
 
 onMounted(async () => {
+  document.body.style.overflow = 'hidden'
   await fetchUserData()
+})
+
+onUnmounted(() => {
+  document.body.style.overflow = ''
 })
 
 async function fetchUserData() {
@@ -114,7 +119,7 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center">
+  <div class="flex h-screen items-center justify-center overflow-hidden">
     <div class="card w-full max-w-md bg-base-100 shadow-xl">
       <div class="card-body items-center">
         <h2 class="card-title text-2xl">Profile</h2>

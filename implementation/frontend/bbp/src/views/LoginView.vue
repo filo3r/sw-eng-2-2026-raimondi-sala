@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Mail, Lock } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
@@ -13,6 +13,14 @@ const { show } = useToast()
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
+
+onMounted(() => {
+  document.body.style.overflow = 'hidden'
+})
+
+onUnmounted(() => {
+  document.body.style.overflow = ''
+})
 
 async function handleLogin() {
   loading.value = true
@@ -36,7 +44,7 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center">
+  <div class="flex h-screen items-center justify-center overflow-hidden">
     <div class="card w-full max-w-md bg-base-100 shadow-xl">
       <div class="card-body items-center">
         <h2 class="card-title text-2xl">Login</h2>
