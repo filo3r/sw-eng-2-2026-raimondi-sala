@@ -10,6 +10,7 @@ import { useToast } from '@/composables/useToast'
 const router = useRouter()
 const mapContainer = ref<HTMLDivElement | null>(null)
 let map: mapboxgl.Map | null = null
+let obstacleMarkers: mapboxgl.Marker[] = []
 
 const { show } = useToast()
 
@@ -43,6 +44,11 @@ function selectOriginRadius(value: number) {
 function selectDestinationRadius(value: number) {
   destinationRadius.value = value
   ;(document.activeElement as HTMLElement)?.blur()
+}
+
+function removeObstacleMarkers() {
+  obstacleMarkers.forEach(marker => marker.remove())
+  obstacleMarkers = []
 }
 
 async function handleSearch() {
@@ -106,11 +112,176 @@ function clearSearch() {
   selectedBikePathId.value = null
   currentPage.value = 0
   hasMore.value = false
+
+  // Remove route from map
+  if (map?.getLayer('bike-path-route')) {
+    map.removeLayer('bike-path-route')
+  }
+  if (map?.getSource('bike-path-route')) {
+    map.removeSource('bike-path-route')
+  }
+
+  // Remove obstacle markers
+  removeObstacleMarkers()
 }
 
 function selectBikePath(bikePathId: number) {
   selectedBikePathId.value = bikePathId
-  // TODO: mostrare info sulla mappa (implementazione successiva)
+
+  const selectedPath = searchResults.value.find(bp => bp.id === bikePathId)
+  if (!selectedPath || !map) return
+
+  // Remove previous route if exists
+  if (map.getLayer('bike-path-route')) {
+    map.removeLayer('bike-path-route')
+  }
+  if (map.getSource('bike-path-route')) {
+    map.removeSource('bike-path-route')
+  }
+
+  // Remove previous obstacle markers
+  removeObstacleMarkers()
+
+  // Extract coordinates from bikePathPoints (sorted by sequentialPosition)
+  const coordinates = selectedPath.bikePathPoints
+      .sort((a: any, b: any) => a.sequentialPosition - b.sequentialPosition)
+      .map((point: any) => [point.longitude, point.latitude])
+
+  // Add GeoJSON source
+  map.addSource('bike-path-route', {
+    type: 'geojson',
+    data: {
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'LineString',
+        coordinates: coordinates
+      }
+    }
+  })
+
+  // Add layer to display the line
+  map.addLayer({
+    id: 'bike-path-route',
+    type: 'line',
+    source: 'bike-path-route',
+    layout: {
+      'line-join': 'round',
+      'line-cap': 'round'
+    },
+    paint: {
+      'line-color': '#3b82f6',
+      'line-width': 4
+    }
+  })
+
+  // Marker for origin (green)
+  const originMarker = new mapboxgl.Marker({ color: '#10b981' })
+      .setLngLat([selectedPath.originLongitude, selectedPath.originLatitude])
+      .setPopup(new mapboxgl.Popup({
+        offset: 25,
+        className: 'obstacle-popup'
+      }).setHTML(`
+        <div style="padding: 12px; min-width: 200px;">
+          <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0; color: #1f2937;">
+            Origin
+          </h3>
+          <div>
+            <span style="font-size: 14px; font-weight: 500; color: #374151;">Address:</span>
+            <p style="font-size: 14px; color: #6b7280; margin: 4px 0 0 0;">${selectedPath.origin}</p>
+          </div>
+        </div>
+      `))
+      .addTo(map!)
+
+  obstacleMarkers.push(originMarker)
+
+  // Marker for destination (purple)
+  const destinationMarker = new mapboxgl.Marker({ color: '#a855f7' })
+      .setLngLat([selectedPath.destinationLongitude, selectedPath.destinationLatitude])
+      .setPopup(new mapboxgl.Popup({
+        offset: 25,
+        className: 'obstacle-popup'
+      }).setHTML(`
+        <div style="padding: 12px; min-width: 200px;">
+          <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0; color: #1f2937;">
+            Destination
+          </h3>
+          <div>
+            <span style="font-size: 14px; font-weight: 500; color: #374151;">Address:</span>
+            <p style="font-size: 14px; color: #6b7280; margin: 4px 0 0 0;">${selectedPath.destination}</p>
+          </div>
+        </div>
+      `))
+      .addTo(map!)
+
+  obstacleMarkers.push(destinationMarker)
+
+  // Map severity to colors
+  const severityColors: Record<string, string> = {
+    'LOW': '#fde047',      // light yellow
+    'MEDIUM': '#fb923c',   // orange
+    'HIGH': '#ef4444',     // red
+    'CRITICAL': '#7f1d1d'  // dark red
+  }
+
+  // Add markers for active obstacles
+  const activeObstacles = selectedPath.obstacles.filter((obstacle: any) => obstacle.active)
+
+  activeObstacles.forEach((obstacle: any) => {
+    const markerColor = severityColors[obstacle.severity] || '#ef4444'
+
+    // Create HTML element for the marker
+    const el = document.createElement('div')
+    el.className = 'obstacle-marker'
+    el.style.backgroundColor = markerColor
+    el.style.width = '24px'
+    el.style.height = '24px'
+    el.style.borderRadius = '50%'
+    el.style.border = '2px solid white'
+    el.style.cursor = 'pointer'
+    el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)'
+
+    // Create popup with improved styling
+    const popup = new mapboxgl.Popup({
+      offset: 25,
+      className: 'obstacle-popup'
+    }).setHTML(`
+      <div style="padding: 12px; min-width: 200px;">
+        <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0; color: #1f2937;">
+          ${obstacle.typeDescription}
+        </h3>
+        <div style="margin-bottom: 8px;">
+          <span style="font-size: 14px; font-weight: 500; color: #374151;">Location:</span>
+          <p style="font-size: 14px; color: #6b7280; margin: 4px 0 0 0;">${obstacle.address}</p>
+        </div>
+        <div>
+          <span style="font-size: 14px; font-weight: 500; color: #374151;">Severity:</span>
+          <span style="font-size: 14px; color: #6b7280; font-weight: 600; margin-left: 4px;">
+            ${obstacle.severityDescription}
+          </span>
+        </div>
+      </div>
+    `)
+
+    // Create marker
+    const marker = new mapboxgl.Marker(el)
+        .setLngLat([obstacle.longitude, obstacle.latitude])
+        .setPopup(popup)
+        .addTo(map!)
+
+    obstacleMarkers.push(marker)
+  })
+
+  // Center map on route
+  const bounds = coordinates.reduce((bounds: any, coord: any) => {
+    return bounds.extend(coord)
+  }, new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]))
+
+  map.fitBounds(bounds, {
+    padding: 50,
+    duration: 1000
+  })
 }
 
 function viewDetails(bikePathId: number) {
@@ -148,6 +319,13 @@ onMounted(() => {
 
   map.addControl(geolocateControl, 'top-right')
 
+  // Close sidebar when clicking on map
+  map.on('click', () => {
+    if (isSidebarOpen.value) {
+      isSidebarOpen.value = false
+    }
+  })
+
   map.on('load', () => {
     const compassButton = document.querySelector('.mapboxgl-ctrl-compass')
     compassButton?.addEventListener('click', () => {
@@ -179,6 +357,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.body.style.overflow = ''
+  removeObstacleMarkers()
   map?.remove()
 })
 </script>
@@ -187,13 +366,13 @@ onUnmounted(() => {
   <div class="h-full w-full overflow-hidden relative">
     <div ref="mapContainer" class="h-full w-full"></div>
 
-    <!-- Search Button -->
+    <!-- Search Button (only when sidebar is closed) -->
     <button
-        @click="isSidebarOpen = !isSidebarOpen"
+        v-if="!isSidebarOpen"
+        @click="isSidebarOpen = true"
         class="btn btn-circle btn-neutral shadow-xl absolute top-4 left-4 z-30"
     >
-      <Search v-if="!isSidebarOpen" :size="20" />
-      <X v-else :size="20" />
+      <Search :size="20" />
     </button>
 
     <!-- Sidebar -->
@@ -204,8 +383,17 @@ onUnmounted(() => {
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
       ]"
     >
-      <div class="p-6 pt-20">
-        <h2 class="text-2xl font-bold mb-6">Search Bike Paths</h2>
+      <div class="p-6">
+        <!-- Header with title and X -->
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-bold">Search Bike Paths</h2>
+          <button
+              @click="isSidebarOpen = false"
+              class="btn btn-circle btn-ghost"
+          >
+            <X :size="20" />
+          </button>
+        </div>
 
         <!-- Search Form -->
         <form @submit.prevent="handleSearch" class="space-y-4">
@@ -233,7 +421,7 @@ onUnmounted(() => {
                 {{ radiusOptions.find(o => o.value === originRadius)?.label }}
                 <ChevronDown :size="16" />
               </div>
-              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-full p-2 shadow">
+              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-1 w-full p-2 shadow">
                 <li v-for="option in radiusOptions" :key="option.value">
                   <a @click="selectOriginRadius(option.value)">{{ option.label }}</a>
                 </li>
@@ -265,7 +453,7 @@ onUnmounted(() => {
                 {{ radiusOptions.find(o => o.value === destinationRadius)?.label }}
                 <ChevronDown :size="16" />
               </div>
-              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-full p-2 shadow">
+              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-1 w-full p-2 shadow">
                 <li v-for="option in radiusOptions" :key="option.value">
                   <a @click="selectDestinationRadius(option.value)">{{ option.label }}</a>
                 </li>
@@ -336,7 +524,7 @@ onUnmounted(() => {
               <span class="text-gray-600">{{ bikePath.statusDescription }}</span>
             </div>
 
-            <!-- Description (se presente) -->
+            <!-- Description (if present) -->
             <p v-if="bikePath.description" class="text-sm text-gray-600 line-clamp-2 mb-3">
               {{ bikePath.description }}
             </p>
@@ -365,3 +553,29 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+:deep(.obstacle-popup .mapboxgl-popup-content) {
+  border-radius: 8px;
+  padding: 0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+:deep(.obstacle-popup .mapboxgl-popup-close-button) {
+  font-size: 20px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  right: 8px;
+  top: 8px;
+}
+
+:deep(.obstacle-popup .mapboxgl-popup-close-button:hover) {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+</style>
