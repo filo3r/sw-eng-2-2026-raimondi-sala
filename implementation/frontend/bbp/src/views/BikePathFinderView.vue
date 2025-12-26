@@ -285,7 +285,13 @@ function selectBikePath(bikePathId: number) {
 }
 
 function viewDetails(bikePathId: number) {
-  router.push({ name: 'BikePathDetail', params: { id: bikePathId } })
+  const selectedBikePath = searchResults.value.find(bp => bp.id === bikePathId)
+
+  router.push({
+    name: 'BikePathDetail',
+    params: { id: bikePathId },
+    state: { bikePath: selectedBikePath }
+  })
 }
 
 onMounted(() => {
