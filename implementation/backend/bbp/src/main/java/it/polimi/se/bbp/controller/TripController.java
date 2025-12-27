@@ -41,6 +41,19 @@ public class TripController {
     private final PagedTripResponseMapper pagedTripResponseMapper;
 
     /**
+     * Retrieves trip by ID with all relationships.
+     * Only accessible to trip owner.
+     * @param id trip ID
+     * @return trip with points and meteorological data
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<TripResponse> getTripById(@PathVariable Long id) {
+        Trip trip = tripService.getTripById(id);
+        TripResponse response = tripResponseMapper.toResponse(trip);
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    /**
      * Retrieves paginated trips for the authenticated user.
      * Returns trips with all associated data including trip points and meteorological data.
      * Supports sorting by: startTime (default), endTime, totalDistance, averageSpeed.

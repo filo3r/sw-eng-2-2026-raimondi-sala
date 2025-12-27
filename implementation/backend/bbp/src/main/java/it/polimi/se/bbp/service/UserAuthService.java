@@ -94,6 +94,22 @@ public class UserAuthService {
     }
 
     /**
+     * Retrieves authenticated user if present, null otherwise.
+     * @return authenticated User entity or null if not authenticated
+     */
+    public User getAuthenticatedUserOrNull() {
+        try {
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !(auth.getPrincipal() instanceof Long userId)) {
+                return null;
+            }
+            return userRepository.findById(userId).orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * Validates username and email are unique in system.
      * @param request registration request with username and email
      * @throws UserAlreadyExistsException if username or email already exists

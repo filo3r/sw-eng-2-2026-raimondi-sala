@@ -18,6 +18,7 @@ import it.polimi.se.bbp.service.openmeteo.OpenMeteoService;
 import it.polimi.se.bbp.specification.TripSpecification;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -114,6 +115,29 @@ public class TripService {
         if (!trip.getRecordedBy().getId().equals(user.getId()))
             throw new AccessDeniedException("You can only delete your own trips");
         tripRepository.delete(trip);
+    }
+
+    /**
+     * Retrieves trip by ID with all relationships loaded.
+     * Only accessible to trip owner (requires authentication).
+     * Loads trip points and meteorological data (if available).
+     * @param tripId ID of trip to retrieve
+     * @return trip with points and meteorological data loaded
+     * @throws EntityNotFoundException if trip not found
+     * @throws AccessDeniedException if user is not trip owner
+     */
+    @Transactional(readOnly = true)
+    public Trip getTripById(Long tripId) {
+        User user = userAuthService.getAuthenticatedUser();
+        Trip trip = tripRepository.findById(tripId)
+                .orElseThrow(() -> new EntityNotFoundException("Trip not found"));
+        // Verify ownership
+        if (!trip.getRecordedBy().getId().equals(user.getId()))
+            throw new AccessDeniedException("You can only view your own trips");
+        // Eagerly load relationships after permission check
+        Hibernate.initialize(trip.getTripPoints());
+        Hibernate.initialize(trip.getMeteorologicalData());
+        return trip;
     }
 
     /**

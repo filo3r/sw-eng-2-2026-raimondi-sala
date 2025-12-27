@@ -42,6 +42,20 @@ public class BikePathController {
     private final PagedBikePathResponseMapper pagedBikePathResponseMapper;
 
     /**
+     * Retrieves bike path by ID with all relationships.
+     * Public bike paths accessible to all users.
+     * Private bike paths only accessible to creator.
+     * @param id bike path ID
+     * @return bike path with points and obstacles
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<BikePathResponse> getBikePathById(@PathVariable Long id) {
+        BikePath bikePath = bikePathService.getBikePathById(id);
+        BikePathResponse response = bikePathResponseMapper.toResponse(bikePath);
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    /**
      * Retrieves paginated bike paths created by the authenticated user.
      * Returns both published and private paths with all associated data including points and obstacles.
      * Uses 3-step loading strategy to eagerly load relationships while maintaining pagination efficiency.

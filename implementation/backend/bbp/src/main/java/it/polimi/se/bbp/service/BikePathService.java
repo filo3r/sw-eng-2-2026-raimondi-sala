@@ -188,6 +188,31 @@ public class BikePathService {
     }
 
     /**
+     * Retrieves bike path by ID with all relationships loaded.
+     * Public bike paths accessible to everyone (authenticated or not).
+     * Private bike paths accessible only to creator (requires authentication).
+     * @param bikePathId ID of bike path to retrieve
+     * @return bike path with points and obstacles loaded
+     * @throws EntityNotFoundException if bike path not found
+     * @throws AccessDeniedException if user cannot access private bike path
+     */
+    @Transactional(readOnly = true)
+    public BikePath getBikePathById(Long bikePathId) {
+        BikePath bikePath = bikePathRepository.findById(bikePathId)
+                .orElseThrow(() -> new EntityNotFoundException("Bike path not found"));
+        // Validate access permissions for private bike paths
+        if (!bikePath.getPublished()) {
+            User user = userAuthService.getAuthenticatedUserOrNull();
+            if (user == null || !bikePath.getCreatedBy().getId().equals(user.getId()))
+                throw new AccessDeniedException("This bike path is private and can only be viewed by its creator");
+        }
+        // Eagerly load relationships after permission check
+        Hibernate.initialize(bikePath.getBikePathPoints());
+        Hibernate.initialize(bikePath.getObstacles());
+        return bikePath;
+    }
+
+    /**
      * Retrieves paginated list of bike paths created by authenticated user.
      * Returns both published and private bike paths with all relationships loaded.
      * Default sorting: createdAt DESC (newest first).
