@@ -44,7 +44,6 @@ const router = createRouter({
             path: '/bike-paths/:id',
             name: 'BikePathDetail',
             component: () => import('@/views/BikePathDetailView.vue'),
-            meta: { requiresAuth: true }
         },
         {
             path: '/profile',
