@@ -8,58 +8,58 @@ const router = createRouter({
         {
             path: '/',
             name: 'BikePathFinder',
-            component: () => import('@/views/BikePathFinderView.vue')
+            component: () => import('@/views/BikePathFinder.vue')
         },
         {
             path: '/trips',
             name: 'Trips',
-            component: () => import('@/views/TripsView.vue'),
+            component: () => import('@/views/Trips.vue'),
             meta: { requiresAuth: true }
         },
         {
             path: '/trips/create/manual',
             name: 'TripCreateManual',
-            component: () => import('@/views/TripCreateManualView.vue'),
+            component: () => import('@/views/TripCreateManual.vue'),
             meta: { requiresAuth: true }
         },
         {
             path: '/trips/:id',
             name: 'TripDetail',
-            component: () => import('@/views/TripDetailView.vue'),
+            component: () => import('@/views/TripDetail.vue'),
             meta: { requiresAuth: true }
         },
         {
             path: '/bike-paths',
             name: 'BikePaths',
-            component: () => import('@/views/BikePathsView.vue'),
+            component: () => import('@/views/BikePaths.vue'),
             meta: { requiresAuth: true }
         },
         {
             path: '/bike-paths/create/manual',
             name: 'BikePathCreateManual',
-            component: () => import('@/views/BikePathCreateManualView.vue'),
+            component: () => import('@/views/BikePathCreateManual.vue'),
             meta: { requiresAuth: true }
         },
         {
             path: '/bike-paths/:id',
             name: 'BikePathDetail',
-            component: () => import('@/views/BikePathDetailView.vue'),
+            component: () => import('@/views/BikePathDetail.vue'),
         },
         {
             path: '/profile',
             name: 'Profile',
-            component: () => import('@/views/ProfileView.vue'),
+            component: () => import('@/views/Profile.vue'),
             meta: { requiresAuth: true }
         },
         {
             path: '/login',
             name: 'Login',
-            component: () => import('@/views/LoginView.vue')
+            component: () => import('@/views/Login.vue')
         },
         {
             path: '/register',
             name: 'Register',
-            component: () => import('@/views/RegisterView.vue')
+            component: () => import('@/views/Register.vue')
         }
     ]
 })
