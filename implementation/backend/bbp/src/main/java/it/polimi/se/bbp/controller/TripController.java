@@ -58,7 +58,7 @@ public class TripController {
      * Returns trips with all associated data including trip points and meteorological data.
      * Supports sorting by: startTime (default), endTime, totalDistance, averageSpeed.
      * @param page page number, 0-indexed (default: 0)
-     * @param size number of items per page (default: 20, max: 100)
+     * @param size number of items per page (default: 6, max: 12)
      * @param sortBy field to sort by (default: startTime)
      * @param direction sort direction ASC or DESC (default: DESC)
      * @return paginated trip response with navigation metadata
@@ -66,7 +66,7 @@ public class TripController {
     @GetMapping
     public ResponseEntity<PagedTripResponse> getUserTrips(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "6") int size,
             @RequestParam(defaultValue = "startTime") String sortBy,
             @RequestParam(defaultValue = "DESC") String direction
     ) {
@@ -82,7 +82,7 @@ public class TripController {
      * Empty filters return all trips, equivalent to GET /api/trips.
      * @param searchRequest filter criteria including origin, destination, and time range (all optional)
      * @param page page number, 0-indexed (default: 0)
-     * @param size number of items per page (default: 20, max: 100)
+     * @param size number of items per page (default: 6, max: 12)
      * @param sortBy field to sort by (default: startTime)
      * @param direction sort direction ASC or DESC (default: DESC)
      * @return paginated search results matching filters
@@ -91,7 +91,7 @@ public class TripController {
     public ResponseEntity<PagedTripResponse> searchTrips(
             @Valid @RequestBody TripSearchRequest searchRequest,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "6") int size,
             @RequestParam(defaultValue = "startTime") String sortBy,
             @RequestParam(defaultValue = "DESC") String direction
     ) {

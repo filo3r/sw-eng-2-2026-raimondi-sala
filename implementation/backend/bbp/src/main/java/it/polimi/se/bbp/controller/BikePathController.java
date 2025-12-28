@@ -60,7 +60,7 @@ public class BikePathController {
      * Returns both published and private paths with all associated data including points and obstacles.
      * Uses 3-step loading strategy to eagerly load relationships while maintaining pagination efficiency.
      * @param page page number, 0-indexed (default: 0)
-     * @param size number of items per page (default: 20, max: 100)
+     * @param size number of items per page (default: 6, max: 12)
      * @param sortBy field to sort by (default: createdAt, options: score, totalDistance, origin, destination)
      * @param direction sort direction ASC or DESC (default: DESC)
      * @return paginated bike path response with navigation metadata
@@ -68,7 +68,7 @@ public class BikePathController {
     @GetMapping
     public ResponseEntity<PagedBikePathResponse> getUserBikePaths(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "6") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String direction
     ) {
@@ -82,7 +82,7 @@ public class BikePathController {
      * Applies search criteria from request body and returns matching results.
      * @param searchRequest filter criteria for bike path search
      * @param page page number, 0-indexed (default: 0)
-     * @param size number of items per page (default: 20, max: 100)
+     * @param size number of items per page (default: 6, max: 12)
      * @param sortBy field to sort by (default: createdAt)
      * @param direction sort direction ASC or DESC (default: DESC)
      * @return paginated search results
@@ -91,7 +91,7 @@ public class BikePathController {
     public ResponseEntity<PagedBikePathResponse> searchBikePaths(
             @Valid @RequestBody BikePathSearchRequest searchRequest,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "6") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String direction
     ) {

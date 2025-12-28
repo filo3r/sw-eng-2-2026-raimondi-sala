@@ -55,7 +55,7 @@ public class BikePathFinderService {
     /**
      * Maximum page size to prevent excessive memory usage.
      */
-    private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_SIZE = 10;
 
     /**
      * Finds published bike paths within geographic radius of origin and destination.

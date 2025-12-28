@@ -41,14 +41,14 @@ public class BikePathFinderController {
      * applies Haversine distance calculation, and loads complete bike path data with batch loading.
      * @param request search criteria containing addresses and search radii in kilometers
      * @param page page number, 0-indexed (default: 0)
-     * @param size number of results per page (default: 20, max: 100)
+     * @param size number of results per page (default: 5, max: 10)
      * @return paginated search results with navigation metadata
      */
     @PostMapping
     public ResponseEntity<PagedBikePathResponse> findBikePaths(
             @Valid @RequestBody BikePathFinderRequest request,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "5") int size
     ) {
         Page<BikePath> bikePathPage = bikePathFinderService.findBikePaths(request, page, size);
         PagedBikePathResponse response = pagedBikePathResponseMapper.toPagedResponse(bikePathPage);
