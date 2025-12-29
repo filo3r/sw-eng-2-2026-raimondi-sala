@@ -1,0 +1,33 @@
+/**
+ * Custom styles for Mapbox popups and markers
+ */
+
+/* Popup content styling */
+.obstacle-popup .mapboxgl-popup-content,
+.route-popup .mapboxgl-popup-content {
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Popup close button */
+.obstacle-popup .mapboxgl-popup-close-button,
+.route-popup .mapboxgl-popup-close-button {
+    font-size: 20px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    right: 8px;
+    top: 8px;
+}
+
+/* Popup close button hover */
+.obstacle-popup .mapboxgl-popup-close-button:hover,
+.route-popup .mapboxgl-popup-close-button:hover {
+    background-color: #f3f4f6;
+    color: #1f2937;
+}
