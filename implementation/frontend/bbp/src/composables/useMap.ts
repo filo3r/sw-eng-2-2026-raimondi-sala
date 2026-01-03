@@ -54,6 +54,7 @@ export function useMap(options: UseMapOptions) {
             zoom: options.zoom ?? DEFAULT_ZOOM,
             pitch: DEFAULT_PITCH,
             bearing: DEFAULT_BEARING,
+            language: 'en',
             collectResourceTiming: false,
             attributionControl: false,
             // Disable interaction if static map
