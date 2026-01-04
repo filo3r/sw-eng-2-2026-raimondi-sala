@@ -159,7 +159,10 @@ function viewDetails(bikePathId: number) {
   router.push({
     name: 'BikePathDetail',
     params: { id: bikePathId },
-    state: { bikePath: selectedBikePath }
+    state: {
+      bikePath: selectedBikePath,
+      from: 'BikePathFinder'
+    }
   })
 }
 
