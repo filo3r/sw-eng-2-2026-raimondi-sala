@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, toRaw } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { Search, X, Eraser, Star, Bike, ArrowRight, ChevronDown } from 'lucide-vue-next'
@@ -7,6 +7,7 @@ import { useToast } from '@/composables/useToast'
 import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
 import { useMapObstacles } from '@/composables/useMapObstacles'
+import { useBikePathFinderStore } from '@/stores/bikePathFinder'
 import { findBikePaths } from '@/services/bikePathFinder'
 import { RADIUS_OPTIONS } from '@/constants/bikePath'
 import { BIKE_PATH_FINDER_PAGE_SIZE } from '@/constants/pagination'
@@ -15,6 +16,7 @@ import type { BikePathResponse } from '@/types/bikePath'
 
 const router = useRouter()
 const { show } = useToast()
+const store = useBikePathFinderStore()
 
 const mapContainer = ref<HTMLDivElement | null>(null)
 
@@ -118,6 +120,9 @@ function clearSearch() {
 
   clearRoute()
   clearObstacles()
+
+  // Clear store state
+  store.clearSearchState()
 }
 
 function selectBikePath(bikePathId: number) {
@@ -156,19 +161,108 @@ function selectBikePath(bikePathId: number) {
 function viewDetails(bikePathId: number) {
   const selectedBikePath = searchResults.value.find(bp => bp.id === bikePathId)
 
+  // Convert reactive arrays/objects to plain JavaScript before saving
+  store.saveSearchState({
+    originAddress: originAddress.value,
+    destinationAddress: destinationAddress.value,
+    originRadius: originRadius.value,
+    destinationRadius: destinationRadius.value,
+    searchResults: toRaw(searchResults.value),
+    currentPage: currentPage.value,
+    hasMore: hasMore.value,
+    selectedBikePathId: selectedBikePathId.value,
+    isSidebarOpen: isSidebarOpen.value
+  })
+
   router.push({
     name: 'BikePathDetail',
     params: { id: bikePathId },
     state: {
-      bikePath: selectedBikePath,
+      bikePath: selectedBikePath ? toRaw(selectedBikePath) : undefined,
       from: 'BikePathFinder'
     }
   })
 }
 
+/**
+ * Restore search state from store
+ */
+function restoreSearchState() {
+  if (!store.hasSearchState) {
+    console.log('⊘ No saved search state to restore')
+    return
+  }
+
+  console.log('↻ Restoring search state from store...')
+
+  // Restore search parameters
+  originAddress.value = store.originAddress
+  destinationAddress.value = store.destinationAddress
+  originRadius.value = store.originRadius
+  destinationRadius.value = store.destinationRadius
+
+  // Restore results and pagination
+  searchResults.value = store.searchResults
+  currentPage.value = store.currentPage
+  hasMore.value = store.hasMore
+
+  // Restore UI state
+  selectedBikePathId.value = store.selectedBikePathId
+  isSidebarOpen.value = store.isSidebarOpen
+
+  console.log(`✓ Restored ${searchResults.value.length} search results`)
+}
+
+/**
+ * Redraw map when ready and state is restored
+ */
+function restoreMapState() {
+  if (!isReady.value || !store.selectedBikePathId) return
+
+  const selectedPath = searchResults.value.find(bp => bp.id === store.selectedBikePathId)
+  if (!selectedPath) return
+
+  console.log('↻ Restoring map state...')
+
+  // Draw route
+  drawRoute(selectedPath.bikePathPoints)
+
+  // Add markers
+  addMarkers(
+      {
+        address: selectedPath.origin,
+        latitude: selectedPath.originLatitude,
+        longitude: selectedPath.originLongitude
+      },
+      {
+        address: selectedPath.destination,
+        latitude: selectedPath.destinationLatitude,
+        longitude: selectedPath.destinationLongitude
+      }
+  )
+
+  // Add obstacles
+  if (selectedPath.obstacles && selectedPath.obstacles.length > 0) {
+    addObstacles(selectedPath.obstacles)
+  }
+
+  console.log('✓ Map state restored')
+}
+
+// Watch for map ready to restore map state
+watch(isReady, (ready) => {
+  if (ready && store.hasSearchState) {
+    restoreMapState()
+  }
+})
+
 onMounted(() => {
   document.body.style.overflow = 'hidden'
 
+  // Restore search state first
+  restoreSearchState()
+
+  // Initialize map
   initMap()
 
   // Close sidebar when clicking on map
