@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Mail, Lock } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
@@ -13,14 +13,6 @@ const { show } = useToast()
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
-
-onMounted(() => {
-  document.body.style.overflow = 'hidden'
-})
-
-onUnmounted(() => {
-  document.body.style.overflow = ''
-})
 
 async function handleLogin() {
   loading.value = true

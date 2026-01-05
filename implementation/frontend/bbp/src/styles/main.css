@@ -2,5 +2,6 @@
 @plugin "daisyui";
 
 body {
-    overflow-y: scroll;
+    overflow-x: hidden; /* No horizontal scroll anywhere */
+    overflow-y: auto;   /* Vertical scroll everywhere by default */
 }

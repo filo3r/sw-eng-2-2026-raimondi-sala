@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { Search, X, Eraser, Star, Bike, ArrowRight, ChevronDown } from 'lucide-vue-next'
 import { useToast } from '@/composables/useToast'
+import { useNoScroll } from '@/composables/useScrollFix'
 import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
 import { useMapObstacles } from '@/composables/useMapObstacles'
@@ -17,6 +18,7 @@ import type { BikePathResponse } from '@/types/bikePath'
 const router = useRouter()
 const { show } = useToast()
 const store = useBikePathFinderStore()
+useNoScroll()
 
 const mapContainer = ref<HTMLDivElement | null>(null)
 

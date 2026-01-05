@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { User, Mail, Lock, UserCircle } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
@@ -16,14 +16,6 @@ const username = ref('')
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
-
-onMounted(() => {
-  document.body.style.overflow = 'hidden'
-})
-
-onUnmounted(() => {
-  document.body.style.overflow = ''
-})
 
 async function handleRegister() {
   loading.value = true
