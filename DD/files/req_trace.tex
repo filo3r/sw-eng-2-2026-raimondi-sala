@@ -1,0 +1,178 @@
+\noindent
+This section maps the requirements defined in the RASD to the architectural components described in this document, showing how the system design meets all functional and non-functional requirements. The mapping makes it easier to verify that the design is complete and helps with future testing and validation activities. \\
+
+\subsection{Functional Requirements Traceability}
+This subsection maps each functional requirement defined in the RASD to the architectural components responsible for its implementation.
+
+\subsubsection{Authentication \& User Profile}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|p{0.45\textwidth}|p{0.45\textwidth}|}
+\hline
+\textbf{Requirements} & \textbf{Components} \\
+\hline
+
+\textbf{[R1]} The system allows users to register with a valid email address and a password. \newline
+\textbf{[R2]} The system allows registered users to log in and get a session token. \newline
+\textbf{[R3]} The system allows registered users to log out. \newline
+\textbf{[R4]} The system allows registered users to edit their accounts or delete them. 
+
+&
+
+\begin{itemize}
+    \item User Auth Controller
+    \item User Controller
+    \item Authentication Service
+    \item User Management Service
+    \item User Repository
+\end{itemize} \\
+\hline
+
+\end{tabular}
+\caption{Authentication \& User Profile Requirements Traceability}
+\label{tab:auth-requirements}
+\end{table}
+
+\subsubsection{Trip Management}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|p{0.45\textwidth}|p{0.45\textwidth}|}
+\hline
+\textbf{Requirements} & \textbf{Components} \\
+\hline
+
+\textbf{[R5]} The system allows registered users to manually insert a trip specifying the starting point, the destination point, the starting time, the time of arrival, and the streets composing the route. \newline
+\textbf{[R6]} The system has to automatically calculate the total distance and the average speed of a manually inserted trip. \newline
+\textbf{[R7]} The system has to enrich users' trips with weather data (temperature, weather conditions, wind speed), if available. \newline
+\textbf{[R8]} The system allows registered users to automatically track their trips in real time. \newline
+\textbf{[R9]} The system allows registered users to view their trip history with individual trip statistics (distance, speed, duration, weather) and map visualization. \newline
+\textbf{[R10]} The system allows registered users to delete their trips.
+
+&
+
+\begin{itemize}
+    \item Trip Controller
+    \item Trip Service
+    \item Mapbox Integration Service
+    \item Open-Meteo Integration Service
+    \item Trip Repository
+    \item Meteorological Data Repository
+    \item Map Provider (Mapbox)
+    \item Weather Data Provider (Open-Meteo)
+    \item Mobile Application
+\end{itemize} \\
+\hline
+
+\end{tabular}
+\caption{Trip Management Requirements Traceability}
+\label{tab:trip-requirements}
+\end{table}
+
+\subsubsection{Bike Path Management}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|p{0.45\textwidth}|p{0.45\textwidth}|}
+\hline
+\textbf{Requirements} & \textbf{Components} \\
+\hline
+
+\textbf{[R11]} The system allows registered users to create new bike paths by specifying origin, destination, and the streets composing the route. \newline
+\textbf{[R12]} The system allows registered users to automatically record bike paths through GPS tracking and sensor data, with user validation before publishing. \newline
+\textbf{[R13]} The system calculates the exact geometry and length of the path using an external routing service. \newline
+\textbf{[R14]} The system allows registered users to add obstacles to a bike path, specifying the type and severity. \newline
+\textbf{[R15]} The system validates that the reported obstacles are within a specific buffer distance from the path. \newline
+\textbf{[R16]} The system automatically calculates a quality score for each bike path, based on its maintenance status and present obstacles. \newline
+\textbf{[R17]} The system allows the creator of a bike path to manage its visibility (private or public) and maintenance status. \newline
+\textbf{[R18]} The system allows the creator of a bike path to delete it.
+
+&
+
+\begin{itemize}
+    \item Bike Path Controller
+    \item Bike Path Service
+    \item Obstacle Management Service
+    \item Sensor Analysis Service
+    \item Mapbox Integration Service
+    \item Bike Path Repository
+    \item Obstacle Repository
+    \item Map Provider (Mapbox)
+    \item Mobile Application
+\end{itemize} \\
+\hline
+
+\end{tabular}
+\caption{Bike Path Management Requirements Traceability}
+\label{tab:bikepath-requirements}
+\end{table}
+
+\subsubsection{Search \& Exploration}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|p{0.45\textwidth}|p{0.45\textwidth}|}
+\hline
+\textbf{Requirements} & \textbf{Components} \\
+\hline
+
+\textbf{[R19]} The system allows any user (both registered and non registered) to search for public bike paths between an origin and a destination. \newline
+\textbf{[R20]} The system shows search results sorted by descending quality score.
+
+&
+
+\begin{itemize}
+    \item Bike Path Finder Controller
+    \item Bike Path Finder Service
+    \item Mapbox Integration Service
+    \item Bike Path Repository
+    \item Map Provider (Mapbox)
+\end{itemize} \\
+\hline
+
+\end{tabular}
+\caption{Search \& Exploration Requirements Traceability}
+\label{tab:search-requirements}
+\end{table}
+
+\subsubsection{Collaborative Maintenance}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|p{0.45\textwidth}|p{0.45\textwidth}|}
+\hline
+\textbf{Requirements} & \textbf{Components} \\
+\hline
+
+\textbf{[R21]} The system allows registered users to report new obstacles on existing public bike paths. \newline
+\textbf{[R22]} The system allows registered users to update existing obstacles (type, severity, active status). \newline
+\textbf{[R23]} The system automatically recalculates the quality score of a bike path each time its obstacles are updated.
+
+&
+
+\begin{itemize}
+    \item Bike Path Controller
+    \item Obstacle Management Service
+    \item Bike Path Service
+    \item Obstacle Repository
+    \item Bike Path Repository
+\end{itemize} \\
+\hline
+
+\end{tabular}
+\caption{Collaborative Maintenance Requirements Traceability}
+\label{tab:maintenance-requirements}
+\end{table}
+
+
+\subsection{Non-Functional Requirements Traceability}
+The non-functional requirements are addressed through specific architectural and technological choices.
+\begin{itemize}
+    \item \textbf{Performance and Scalability}: The stateless architecture based on JWT allows the horizontal scalability of the backend. PostGIS with GiST spatial indices guarantees efficient geographic queries. The local processing of the sensor data in the mobile reduces the network traffic and the battery consumption.
+    \item \textbf{Security}: The passwords are protected through secure hashing. All communications use HTTPS/TLS. The JWT authentication implements stateless security with signed tokens. The GDPR compliance is supported by the management of the visibility of the routes and by the possibility to delete the account.
+    \item \textbf{Reliability and Availability}: The layered architecture isolates the faults. PostgreSQL supports backup and replication for the persistence of the data. The mobile app uses local checkpoints during the registration. The system degrades in a controlled way if the external services are not available.
+    \item \textbf{Maintainability}: The three-level architecture separates presentation, business logic and data access. Spring Boot with dependency injection makes the code testable and modular. The DTO pattern decouples the internal model from the APIs. The Adapter Pattern isolates the system from the external services.
+    \item \textbf{Portability}: Vue.js guarantees cross-browser compatibility and responsive design. Flutter allows portability between Android and iOS with a single codebase. Standard technologies facilitate the deployment on different cloud platforms.
+    \item \textbf{Hardware and Connectivity Constraints}: The mobile app requires GPS, accelerometer and gyroscope. The local validation of the sensor data manages the intermittent connectivity. The integration services centralize the calls to the external APIs managing rate limiting and retry.
+\end{itemize}
