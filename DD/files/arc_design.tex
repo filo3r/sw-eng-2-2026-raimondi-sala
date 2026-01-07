@@ -112,6 +112,7 @@ BBP system adopts a distributed architecture based on the three-tier model; its 
 \subsection{Runtime view}
 This section describes the dynamic interaction between system components that realize the use cases.
 
+\noindent
 \textbf{UC1: Manual Trip Insertion} \\
 The user manually inserts a trip specifying the route taken and the timing. After the submission, TripService invokes the MapboxService to calculate the exact geometry of the trip and the travelled distance, then it makes an API request to the Open-Meteo service to get the historical weather conditions at the time of the trip. In the end it saves the entity in the database and sends the user a confirmation.
 
@@ -124,6 +125,7 @@ The user manually inserts a trip specifying the route taken and the timing. Afte
 
 \clearpage
 
+\noindent
 \textbf{UC2: Creation of a Public Bike Path} \\
 The user creates a bike path by defining waypoints on a map. The system receives these waypoints and uses the Mapbox service to calculate the exact path geometry. A spatial validation is performed to ensure that the obstacles are within a buffer distance from the route, then the system calculates the Quality Score and saves the bike path with the visibility settings chosen by the user.
 
@@ -136,6 +138,7 @@ The user creates a bike path by defining waypoints on a map. The system receives
 
 \clearpage
 
+\noindent
 \textbf{UC3: Search of Bike Paths} \\
 The user searches for bike paths by entering the origin and destination. The BikePathFinderService geocodes the addresses and performs a spatial query delegated to PostGIS to find published routes in the requested area. The database uses spatial indexes and native PostGIS functions to efficiently filter routes by proximity to both the starting point and destination point, and returns the complete bike path data including route geometry and obstacles. Results are sorted by descending score and displayed to the user.
 
@@ -148,6 +151,7 @@ The user searches for bike paths by entering the origin and destination. The Bik
 
 \clearpage
 
+\noindent
 \textbf{UC4: Obstacle Reporting on Bike Path} \\
 A user reports an obstacle on an existing bike path. After receiving the report, the system verifies the geographical consistency of the obstacle with respect to the geometry of the bike path. If valid, the obstacle is saved, the Quality Score is recalculated, and the update is made visible to all users.
 
@@ -160,6 +164,7 @@ A user reports an obstacle on an existing bike path. After receiving the report,
 
 \clearpage
 
+\noindent
 \textbf{UC5: Automatic Bike Path Creation} \\
 While the user is cycling, the mobile app records the route and identifies potential obstacles locally with a low degree of confidence using device sensors. When the user stops, the app detects the stop, finalizes the route, and sends preliminary obstacle data to the SensorAnalysisService. The backend enriches the anomalies by calculating confidence scores based on pattern analysis and performing cross-validation by checking if other users have reported obstacles in the same geographical area. The server responds with the enriched obstacle data, and the app then displays a prompt to the user to validate or modify the detected obstacles. After user validation, the app sends the complete payload to the server, which creates the bike path with validated obstacles via the BikePathService.
 
@@ -172,6 +177,7 @@ While the user is cycling, the mobile app records the route and identifies poten
 
 \clearpage
 
+\noindent
 \textbf{UC6: User Registration} \\
 The user submits registration data including email and password. The system validates the uniqueness of the email and the correctness of the inserted data. It creates the new account by hashing the password, generates a session token, and redirects the user to the dashboard.
 
@@ -184,6 +190,7 @@ The user submits registration data including email and password. The system vali
 
 \clearpage
 
+\noindent
 \textbf{UC7: User Login} \\
 The user submits login credentials (email and password). The system verifies the credentials provided; if they are correct, it generates a JWT token and grants access to the dashboard.
 
@@ -196,6 +203,7 @@ The user submits login credentials (email and password). The system verifies the
 
 \clearpage
 
+\noindent
 \textbf{UC8: Management of Created Bike Paths} \\
 The user manages their created bike paths. The system lists all bike paths created by the user. Depending on the action chosen, the system either updates the bike path metadata (such as visibility or status) or permanently deletes the bike path.
 
@@ -208,6 +216,7 @@ The user manages their created bike paths. The system lists all bike paths creat
 
 \clearpage
 
+\noindent
 \textbf{UC9: Trip History Visualization and Management} \\
 The user views their trip history. The system retrieves all trips created by the user, displaying statistics (distance, speed, duration) and associated weather conditions. The user can apply filters to the list or request the deletion of a specific trip, which the system removes from the database.
 
@@ -220,6 +229,7 @@ The user views their trip history. The system retrieves all trips created by the
 
 \clearpage
 
+\noindent
 \textbf{UC10: User Profile Update} \\
 The user modifies their personal data. The system validates the new data; if valid, it updates the user profile and confirms the success of the operation.
 
