@@ -5,15 +5,74 @@ In the modern day, sustainable mobility is becoming more widespread, therefore c
 The scope of the BBP system focuses on managing cyclists' activities and collecting information about paths between any origin and destination. The system includes features for recording personal trips, making possible for users to save their history and view detailed statistics enriched with external weather data. A central aspect of the scope is the inclusion of publishable information on the status of paths and the potential presence of obstacles, which can be inserted either manually or with the automatic detection mode, the latter one uses the mobile phone's sensors to detect potholes or other possible obstacles during the activity. To ensure the reliability of the automatically collected data, the system will have mandatory validation or correction by the user before the publication of the bike path. Finally, BBP includes a search feature that allows registered or not users to select a starting point and destination in order to view all the available routes on a map, classified according to a quality and efficiency score.
 
 \subsection{Definitions, Acronyms, and Abbreviations}
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{|p{3.5cm}|p{10cm}|}
+\hline
+\textbf{Term / Acronym} & \textbf{Definition} \\
+\hline
+\textbf{API} & Application Programming Interface \\
+\hline
+\textbf{BBP} & Best Bike Paths \\
+\hline
+\textbf{CRUD} & Create, Read, Update, Delete \\
+\hline
+\textbf{DBMS} & Database Management System \\
+\hline
+\textbf{DD} & Design Document \\
+\hline
+\textbf{DI} & Dependency Injection \\
+\hline
+\textbf{DTO} & Data Transfer Object \\
+\hline
+\textbf{GDPR} & General Data Protection Regulation \\
+\hline
+\textbf{GiST} & Generalized Search Tree (spatial index type in PostGIS) \\
+\hline
+\textbf{GPS} & Global Positioning System \\
+\hline
+\textbf{HTTPS} & Hypertext Transfer Protocol Secure \\
+\hline
+\textbf{IoC} & Inversion of Control \\
+\hline
+\textbf{JDBC} & Java Database Connectivity \\
+\hline
+\textbf{JPA} & Java Persistence API \\
+\hline
+\textbf{JSON} & JavaScript Object Notation \\
+\hline
+\textbf{JWT} & JSON Web Token \\
+\hline
+\textbf{PostGIS} & Spatial database extender for PostgreSQL \\
+\hline
+\textbf{Quality Score} & Path quality score calculated based on road surface conditions and number of obstacles \\
+\hline
+\textbf{RASD} & Requirement Analysis and Specification Document \\
+\hline
+\textbf{REST} & Representational State Transfer \\
+\hline
+\textbf{SPA} & Single Page Application \\
+\hline
+\textbf{TLS} & Transport Layer Security \\
+\hline
+\textbf{LLM} & Large Language Model \\
+\hline
+\textbf{AI} & Artificial Intelligence \\
+\hline
+\end{tabular}
+\caption{Definitions, Acronyms, and Abbreviations}
+\label{tab:definitions_dd}
+\end{table}
 
 \subsection{Revision History}
 \begin{table}[h!]
 \centering
 \begin{tabular}{|l|l|l|l|}
 \hline
-\textbf{Version} & \textbf{Date} & \textbf{Author(s)} & \textbf{Notes} \\
+\textbf{Version} & \textbf{Date} & \textbf{Author(s)} \\
 \hline
-x.x & xx-xx-2025 & Raimondi F., Sala M. & xxxx. \\
+1.0 & 07-01-2026 & Raimondi F., Sala M. \\
 \hline
 \end{tabular}
 \caption{Document Revision History}
@@ -25,3 +84,14 @@ x.x & xx-xx-2025 & Raimondi F., Sala M. & xxxx. \\
 \end{enumerate}
 
 \subsection{Document Structure}
+The document is organized into the following sections:
+\begin{itemize}
+    \item[] \textbf{Introduction}: provides an overview of the document, specifying purpose, scope, definitions, and references necessary to understand the project.
+    \item[] \textbf{Architectural Design}: describes the BBP system architecture through different views (component, deployment, runtime), presents the interfaces between components, illustrates the architectural styles and patterns adopted, and motivates the main design choices.
+    \item[] \textbf{User Interface Design}: presents the mockups of the web and mobile application, showing how the user interacts with the system through the different functionalities.
+    \item[] \textbf{Requirements Traceability}: maps the functional and non-functional requirements defined in the RASD to the architectural components responsible for their implementation, ensuring the completeness of the design.
+    \item[] \textbf{Implementation, Integration and Test Plan}: defines the system’s incremental development strategy, the integration order of the components, and the different testing levels needed to verify the correctness of the implementation.
+    \item[] \textbf{Use of Generative AI Tools}: documents the use of artificial intelligence tools during the drafting of the document.
+    \item[] \textbf{Effort Spent}: reports the time dedicated by each group member to the production of the document.
+    \item[] \textbf{References:} this section lists the resources used as references in this document.
+\end{itemize}
