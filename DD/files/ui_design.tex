@@ -7,77 +7,87 @@ Both versions share the same design principles: simplicity of use, focus on geog
 \subsection{Web Application}
 The BBP web application provides a complete interface for the management of all aspects of the system. The pages are organized in a coherent way, with a side navigation bar that is always visible and allows moving quickly between the different sections.
 
+\clearpage
+
 \subsubsection{Bike Path Finder}
-The Bike Path Finder section is the main tool for discovering new routes. The interface presents a full-screen map on the right side and a scrollable sidebar on the left side that can be opened and closed. The side panel contains a form where the user enters an origin and destination address, selecting for each one a search radius through dropdown menu, with the "Clear" and "Search" buttons to reset or start the search. The results appear as clickable cards that show the addresses, a score, the total distance and the status of the route. Selecting a card, the route is drawn on the map with markers for origin and destination, including any obstacles along the path.
-\begin{figure}[h!]
+The BikePathFinder section is the main tool for discovering new routes. The interface presents a full-screen map on the right side and a scrollable sidebar on the left side that can be opened and closed. The side panel contains a form where the user enters an origin and destination address, selecting for each one a search radius through dropdown menu, with the "Clear" and "Search" buttons to reset or start the search. The results appear as clickable cards that show the addresses, a score, the total distance and the status of the route. Selecting a card, the route is drawn on the map with markers for origin and destination, including any obstacles along the path.
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-finder.png}
-    \caption{Bike Path Finder}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/ui-finder.png}
+    \caption{BikePathFinder - Search interface with map and filters}
     \label{fig:ui-finder}
 \end{figure}
 
+\clearpage
+
 \subsubsection{Trips Management}
 The Trips section allows managing the registered bicycle trips through three main views. The Trips view shows a grid of cards with map thumbnails for each route, indicating origin, destination, distance, duration and time interval. The "Filters" and "Record Trip" buttons in the header allow filtering the results by origin, destination and time period, or creating new trips. Selecting a card, one accesses TripDetail which presents an interactive map with the complete route and markers, followed by the trip information including times, average and maximum speed, optional description and meteorological data if available. The TripCreateManual view allows manually recording completed trips through a form that includes a reference map, fields to enter origin addresses, destination and optional waypoints, start and end times, description and optional maximum speed. Users can navigate between the views maintaining the context and use the "Cancel" and "Record" buttons to save or discard the recordings.
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-trips.png}
-    \caption{Trips}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/ui-trips.png}
+    \caption{Trips - Trips list with map previews}
     \label{fig:ui-trips}
 \end{figure}
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-trip-detail.png}
-    \caption{Trip Detail}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/ui-trip-detail.png}
+    \caption{TripDetail - Trip detail view with statistics and weather data}
     \label{fig:ui-trip-detail}
 \end{figure}
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-create-trip.png}
-    \caption{Trip Create Manual}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/ui-create-trip.png}
+    \caption{TripCreateManual - Manual trip creation form}
     \label{fig:ui-create-trip}
 \end{figure}
 
+\clearpage
+
 \subsubsection{Bike Paths Management}
 The Bike Paths section allows managing the created cycling routes through three main views. The BikePaths view shows a grid of cards with map thumbnails for each route, indicating origin, destination, score, distance, status and public or private visibility. The "Filters" and "Create Bike Path" buttons in the header allow filtering the results by origin, destination and creation date, or creating new routes. Selecting a card, one accesses BikePathDetail which presents an interactive map with the complete route and markers, followed by the route information including score, distance, status, visibility, editable description and creation/update metadata. The obstacles section shows all the obstacles present on the route with possibility to modify them individually (type, severity, active/inactive status). The BikePathCreateManual view allows manually creating new routes through a form that includes a reference map, fields to enter origin addresses, destination and optional waypoints, description, route status, checkbox to make the route public and an optional section to add obstacles with address, type and severity. Users can navigate between the views maintaining the context and use the "Cancel" and "Create" buttons to save or discard the creations.
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-bike-paths.png}
-    \caption{Bike Paths}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/ui-bike-paths.png}
+    \caption{BikePaths - Bike paths list}
     \label{fig:ui-bike-paths}
 \end{figure}
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-bike-path-detail.png}
-    \caption{Bike Path Detail}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/ui-bike-path-detail.png}
+    \caption{BikePathDetail - Bike path detail with obstacles management}
     \label{fig:ui-bike-path-detail}
 \end{figure}
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-create-bike-path.png}
-    \caption{Bike Path Create Manual}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/ui-create-bike-path.png}
+    \caption{BikePathCreateManual - Manual bike path creation form}
     \label{fig:ui-create-bike-path}
 \end{figure}
 
+\clearpage
+
 \subsubsection{Profile Management}
 The authentication and profile section allows managing the user account through three main views. The Login view presents a centered form with fields for email and password, a "Login" button and a "Don't have an account? Register" link to move to the registration. The Register view shows a similar form with additional fields for first name, last name and username, a "Register" button and an "Already have an account? Login" link to return to the login. The Profile view displays the user data (first name, last name, username, email) in read-only mode with "Edit" and "Logout" buttons in the main interface. Clicking on "Edit", the profile switches to edit mode transforming the information into editable fields, including an optional field to change the password, with "Cancel" and "Save" buttons to confirm or cancel the modifications. A "Delete Account" button allows definitively deleting the account through a confirmation modal.
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-register.png}
-    \caption{Register}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/ui-register.png}
+    \caption{Register - User registration form}
     \label{fig:ui-register}
 \end{figure}
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-login.png}
-    \caption{Login}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/ui-login.png}
+    \caption{Login - User login form}
     \label{fig:ui-login}
 \end{figure}
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-profile.png}
-    \caption{Profile}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/ui-profile.png}
+    \caption{Profile - User profile view}
     \label{fig:ui-profile}
 \end{figure}
+
+\clearpage
 
 \subsection{Mobile App}
 The BBP mobile application, developed in Flutter, offers all the functionalities of the web version adapted for the use on mobile devices. The interface has been optimized for vertical screens and for touch interaction, guaranteeing a fluid use experience even during movements.
@@ -90,27 +100,27 @@ The main navigation occurs through a fixed dock positioned in the lower part of 
 \end{itemize}
 The mobile screens maintain the same functionalities of the web version, but with a reorganized layout to exploit at best the available vertical space. The cards of the routes and of the trips are presented in a vertically scrollable list, each one with a preview of the map reduced but always readable. The insertion and modification forms have been adapted to facilitate the typing on virtual keyboard, with larger and spaced controls to guarantee a greater precision in the input.
 The distinctive characteristic of the mobile application is the integration with the sensors of the device. The GPS is used for the real-time registration of the trips, tracing automatically the route followed by the user during the cycling. During the registration of a trip, the app visualizes a live map with the current position and the traced route until that moment.
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-finder-mobile.jpg}
-    \caption{Bike Path Finder}
+        \includegraphics[height=0.6\textheight]{DD/images/ui-finder-mobile.jpg}
+    \caption{BikePathFinder - Mobile interface}
     \label{fig:ui-finder-mobile}
 \end{figure}
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-trips-mobile.jpg}
-    \caption{Trips}
+        \includegraphics[height=0.8\textheight]{DD/images/ui-trips-mobile.jpg}
+    \caption{Trips - Mobile interface}
     \label{fig:ui-trips-mobile}
 \end{figure}
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-bike-paths-mobile.jpg}
-    \caption{Bike Paths}
+        \includegraphics[height=0.8\textheight]{DD/images/ui-bike-paths-mobile.jpg}
+    \caption{BikePaths - Mobile interface}
     \label{fig:ui-bike-paths-mobile}
 \end{figure}
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/ui-profile-mobile.jpg}
-    \caption{Profile}
+        \includegraphics[height=0.6\textheight]{DD/images/ui-profile-mobile.jpg}
+    \caption{Profile - Mobile interface}
     \label{fig:ui-profile-mobile}
 \end{figure}

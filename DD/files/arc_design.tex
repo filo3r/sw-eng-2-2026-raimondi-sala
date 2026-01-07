@@ -22,9 +22,9 @@ The BBP system uses external services for functions that are too complex to be m
 \subsubsection{Architectural Diagrams}
 To visualize the structure described above, the architectural diagram of the system is shown below. Figure \ref{fig:high_level_arch} illustrates the high-level architecture, showing the communication flows between the clients, server, database, and external services.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[height=0.5\textheight, keepaspectratio]{DD/images/high-level-arch.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/high-level-arch.png}
     \caption{High level architecture of the system}
     \label{fig:high_level_arch}
 \end{figure}
@@ -75,12 +75,13 @@ These components are external to the BBP system but essential for its operation.
     \item \textbf{Weather Data Provider (Open-Meteo)}: This component provides historical and current weather data.
 \end{itemize}
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[height=0.8\textheight, keepaspectratio]{DD/images/component-view.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/component-view.png}
     \caption{Component view}
     \label{fig:component-view}
 \end{figure}
+
 \clearpage
 
 \subsection{Deployment View}
@@ -100,9 +101,9 @@ BBP system adopts a distributed architecture based on the three-tier model; its 
     \item \textbf{External Service Providers}: These are third-party systems necessary for the operation of BBP. In particular, Mapbox provides APIs for vector maps, routing, and geocoding, while Open-Meteo provides APIs for retrieving historical and current weather data.
 \end{itemize}
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[height=0.8\textheight, keepaspectratio]{DD/images/deployment-view.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/deployment-view.png}
     \caption{Deployment view}
     \label{fig:deployment-view}
 \end{figure}
@@ -114,9 +115,9 @@ This section describes the dynamic interaction between system components that re
 \textbf{UC1: Manual Trip Insertion} \\
 The user manually inserts a trip specifying the route taken and the timing. After the submission, TripService invokes the MapboxService to calculate the exact geometry of the trip and the travelled distance, then it makes an API request to the Open-Meteo service to get the historical weather conditions at the time of the trip. In the end it saves the entity in the database and sends the user a confirmation.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/seq_uc1.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/seq_uc1.png}
     \caption{Sequence Diagram - UC1 Manual Trip Insertion}
     \label{fig:seq_uc1}
 \end{figure}
@@ -126,9 +127,9 @@ The user manually inserts a trip specifying the route taken and the timing. Afte
 \textbf{UC2: Creation of a Public Bike Path} \\
 The user creates a bike path by defining waypoints on a map. The system receives these waypoints and uses the Mapbox service to calculate the exact path geometry. A spatial validation is performed to ensure that the obstacles are within a buffer distance from the route, then the system calculates the Quality Score and saves the bike path with the visibility settings chosen by the user.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/seq_uc2.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/seq_uc2.png}
     \caption{Sequence Diagram - UC2 Creation of a Public Bike Path}
     \label{fig:seq_uc2}
 \end{figure}
@@ -138,9 +139,9 @@ The user creates a bike path by defining waypoints on a map. The system receives
 \textbf{UC3: Search of Bike Paths} \\
 The user searches for bike paths by entering the origin and destination. The BikePathFinderService geocodes the addresses and performs a spatial query delegated to PostGIS to find published routes in the requested area. The database uses spatial indexes and native PostGIS functions to efficiently filter routes by proximity to both the starting point and destination point, and returns the complete bike path data including route geometry and obstacles. Results are sorted by descending score and displayed to the user.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/seq_uc3.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/seq_uc3.png}
     \caption{Sequence Diagram - UC3 Search of Bike Paths}
     \label{fig:seq_uc3}
 \end{figure}
@@ -150,9 +151,9 @@ The user searches for bike paths by entering the origin and destination. The Bik
 \textbf{UC4: Obstacle Reporting on Bike Path} \\
 A user reports an obstacle on an existing bike path. After receiving the report, the system verifies the geographical consistency of the obstacle with respect to the geometry of the bike path. If valid, the obstacle is saved, the Quality Score is recalculated, and the update is made visible to all users.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/seq_uc4.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/seq_uc4.png}
     \caption{Sequence Diagram - UC4 Obstacle Reporting}
     \label{fig:seq_uc4}
 \end{figure}
@@ -162,9 +163,9 @@ A user reports an obstacle on an existing bike path. After receiving the report,
 \textbf{UC5: Automatic Bike Path Creation} \\
 While the user is cycling, the mobile app records the route and identifies potential obstacles locally with a low degree of confidence using device sensors. When the user stops, the app detects the stop, finalizes the route, and sends preliminary obstacle data to the SensorAnalysisService. The backend enriches the anomalies by calculating confidence scores based on pattern analysis and performing cross-validation by checking if other users have reported obstacles in the same geographical area. The server responds with the enriched obstacle data, and the app then displays a prompt to the user to validate or modify the detected obstacles. After user validation, the app sends the complete payload to the server, which creates the bike path with validated obstacles via the BikePathService.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/seq_uc5.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/seq_uc5.png}
     \caption{Sequence Diagram - UC5 Automatic Bike Path Creation}
     \label{fig:seq_uc5}
 \end{figure}
@@ -174,9 +175,9 @@ While the user is cycling, the mobile app records the route and identifies poten
 \textbf{UC6: User Registration} \\
 The user submits registration data including email and password. The system validates the uniqueness of the email and the correctness of the inserted data. It creates the new account by hashing the password, generates a session token, and redirects the user to the dashboard.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/seq_uc6.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/seq_uc6.png}
     \caption{Sequence Diagram - UC6 User Registration}
     \label{fig:seq_uc6}
 \end{figure}
@@ -186,9 +187,9 @@ The user submits registration data including email and password. The system vali
 \textbf{UC7: User Login} \\
 The user submits login credentials (email and password). The system verifies the credentials provided; if they are correct, it generates a JWT token and grants access to the dashboard.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/seq_uc7.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/seq_uc7.png}
     \caption{Sequence Diagram - UC7 User Login}
     \label{fig:seq_uc7}
 \end{figure}
@@ -198,9 +199,9 @@ The user submits login credentials (email and password). The system verifies the
 \textbf{UC8: Management of Created Bike Paths} \\
 The user manages their created bike paths. The system lists all bike paths created by the user. Depending on the action chosen, the system either updates the bike path metadata (such as visibility or status) or permanently deletes the bike path.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/seq_uc8.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/seq_uc8.png}
     \caption{Sequence Diagram - UC8 Management of Created Bike Paths}
     \label{fig:seq_uc8}
 \end{figure}
@@ -210,9 +211,9 @@ The user manages their created bike paths. The system lists all bike paths creat
 \textbf{UC9: Trip History Visualization and Management} \\
 The user views their trip history. The system retrieves all trips created by the user, displaying statistics (distance, speed, duration) and associated weather conditions. The user can apply filters to the list or request the deletion of a specific trip, which the system removes from the database.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/seq_uc9.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/seq_uc9.png}
     \caption{Sequence Diagram - UC9 Trip History Visualization}
     \label{fig:seq_uc9}
 \end{figure}
@@ -222,9 +223,9 @@ The user views their trip history. The system retrieves all trips created by the
 \textbf{UC10: User Profile Update} \\
 The user modifies their personal data. The system validates the new data; if valid, it updates the user profile and confirms the success of the operation.
 
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/seq_uc10.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/seq_uc10.png}
     \caption{Sequence Diagram - UC10 User Profile Update}
     \label{fig:seq_uc10}
 \end{figure}

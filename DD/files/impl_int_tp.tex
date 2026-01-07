@@ -32,70 +32,100 @@ The implementation order of the features follows the dependencies among the vari
 The integration of the components follows the implementation order defined by the bottom-up strategy. Each component, once completed and unit tested, is integrated with those already present in the system, in order to immediately verify the interactions between the different layers. \\
 For each feature indicated in section 5.1.1, an integration diagram is provided that shows the order in which the components are implemented, integrated, and tested. Even though the bottom-up approach could lead to developing related modules in parallel, the diagrams are organized by feature to make them clearer to read. \\
 The PostgreSQL database with PostGIS is configured from the beginning and it is assumed to remain available during the integration of the subsequent features. The external services (Mapbox, Open-Meteo) do not appear in the diagrams because they operate independently of the BBP system; during development, however, mocks are used to test the integration before connecting to the real APIs. \\
-The diagrams highlight the gradual addition of components: Repositories, Services, and Controllers are integrated step by step until the completion of each feature. \\
+The diagrams highlight the gradual addition of components: Repositories, Services, and Controllers are integrated step by step until the completion of each feature.
 
+\clearpage
+
+\noindent
 \textbf{[F1] User Management} \\
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/f1-test.png}
+        \includegraphics[height=0.5\textheight]{DD/images/f1-test.png}
     \caption{Integration Diagram: User Management}
     \label{fig:f1-test}
 \end{figure}
+\noindent
 The diagram shows the integration strategy for the User Management feature. The User Repository is implemented first, together with the drivers needed to test it in isolation. Subsequently, the Authentication Service and the User Management Service, which depend on the Repository, are integrated. Finally, the User Auth Controller and the User Controller are added, which expose the functionalities via REST APIs.
 
+\clearpage
+
+\noindent
 \textbf{[F2] Manual Trip Recording} \\
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/f2-test.png}
+        \includegraphics[height=0.62\textheight]{DD/images/f2-test.png}
     \caption{Integration Diagram: Manual Trip Recording}
     \label{fig:f2-test}
 \end{figure}
+\noindent
 The diagram describes how the Manual Trip Recording feature is integrated. It starts from the “lower” layers, first implementing the Trip Repository and the Meteorological Data Repository. Then the external services Mapbox Integration Service and Open-Meteo Integration Service are integrated, used respectively for route calculation and for weather data. At this point the Trip Service comes into play, which manages the domain logic by coordinating repositories and external services. Finally, the Trip Controller exposes the functionalities through REST APIs.
 
+\clearpage
+
+\noindent
 \textbf{[F3] Manual Bike Path Creation} \\
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/f3-test.png}
+        \includegraphics[height=0.65\textheight]{DD/images/f3-test.png}
     \caption{Integration Diagram: Manual Bike Path Creation}
     \label{fig:f3-test}
 \end{figure}
+\noindent
 The diagram shows the integration for Manual Bike Path Creation. It starts from the Bike Path Repository and the Obstacle Repository. Then the Mapbox Integration Service is integrated for geometry calculation and the Obstacle Management Service for obstacle validation. The Bike Path Service coordinates path creation, obstacle management, and quality score calculation. Finally, the Bike Path Controller exposes the APIs.
 
+\clearpage
+
+\noindent
 \textbf{[F4] Bike Path Search} \\
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/f4-test.png}
+        \includegraphics[height=0.62\textheight]{DD/images/f4-test.png}
     \caption{Integration Diagram: Bike Path Search}
     \label{fig:f4-test}
 \end{figure}
+\noindent
 The diagram shows the integration for Bike Path Search. The Bike Path Repository is implemented first to access public paths. Then the Mapbox Integration Service is integrated for address geocoding. The Bike Path Finder Service performs spatial queries and sorts results by quality score. Finally, the Bike Path Finder Controller exposes the search API.
 
+\clearpage
+
+\noindent
 \textbf{[F5] Collaborative Maintenance} \\
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/f5-test.png}
+        \includegraphics[height=0.5\textheight]{DD/images/f5-test.png}
     \caption{Integration Diagram: Collaborative Maintenance}
     \label{fig:f5-test}
 \end{figure}
+\noindent
 The diagram shows the integration for Collaborative Maintenance. It starts from the Obstacle Repository and the Bike Path Repository. The Obstacle Management Service handles obstacle creation and modification, while the Bike Path Service recalculates the quality score. The Bike Path Controller exposes the APIs for reporting and updating obstacles.
 
+\clearpage
+
+\noindent
 \textbf{[F6] Automatic Trip Recording} \\
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/f6-test.png}
+        \includegraphics[height=0.75\textheight]{DD/images/f6-test.png}
     \caption{Integration Diagram: Automatic Trip Recording}
     \label{fig:f6-test}
 \end{figure}
+\noindent
 The diagram shows the integration for Automatic Trip Recording. The components of F2 are reused, adding the Mobile Application that tracks the route via GPS in real time and sends the data to the backend through the Trip Controller.
 
+\clearpage
+
+\noindent
 \textbf{[F7] Automatic Bike Path Creation} \\
-\begin{figure}[h!]
+\begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth]{DD/images/f7-test.png}
+        \includegraphics[height=0.75\textheight]{DD/images/f7-test.png}
     \caption{Integration Diagram: Automatic Bike Path Creation}
     \label{fig:f7-test}
 \end{figure}
+\noindent
 The diagram shows the integration for Automatic Bike Path Creation. The components of F3 are reused, adding the Mobile Application that tracks GPS and detects obstacles through sensors. The Sensor Analysis Service validates and enriches the detected anomalies with a confidence score and cross-validation before the user confirms the creation of the path.
+
+\clearpage
 
 
 \subsection{Test Plan}
