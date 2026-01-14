@@ -48,14 +48,12 @@ async function loadTrip() {
 
   if (stateData && stateData.id === tripId) {
     trip.value = stateData
-    console.log('✓ Loaded trip from route state (instant)')
     return
   }
 
   loading.value = true
   try {
     trip.value = await getTripById(tripId)
-    console.log('✓ Loaded trip from API')
   } catch (error: any) {
     const message = error.response?.data?.message || 'Failed to load trip'
     show(message, 'error')

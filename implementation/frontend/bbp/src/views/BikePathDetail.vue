@@ -72,7 +72,6 @@ async function loadBikePath() {
   if (stateData && stateData.id === bikePathId) {
     bikePath.value = stateData
     originalVersion.value = stateData.version
-    console.log('✓ Loaded bike path from route state (instant)')
 
     await nextTick()
     return
@@ -82,7 +81,6 @@ async function loadBikePath() {
   try {
     bikePath.value = await getBikePathById(bikePathId)
     originalVersion.value = bikePath.value.version
-    console.log('✓ Loaded bike path from API')
   } catch (error: any) {
     const message = error.response?.data?.message || 'Failed to load bike path'
     show(message, 'error')
