@@ -1,0 +1,93 @@
+\documentclass[a4paper, 11pt]{article}
+
+\input{commandsFile} 
+
+\begin{document}
+
+\begin{titlepage}
+    \centering 
+
+    \vfill
+    \includegraphics[scale=0.5]{Images/PolimiLogo}
+
+    \vspace{2.5cm} 
+    {\scshape\textcolor{Blue}{\textbf{\Huge{Best Bike Paths}}}}
+    
+    \vspace{0.5cm} 
+    
+    {\Large ITD}
+    
+    \vspace{3cm} 
+    
+    {\large
+    Filippo Raimondi \\
+    \vspace{0.5cm}
+    Matteo Sala
+    }
+    
+    \vfill
+
+
+\begin{table}[h!]
+\begin{tabu} to \textwidth { X[0.3,r,p] X[1.0,l,p] }
+\hline
+\textbf{Deliverable:} & ITD\\
+\textbf{Title:} & Implementation and Test Derivable \\
+\textbf{Authors:} & Raimondi Filippo, Sala Matteo \\
+\textbf{Version:} & 1.0 \\ 
+\textbf{Date:} & xx-xx-2026 \\
+\textbf{Download page:} & https://github.com/m-tteo/sw-eng-2-raimondi-sala \\
+\textbf{Copyright:} & Copyright © 2025, Raimondi Filippo, Sala Matteo – All rights reserved \\
+\hline
+\end{tabu}
+\end{table}
+\end{titlepage}
+
+\setcounter{page}{2}
+
+\newpage
+\addcontentsline{toc}{section}{Table of Contents}
+\tableofcontents
+\newpage
+
+\clearpage
+{\color{Blue}{\section{Introduction}}}
+\label{sect:introduction}
+\input{Files/introduction}
+
+\clearpage
+{\color{Blue}{\section{Product Functions}}}
+\label{sect:prod_func}
+\input{Files/prod_func}
+
+\clearpage
+{\color{Blue}{\section{System Development Frameworks}}}
+\label{sect:sys_dev_fw}
+\input{Files/sys_dev_fw}
+
+\clearpage
+{\color{Blue}{\section{Source Code Structure}}}
+\label{sect:src_struct}
+\input{Files/src_struct}
+
+\clearpage
+{\color{Blue}{\section{Testing Activity}}}
+\label{sect:testing_activity}
+\input{Files/testing_activity}
+
+\clearpage
+{\color{Blue}{\section{Installation Guide}}}
+\label{sect:installation_guide}
+\input{Files/installation_guide}
+
+\clearpage
+{\color{Blue}{\section{Effort Spent}}}
+\label{sect:effort}
+\input{Files/effort}
+
+\clearpage
+\addcontentsline{toc}{section}{References}
+\bibliographystyle{plain}
+\bibliography{main}
+
+\end{document}

@@ -1,0 +1,139 @@
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\usepackage{geometry}
+\geometry{
+    a4paper,
+    left=25mm,
+    right=25mm,
+    top=30mm,
+    bottom=25mm,
+    headsep=7mm
+}
+
+\usepackage{fancyhdr}
+\setlength{\headheight}{14pt} 
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\color{gray}{\small{BBP - RASD}}}
+\lfoot{\textcolor{gray}{\small{Copyright © 2025, Raimondi Filippo, Sala Matteo – All rights reserved}}}
+\rfoot{\textcolor{gray}{\thepage}}
+\renewcommand{\headrulewidth}{0pt}
+
+\usepackage{times}
+\renewcommand{\ttdefault}{lmtt}
+
+\usepackage{microtype}
+\usepackage{multirow}
+\usepackage{tabu}
+\usepackage{tabularx}
+\usepackage{ltablex}
+\usepackage{longtable}
+\usepackage{float}
+
+\usepackage{graphicx}
+\usepackage[dvipsnames, table]{xcolor}
+\usepackage{listings}
+\lstdefinelanguage{alloy}{
+  keywords={module, open, sig, var, one, set, extends, in, iff, disj,
+            fact, pred, assert, fun, check, run, for, but, exactly,
+            always, eventually, after, historically, once,
+            implies, else, let, no, some, all, sum, int, Int, Bool, true, false,
+            enum, abstract},
+  sensitive=true,
+  comment=[l]{//},
+  morecomment=[l]{--},
+  morecomment=[s]{/*}{*/},
+  keywordstyle=\bfseries\color{blue},
+  commentstyle=\itshape\color{gray},
+  stringstyle=\color{green!50!black},
+  basicstyle=\ttfamily\small,
+  tabsize=4,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=lines
+}
+\lstset{language=alloy}
+
+\usepackage{pdflscape}
+\usepackage{rotating}
+\usepackage{caption}
+
+\makeatletter
+\def\myrotate{\ifodd\c@page\else-\fi 90}
+\global\let\orig@begin@landscape=\landscape%
+\global\let\orig@end@landscape=\endlandscape%
+\gdef\@true{1}
+\gdef\@false{0}
+\gdef\landscape{%
+    \global\let\within@landscape=\@true%
+    \orig@begin@landscape%
+}%
+\gdef\endlandscape{%
+    \orig@end@landscape%
+    \global\let\within@landscape=\@false%
+}%
+\@ifpackageloaded{pdflscape}{%
+    \gdef\pdf@landscape@rotate{\PLS@Rotate}%
+}{
+    \gdef\pdf@landscape@rotate#1{}%
+}
+\let\latex@outputpage\@outputpage
+\def\@outputpage{
+    \ifx\within@landscape\@true%
+        \if@twoside%
+            \ifodd\c@page%
+                \gdef\LS@rot{\setbox\@outputbox\vbox{%
+                    \pdf@landscape@rotate{-90}%
+                    \hbox{\rotatebox{90}{\hbox{\rotatebox{180}{\box\@outputbox}}}}}%
+                }%
+            \else%
+                \gdef\LS@rot{\setbox\@outputbox\vbox{%
+                    \pdf@landscape@rotate{+90}%
+                    \hbox{\rotatebox{90}{\hbox{\rotatebox{0}{\box\@outputbox}}}}}%
+                }%
+            \fi%
+        \else%
+            \gdef\LS@rot{\setbox\@outputbox\vbox{%
+                \pdf@landscape@rotate{+90}%
+                \hbox{\rotatebox{90}{\hbox{\rotatebox{0}{\box\@outputbox}}}}}%
+            }%
+        \fi%
+    \fi%
+    \latex@outputpage%
+}
+\makeatother
+
+\usepackage{wasysym}
+\usepackage{pifont}
+\usepackage{enumitem}
+\usepackage{amssymb}
+\usepackage{ifthen}
+\usepackage{xspace}
+
+\newcommand{\supported}{\ding{52}\xspace}
+\newcommand{\unsupported}{\ding{55}\xspace}
+\newcommand{\partsupported}{\textcolor{black!40}{\ding{52}}\xspace}
+\newcommand{\lowsupported}{\textcolor{black!20}{\ding{52}}\xspace}
+\newcommand{\unknowsupported}{\textbf{?}\xspace}
+
+\newcommand{\comment}[1]{{\color{Red}$\blacktriangleright$ Comment: #1 $\blacktriangleleft$}}
+
+\usepackage[titles]{tocloft}
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}}
+
+\interfootnotelinepenalty=10000
+
+\usepackage[pdftex, colorlinks=true, linkcolor=Blue, citecolor=Green, urlcolor=Magenta]{hyperref}
+\hypersetup{
+    pdftitle={Best Bike Paths - Requirement Analysis and Specification Document},
+    pdfauthor={Raimondi Filippo, Sala Matteo},
+    pdfsubject={Software Engineering 2 Project},
+    pdfkeywords={Software Engineering, Requirements, BBP}
+}
+
+\input{util/highlight}
+\input{util/abbrev}
+
+\date{}
