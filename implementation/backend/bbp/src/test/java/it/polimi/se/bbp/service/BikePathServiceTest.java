@@ -124,7 +124,7 @@ class BikePathServiceTest {
         List<GeocodeResult> geocodeResults = List.of(geoRes1, geoRes2);
 
         List<Coordinate> routeCoords = List.of(new Coordinate(45.0, 9.0), new Coordinate(45.1, 9.1));
-        CyclingRouteResult routeResult = new CyclingRouteResult(routeCoords, 10000.0); // 10km
+        CyclingRouteResult routeResult = new CyclingRouteResult(routeCoords, 10000.0);
 
         // Mock dependencies
         when(userAuthService.getAuthenticatedUser()).thenReturn(currentUser);
@@ -215,7 +215,7 @@ class BikePathServiceTest {
     @DisplayName("Should throw OptimisticLockException when version mismatch")
     void updateBikePath_VersionMismatch_ThrowsException() {
         BikePathUpdateRequest request = new BikePathUpdateRequest(
-                2L, null, null, null, null, null // Request version 2, entity has 1
+                2L, null, null, null, null, null
         );
 
         when(userAuthService.getAuthenticatedUser()).thenReturn(currentUser);
@@ -303,7 +303,7 @@ class BikePathServiceTest {
     void searchBikePaths_Success() {
         // Prepare Search Request
         BikePathSearchRequest searchRequest = new BikePathSearchRequest(
-                "Milan", "Rome", null, null
+                "Stazione Centrale ", "Piola", null, null
         );
 
         Page<BikePath> page = new PageImpl<>(List.of(publicBikePath));
