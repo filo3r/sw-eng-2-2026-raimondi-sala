@@ -46,35 +46,32 @@ class BikePathFinderServiceTest {
     @Test
     @DisplayName("Should find, filter, and sort bike paths correctly within geographic range")
     void findBikePaths_Success() {
-        // 1. Setup Request
+        // We initialize a request to search for paths between Milan and Monza within a 10km range
         BikePathFinderRequest request = new BikePathFinderRequest(
                 "Milan", 10.0,
                 "Monza", 10.0
         );
 
-        // 2. Mock Geocoding
-        // Origin: Milan (45.4642, 9.1900)
+        // We simulate the geocoding service returning valid coordinates for both the origin  and destination
         Coordinate originCoord = new Coordinate(45.4642, 9.1900);
         when(mapboxService.geocodeAddress("Milan"))
                 .thenReturn(new GeocodeResult("Milan, Italy", originCoord));
 
-        // Destination: Monza (45.5845, 9.2744)
         Coordinate destCoord = new Coordinate(45.5845, 9.2744);
         when(mapboxService.geocodeAddress("Monza"))
                 .thenReturn(new GeocodeResult("Monza, Italy", destCoord));
-
-        // 3. Setup Candidates
-        // Path 1: Valid, High Score (5.0), within range
+        
+        // Path 1: Valid and highly rated, geographically close to the request points
         BikePath path1 = new BikePath();
         path1.setId(1L);
         path1.setScore(new BigDecimal("5.0"));
-        path1.setOriginLatitude(45.4650); // Very close to Milan
+        path1.setOriginLatitude(45.4650);
         path1.setOriginLongitude(9.1910);
-        path1.setDestinationLatitude(45.5850); // Very close to Monza
+        path1.setDestinationLatitude(45.5850);
         path1.setDestinationLongitude(9.2750);
         path1.setPublished(true);
 
-        // Path 2: Valid, Lower Score (3.0), within range
+        // Path 2: Valid but lower rated, also within range
         BikePath path2 = new BikePath();
         path2.setId(2L);
         path2.setScore(new BigDecimal("3.0"));
@@ -84,49 +81,44 @@ class BikePathFinderServiceTest {
         path2.setDestinationLongitude(9.2760);
         path2.setPublished(true);
 
-        // Path 3: Invalid (Origin too far, e.g., Rome), should be filtered out by precise logic
+        // Path 3: Invalid because it is too far, intended to test the filtering logic
         BikePath path3 = new BikePath();
         path3.setId(3L);
         path3.setScore(new BigDecimal("4.0"));
-        path3.setOriginLatitude(41.9028); // Rome
+        path3.setOriginLatitude(41.9028);
         path3.setOriginLongitude(12.4964);
-        path3.setDestinationLatitude(45.5845); // Monza
+        path3.setDestinationLatitude(45.5845);
         path3.setDestinationLongitude(9.2744);
         path3.setPublished(true);
 
-        // Mock Bounding Box Query results
-        // Even if Rome is strictly outside the bounding box of Milan, we simulate the repository returning it
-        // to verify that the service's "Step 4: Filter with precise Haversine distance" works correctly.
+        // We simulate the bounding box query returning all paths, including the distant one,
+        // to verify that the service correctly filters out Path 3 using Haversine distance
         when(bikePathRepository.findPublishedWithinBoundingBoxes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                 .thenReturn(List.of(path1, path2, path3));
 
-        // 4. Mock Loading Complete Paths
-        // Expect loading only for path1 and path2 IDs. The service should exclude path3.
-        // It should request them in the order of score (5.0 then 3.0) -> IDs [1, 2]
+        // The service should proceed to load full details only for the valid paths ,
+        // effectively excluding Path 3 before this step
         when(bikePathRepository.findAllById(anyList()))
                 .thenReturn(List.of(path1, path2));
 
-        // 5. Mock Relationships (Points and Obstacles)
+        // We ensure that points and obstacles are loaded for the resulting paths
         when(bikePathPointRepository.findAllByBikePathIdInOrderByBikePathIdAscSequentialPositionAsc(anyList()))
                 .thenReturn(Collections.emptyList());
         when(obstacleRepository.findAllByBikePathIdInOrderByBikePathIdAscPositionOnPathAsc(anyList()))
                 .thenReturn(Collections.emptyList());
 
-        // 6. Execute
         Page<BikePath> result = bikePathFinderService.findBikePaths(request, 0, 5);
 
-        // 7. Verify
+        // The result should contain exactly 2 paths, sorted by score descending,
+        // and Path 3 should be completely absent
         assertNotNull(result);
         assertEquals(2, result.getTotalElements());
 
-        // Verify sorting by score descending: Path 1 (5.0) should be first, Path 2 (3.0) second
         assertEquals(1L, result.getContent().get(0).getId());
         assertEquals(2L, result.getContent().get(1).getId());
 
-        // Verify Path 3 was filtered out
         assertTrue(result.getContent().stream().noneMatch(bp -> bp.getId().equals(3L)));
 
-        // Verify interactions
         verify(mapboxService, times(2)).geocodeAddress(anyString());
         verify(bikePathRepository).findPublishedWithinBoundingBoxes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble());
     }
@@ -136,15 +128,15 @@ class BikePathFinderServiceTest {
     void findBikePaths_InvalidPagination() {
         BikePathFinderRequest request = new BikePathFinderRequest("A", 1.0, "B", 1.0);
 
-        // Negative page
+        // Negative page numbers should be rejected
         assertThrows(IllegalArgumentException.class, () ->
                 bikePathFinderService.findBikePaths(request, -1, 10));
 
-        // Zero or negative size
+        // Page size must be strictly positive
         assertThrows(IllegalArgumentException.class, () ->
                 bikePathFinderService.findBikePaths(request, 0, 0));
 
-        // Size larger than MAX_PAGE_SIZE (10)
+        // Page size cannot exceed the defined maximum
         assertThrows(IllegalArgumentException.class, () ->
                 bikePathFinderService.findBikePaths(request, 0, 11));
     }
@@ -157,7 +149,7 @@ class BikePathFinderServiceTest {
         when(mapboxService.geocodeAddress(anyString()))
                 .thenReturn(new GeocodeResult("Loc", new Coordinate(0.0, 0.0)));
 
-        // Repository returns empty list
+        // If the repository returns no paths within the bounding box, the service should return an empty page gracefully
         when(bikePathRepository.findPublishedWithinBoundingBoxes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                 .thenReturn(Collections.emptyList());
 
