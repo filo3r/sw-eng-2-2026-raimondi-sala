@@ -72,7 +72,7 @@ class BikePathServiceTest {
 
     @BeforeEach
     void setUp() {
-        // Initialize the base user
+        // Initialize the test environment
         currentUser = User.builder()
                 .id(1L)
                 .name("Mario")
@@ -80,7 +80,6 @@ class BikePathServiceTest {
                 .username("testuser")
                 .build();
 
-        // Initialize a public bike path created by current user
         publicBikePath = BikePath.builder()
                 .id(10L)
                 .createdBy(currentUser)
@@ -95,7 +94,6 @@ class BikePathServiceTest {
                 .obstacles(new ArrayList<>())
                 .build();
 
-        // Initialize a private bike path created by current user
         privateBikePath = BikePath.builder()
                 .id(20L)
                 .createdBy(currentUser)
@@ -109,16 +107,16 @@ class BikePathServiceTest {
                 .build();
     }
 
+
     @Test
     @DisplayName("Should create bike path manually when valid data is provided")
     void createBikePathManually_Success() {
-        // Prepare request
+        // Simulates the end-to-end flow of manually creating a bike path: geocoding addresses, calculating the route geometry, determining the buffer zone, and saving the entity with calculated scores
         List<String> addresses = List.of("Origin", "Destination");
         BikePathManualCreateRequest request = new BikePathManualCreateRequest(
                 addresses, "Description", BikePathStatus.EXCELLENT, true, new ArrayList<>()
         );
 
-        // Prepare Geocode and Route results
         GeocodeResult geoRes1 = new GeocodeResult("Origin", new Coordinate(45.0, 9.0));
         GeocodeResult geoRes2 = new GeocodeResult("Destination", new Coordinate(45.1, 9.1));
         List<GeocodeResult> geocodeResults = List.of(geoRes1, geoRes2);
@@ -126,7 +124,6 @@ class BikePathServiceTest {
         List<Coordinate> routeCoords = List.of(new Coordinate(45.0, 9.0), new Coordinate(45.1, 9.1));
         CyclingRouteResult routeResult = new CyclingRouteResult(routeCoords, 10000.0);
 
-        // Mock dependencies
         when(userAuthService.getAuthenticatedUser()).thenReturn(currentUser);
         when(mapboxService.geocodeAddresses(addresses)).thenReturn(geocodeResults);
         when(mapboxService.calculateCyclingRoute(any())).thenReturn(routeResult);
@@ -141,7 +138,6 @@ class BikePathServiceTest {
         assertNotNull(createdPath);
         assertEquals(publicBikePath.getId(), createdPath.getId());
 
-        // Verify flow
         verify(mapboxService).geocodeAddresses(addresses);
         verify(mapboxService).calculateCyclingRoute(anyList());
         verify(bikePathPointRepository).saveAll(anyList());
@@ -153,6 +149,7 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should retrieve public bike path by ID successfully")
     void getBikePathById_Public_Success() {
+        // Ensures that a published bike path is accessible to any user
         when(bikePathRepository.findById(10L)).thenReturn(Optional.of(publicBikePath));
 
         BikePath result = bikePathService.getBikePathById(10L);
@@ -164,6 +161,7 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should retrieve private bike path if user is creator")
     void getBikePathById_Private_Creator_Success() {
+        // Verifies that a private bike path is retrievable if the requesting user is the creator
         when(bikePathRepository.findById(20L)).thenReturn(Optional.of(privateBikePath));
         when(userAuthService.getAuthenticatedUserOrNull()).thenReturn(currentUser);
 
@@ -175,6 +173,7 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should throw AccessDeniedException when retrieving private bike path of another user")
     void getBikePathById_Private_NotCreator_ThrowsException() {
+        // Ensures that a private bike path cannot be accessed by a user who is not the creator
         User otherUser = User.builder().id(999L).build();
         when(bikePathRepository.findById(20L)).thenReturn(Optional.of(privateBikePath));
         when(userAuthService.getAuthenticatedUserOrNull()).thenReturn(otherUser);
@@ -185,6 +184,7 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should throw EntityNotFoundException when bike path does not exist")
     void getBikePathById_NotFound_ThrowsException() {
+        // If the bike path ID does not exist in the database, the service must throw an EntityNotFoundException
         when(bikePathRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(EntityNotFoundException.class, () -> bikePathService.getBikePathById(99L));
@@ -193,6 +193,7 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should update bike path fields when user is owner and versions match")
     void updateBikePath_Success() {
+        // Tests the successful update of bike path metadata, ensuring fields are modified correctly and the version check passes
         BikePathUpdateRequest request = new BikePathUpdateRequest(
                 1L, BikePathStatus.POOR, "New Desc", true, null, null
         );
@@ -214,6 +215,7 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should throw OptimisticLockException when version mismatch")
     void updateBikePath_VersionMismatch_ThrowsException() {
+        // Verifies that an OptimisticLockException is thrown when the request version does not match the current entity version
         BikePathUpdateRequest request = new BikePathUpdateRequest(
                 2L, null, null, null, null, null
         );
@@ -228,14 +230,13 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should throw AccessDeniedException when updating another user's bike path")
     void updateBikePath_NotOwner_ThrowsException() {
+        // Ensures that a user cannot update a bike path they do not own, even if it exists
         User otherUser = User.builder().id(999L).build();
         BikePathUpdateRequest request = new BikePathUpdateRequest(
                 1L, BikePathStatus.POOR, "Desc", true, null, null
         );
 
         when(userAuthService.getAuthenticatedUser()).thenReturn(otherUser);
-
-        // Use private bike path to ensure access check is triggered
         when(bikePathRepository.findById(20L)).thenReturn(Optional.of(privateBikePath));
 
         assertThrows(AccessDeniedException.class, () -> bikePathService.updateBikePath(20L, request));
@@ -245,6 +246,7 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should throw EntityNotFoundException when updating non-existent bike path")
     void updateBikePath_NotFound_ThrowsException() {
+        // The update operation should fail fast with EntityNotFoundException if the target bike path is missing
         BikePathUpdateRequest request = new BikePathUpdateRequest(
                 1L, null, null, null, null, null
         );
@@ -257,6 +259,7 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should delete bike path when user is creator")
     void deleteBikePath_Success() {
+        // Verifies that the creator can successfully delete their own bike path
         when(userAuthService.getAuthenticatedUser()).thenReturn(currentUser);
         when(bikePathRepository.findById(10L)).thenReturn(Optional.of(publicBikePath));
 
@@ -268,6 +271,7 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should throw AccessDeniedException when deleting another user's bike path")
     void deleteBikePath_NotCreator_ThrowsException() {
+        // Attempts to delete another user's bike path must be blocked with an AccessDeniedException
         User otherUser = User.builder().id(999L).build();
         when(userAuthService.getAuthenticatedUser()).thenReturn(otherUser);
         when(bikePathRepository.findById(10L)).thenReturn(Optional.of(publicBikePath));
@@ -280,12 +284,12 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should retrieve paginated user bike paths with enrichment")
     void getUserBikePaths_Enrichment_Success() {
+        // Tests retrieval of bike paths created by the user, ensuring the result page is correctly enriched with points and obstacles
         Page<BikePath> page = new PageImpl<>(List.of(publicBikePath));
 
         when(userAuthService.getAuthenticatedUser()).thenReturn(currentUser);
         when(bikePathRepository.findPageByCreatedById(eq(currentUser.getId()), any(Pageable.class))).thenReturn(page);
 
-        // Mock enrichment repositories
         when(bikePathPointRepository.findAllByBikePathIdInOrderByBikePathIdAscSequentialPositionAsc(anyList()))
                 .thenReturn(new ArrayList<>());
         when(obstacleRepository.findAllByBikePathIdInOrderByBikePathIdAscPositionOnPathAsc(anyList()))
@@ -301,21 +305,18 @@ class BikePathServiceTest {
     @Test
     @DisplayName("Should search bike paths with filters and return enriched results")
     void searchBikePaths_Success() {
-        // Prepare Search Request
+        // Tests the search functionality, ensuring that specifications are applied and the resulting page of bike paths is enriched with associated points and obstacles
         BikePathSearchRequest searchRequest = new BikePathSearchRequest(
                 "Stazione Centrale ", "Piola", null, null
         );
 
         Page<BikePath> page = new PageImpl<>(List.of(publicBikePath));
 
-        // Mock authentication service
         when(userAuthService.getAuthenticatedUser()).thenReturn(currentUser);
 
-        // Mock Repository Search
         when(bikePathRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(page);
 
-        // Mock Enrichment
         when(bikePathPointRepository.findAllByBikePathIdInOrderByBikePathIdAscSequentialPositionAsc(anyList()))
                 .thenReturn(new ArrayList<>());
         when(obstacleRepository.findAllByBikePathIdInOrderByBikePathIdAscPositionOnPathAsc(anyList()))
