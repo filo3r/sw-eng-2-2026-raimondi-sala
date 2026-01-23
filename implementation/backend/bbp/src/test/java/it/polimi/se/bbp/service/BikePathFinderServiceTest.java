@@ -60,7 +60,7 @@ class BikePathFinderServiceTest {
         Coordinate destCoord = new Coordinate(45.5845, 9.2744);
         when(mapboxService.geocodeAddress("Monza"))
                 .thenReturn(new GeocodeResult("Monza, Italy", destCoord));
-        
+
         // Path 1: Valid and highly rated, geographically close to the request points
         BikePath path1 = new BikePath();
         path1.setId(1L);

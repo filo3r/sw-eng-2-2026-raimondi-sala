@@ -1,0 +1,53 @@
+\subsubsection{Adopted frameworks}
+The development of the application has been made easier with  the implementation of notable frameworks.
+\begin{itemize}
+    \item \textbf{Spring Boot}: we used Spring Boot as the backend architecture, therefore simplifying the development of the application. It provides the embedded server and auto-configuration required to run the Java-based system.
+    \item \textbf{Vue.js}: for the frontend, we decided to use Vue.js, this choice permitted fast development of an interactive UI.
+    \item \textbf{JUnit and Mockito}: for testing the backend we used JUnit and Mockito.
+\end{itemize}
+
+\subsubsection{B. Adopted programming languages}
+
+\paragraph{Java}
+The backend have been completely written in Java, it has therefore been used to define the entities, the business logic services, and the REST controllers that expose the API to the client.
+
+\paragraph{Java Pros}
+\begin{itemize}
+    \item \textbf{Statically Typed}: being strongly typed ensures that type errors are caught at compile-time rather than runtime, making the system more robust.
+    \item \textbf{Rich Ecosystem}: the availability of libraries like JTS for geospatial operations speeded up development.
+    \item \textbf{Multithreading}: Java's native support for multithreading allows the application to handle concurrent tasks, such as fetching weather data asynchronously.
+\end{itemize}
+
+\paragraph{Java Cons}
+\begin{itemize}
+    \item \textbf{Memory Consumption}: the Java Virtual Machine tends to consume more memory compared to lighter runtime environments.
+\end{itemize}
+
+\paragraph{TypeScript}
+The frontend has been written in TypeScript. 
+
+\paragraph{TypeScript Pros}
+\begin{itemize}
+    \item \textbf{Type Safety}: It brings the advantages of static typing to JavaScript.
+    \item \textbf{Maintainability}: In complex frontend projects, explicit interfaces and types make the code easier to read.
+\end{itemize}
+
+\paragraph{Other languages}
+Additionally, HTML  and CSS  were used to define the structure and styling of the pages.
+
+\subsubsection{Adopted middlewares}
+We used the following middleware in the backend:
+\begin{itemize}
+    \item \textbf{Spring Security}: we used Spring Security for managing authentication.
+    \item \textbf{Spring Data JPA}: we used Spring Data JPA for database abstraction, allowing data manipulation via Repository interfaces.
+\end{itemize}
+And the following in the frontend:
+\begin{itemize}
+    \item \textbf{Pinia}: we used Pinias as the state manager.
+    \item \textbf{Vue Router}: we use Vue Router for client-side navigation, mapping URLs to Vue components.
+    \item \textbf{Tailwind CSS}: we used Tailwind to rapidly style components, ensuring visual consistency.
+    \item \textbf{Axios}: we used Axios to perform asynchronous HTTP requests to the backend.
+\end{itemize}
+
+\subsubsection{Adopted APIs}
+The system relies on Mapbox to provide GPS-related functions and Open-Meteo to gather weather data.

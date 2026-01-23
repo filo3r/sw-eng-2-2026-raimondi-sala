@@ -1,0 +1,122 @@
+\subsection{Test Cases}
+Unit tests were developed using the JUnit framework and Mockito to isolate business logic and simulate external dependencies .
+
+\subsubsection{User Management Services}
+Testing for user management covers both authentication and profile modification. The following tests were executed:
+
+\begin{itemize}
+    \item \textbf{Authentication}:
+    \begin{itemize}
+        \item Registration with valid information.
+        \item Registration with an existing username.
+        \item Registration with an email already in use.
+        \item Login with valid credentials.
+        \item Login with non-existent email.
+        \item Login with incorrect password.
+    \end{itemize}
+    
+    \item \textbf{Profile Management}:
+    \begin{itemize}
+        \item Full user profile update.
+        \item Partial update.
+        \item Update with a username already taken by another user.
+        \item Update with an email already taken by another user.
+        \item Update without any variation.
+        \item Deletion of the current user account.
+    \end{itemize}
+\end{itemize}
+
+\noindent All tests passed successfully, ensuring sensitive data security and credential uniqueness.
+
+\subsubsection{Bike Path Operations}
+Tests related to bike paths verify the complete lifecycle of a path, from manual creation to search, including privacy management. The following tests were executed:
+
+\begin{itemize}
+    \item \textbf{CRUD Operations}:
+    \begin{itemize}
+        \item Manual creation of a path.
+        \item Retrieval of a public path.
+        \item Retrieval of a private path by the creator.
+        \item Attempted retrieval of a private path by a third party.
+        \item Retrieval of a non-existent path.
+        \item Update of path metadata by the owner.
+        \item Concurrent update with an obsolete version.
+        \item Deletion of a path by the owner.
+    \end{itemize}
+    
+    \item \textbf{Search}:
+    \begin{itemize}
+        \item Path search with filters and data enrichment.
+        \item Geographic search within a specific radius between origin and destination.
+        \item Result filtering based on real distance.
+        \item Pagination handling with valid and non-valid parameters.
+    \end{itemize}
+\end{itemize}
+
+\noindent All tests passed, confirming the correct application bike path's logic.
+
+\subsubsection{Trip Service}
+This section tests the recording and management of personal trips, verifying integration with weather services. The following tests were executed:
+
+\begin{itemize}
+    \item \textbf{Trip Recording}:
+    \begin{itemize}
+        \item Manual recording of a trip with valid data.
+        \item Trip recording even in case of external weather service failure.
+    \end{itemize}
+    
+    \item \textbf{Trip Management}:
+    \begin{itemize}
+        \item View trip details by the owner.
+        \item Attempt to view another user's trip.
+        \item Deletion of an existing trip.
+        \item Search and pagination of the user's trip history.
+    \end{itemize}
+\end{itemize}
+
+\noindent All tests passed.
+
+\subsubsection{Obstacle Management}
+Tests verify the spatial logic for placing obstacles along the path and calculating the safety score. The following tests were executed:
+
+\begin{itemize}
+    \item \textbf{Obstacle Lifecycle}:
+    \begin{itemize}
+        \item Creation and saving of obstacles within the path buffer.
+        \item Rejection of obstacle creation if placed too far from the path.
+        \item Update of an existing obstacle.
+        \item Addition of new obstacles during an update phase.
+    \end{itemize}
+    
+    \item \textbf{Scoring}:
+    \begin{itemize}
+        \item Score calculation with an empty obstacle list.
+        \item Penalty calculation based on severity and active/inactive status of obstacles.
+    \end{itemize}
+\end{itemize}
+
+\noindent All tests passed.
+
+\subsubsection{External Integrations (Mapbox and Open-Meteo)}
+The following tests are performed to ensure system resilience against failures from third-party APIs. The following tests were executed:
+
+\begin{itemize}
+    \item \textbf{Mapbox Service}:
+    \begin{itemize}
+        \item Geocoding of valid addresses.
+        \item Handling of invalid or not found addresses.
+        \item Handling of network errors.
+        \item Handling of API limits.
+        \item Bike route calculation with multiple waypoints.
+    \end{itemize}
+    
+    \item \textbf{OpenMeteo Service}:
+    \begin{itemize}
+        \item Retrieval of correct historical weather data.
+        \item Handling of requests with dates that are too old.
+        \item Handling of timeouts and server errors.
+        \item Handling of empty or malformed responses.
+    \end{itemize}
+\end{itemize}
+
+\noindent All tests passed.

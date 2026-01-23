@@ -1,0 +1,83 @@
+The source code is organized in two main directories, separating the frontend logic from the backend logic.
+
+\subsection{Backend}
+\begin{verbatim}
+/
+├── src
+│   ├── main
+│   │   ├── java/it/polimi/se/bbp
+│   │   │   ├── config
+│   │   │   ├── controller
+│   │   │   ├── dto
+│   │   │   │   ├── mapbox
+│   │   │   │   ├── openmeteo
+│   │   │   │   ├── request
+│   │   │   │   ├── response
+│   │   │   │   └── result
+│   │   │   ├── entity
+│   │   │   ├── enums
+│   │   │   ├── exception
+│   │   │   ├── geo
+│   │   │   ├── mapper
+│   │   │   ├── repository
+│   │   │   ├── security
+│   │   │   ├── service
+│   │   │   └── specification
+│   │   └── resources
+│   │       └── application.properties
+│   └── test
+└── pom.xml
+\end{verbatim}
+
+\begin{description}
+    \item[config] Contains Spring configuration classes, and external services such as Mapbox and OpenMeteo.
+    \item[controller] Contains REST Controllers that expose API endpoints, handle HTTP requests, and delegate logic to services.
+    \item[dto] Collects Data Transfer Objects, separated into request and response, as well as DTOs specific to external APIs.
+    \item[entity] Defines JPA entities that map database tables.
+    \item[exception] Centralized exception handling and custom exception definitions.
+    \item[geo] Utility classes for geospatial calculations.
+    \item[mapper] Interfaces for automatic conversion between Entities and DTOs.
+    \item[repository] Interfaces for database interaction.
+    \item[security] Components for JWT authentication.
+    \item[service] Core business logic of the application.
+    \item[specification] Classes for constructing dynamic queries used for search filters.
+\end{description}
+
+\subsection{Frontend}
+\begin{verbatim}
+/
+├── public
+├── src
+│   ├── api
+│   ├── assets
+│   ├── components
+│   ├── composables
+│   ├── config
+│   ├── constants
+│   ├── router
+│   ├── services
+│   ├── stores
+│   ├── styles
+│   ├── types
+│   ├── utils
+│   ├── views
+│   ├── App.vue
+│   └── main.ts
+├── index.html
+├── package.json
+├── tailwind.config.ts
+└── vite.config.ts
+\end{verbatim}
+
+\begin{description}
+    \item[api] HTTP client configuration and request interceptor management.
+    \item[components] Reusable Vue components in the interface.
+    \item[composables] Functions encapsulating reusable stateful logic.
+    \item[router] Client-side routing configuration defining page navigation.
+    \item[services] Modules interfacing the frontend with backend APIs.
+    \item[stores] Global application state management via Pinia.
+    \item[styles] Global CSS files.
+    \item[types] Shared TypeScript interface definitions to ensure strong data typing.
+    \item[views] Main application pages that assemble the various components.
+    \item[utils] Pure utility functions for validation, date formatting, and static calculations.
+\end{description}

@@ -1,0 +1,37 @@
+\subsection{Implemented functions}
+
+\subsubsection*{F1. User authentication}
+This function is fundamental as it allows a user to register and gain access to the system.
+After submitting the registration details or logging in with existing credentials, the system will provide the user with a JSON Web Token.
+Finally, the user is able to use this token to authenticate all subsequent requests to the application APIs.
+
+\subsubsection*{F2. Manual trip recording}
+This function allows a cyclist to insert a trip into the system without having to track it in real-time.
+After selecting the origin, destination, and timing, the system will calculate the route details using the Mapbox integration and enrich the record with historical weather data from Open-Meteo.
+Finally, the cyclist is able to view this trip in their personal history immediately after creation.
+
+\subsubsection*{F3. Manual bike path creation}
+This function allows a user to define a new bike path in the system.
+The system will provide the user with the calculated route and validate any reported obstacle, ensuring it lies within a specific distance from the path geometry.
+Finally, the user is able to update the path status or delete it if they are the creator.
+
+\subsubsection*{F4. Bike path finder}
+This function allows a user to discover bike paths created by the community.
+The system will provide the user with a list of published bike paths that match the specified search radius around a starting point and a destination.
+This data should allow the user to choose the best rated path for their commute.
+
+\subsubsection*{F5. Collaboration on Bike Paths}
+This function allows users to report the variations of obstacles in public bike paths, changing their positions, removing them or editing their severity.
+
+
+\subsection{Discarded functions and details}
+This is a list of functions or functional details that are described in the previous documents but have been excluded from the implementation of the system.
+
+\begin{itemize}
+    \item \textbf{F6. Automatic trip tracking}: this functionality was not implemented, it required a continuous stream of GPS data from the client, which was avoided to simplify the communication interface.
+    \item \textbf{F.7 Automatic bike path generation}: this feature, which intended to create paths by aggregating frequently traveled user trips, was not implemented.
+\end{itemize}
+
+\subsection{Other changes}
+The database is located on the same infrastructure as the one of the backend, this change greatly simplifies the infrastructure for prototyping.
+During implementation, we made a slight distinction between what a personal Trip is and what a Path is. While the former is mainly used to keep track of users' personal trips, the latter is mainly used to keep track of available routes, their conditions and eventual presence of obstacles.
