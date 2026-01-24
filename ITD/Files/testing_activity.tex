@@ -1,5 +1,5 @@
 \subsection{Test Cases}
-Unit tests were developed using the JUnit framework and Mockito to isolate business logic and simulate external dependencies .
+Unit tests were developed using the JUnit framework and Mockito to isolate business logic and simulate external dependencies.
 
 \subsubsection{User Management Services}
 Testing for user management covers both authentication and profile modification. The following tests were executed:
@@ -26,10 +26,8 @@ Testing for user management covers both authentication and profile modification.
     \end{itemize}
 \end{itemize}
 
-\noindent All tests passed successfully, ensuring sensitive data security and credential uniqueness.
-
 \subsubsection{Bike Path Operations}
-Tests related to bike paths verify the complete lifecycle of a path, from manual creation to search, including privacy management. The following tests were executed:
+Tests related to bike paths verify the complete lifecycle of a path, from manual creation to search and privacy management. The following tests were executed:
 
 \begin{itemize}
     \item \textbf{CRUD Operations}:
@@ -53,10 +51,8 @@ Tests related to bike paths verify the complete lifecycle of a path, from manual
     \end{itemize}
 \end{itemize}
 
-\noindent All tests passed, confirming the correct application bike path's logic.
-
 \subsubsection{Trip Service}
-This section tests the recording and management of personal trips, verifying integration with weather services. The following tests were executed:
+Tests related to the recording and management of personal trips, verifying integration with weather services. The following tests were executed:
 
 \begin{itemize}
     \item \textbf{Trip Recording}:
@@ -74,10 +70,8 @@ This section tests the recording and management of personal trips, verifying int
     \end{itemize}
 \end{itemize}
 
-\noindent All tests passed.
-
 \subsubsection{Obstacle Management}
-Tests verify the spatial logic for placing obstacles along the path and calculating the safety score. The following tests were executed:
+Tests to verify the spatial logic for placing obstacles along the path and calculating the safety score. The following tests were executed:
 
 \begin{itemize}
     \item \textbf{Obstacle Lifecycle}:
@@ -95,8 +89,6 @@ Tests verify the spatial logic for placing obstacles along the path and calculat
     \end{itemize}
 \end{itemize}
 
-\noindent All tests passed.
-
 \subsubsection{External Integrations (Mapbox and Open-Meteo)}
 The following tests are performed to ensure system resilience against failures from third-party APIs. The following tests were executed:
 
@@ -110,7 +102,7 @@ The following tests are performed to ensure system resilience against failures f
         \item Bike route calculation with multiple waypoints.
     \end{itemize}
     
-    \item \textbf{OpenMeteo Service}:
+    \item \textbf{Open-Meteo Service}:
     \begin{itemize}
         \item Retrieval of correct historical weather data.
         \item Handling of requests with dates that are too old.
@@ -118,5 +110,3 @@ The following tests are performed to ensure system resilience against failures f
         \item Handling of empty or malformed responses.
     \end{itemize}
 \end{itemize}
-
-\noindent All tests passed.
