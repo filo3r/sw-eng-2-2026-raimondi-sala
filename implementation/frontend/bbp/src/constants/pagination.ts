@@ -10,8 +10,6 @@ export const SORT_DESC = 'DESC'
 /** Sort direction: ascending (oldest/lowest first) */
 export const SORT_ASC = 'ASC'
 
-// ==================== BIKE PATH FINDER ====================
-
 /**
  * Default page size for bike path finder endpoint.
  * Endpoint: POST /api/finder/bike-paths
@@ -23,8 +21,6 @@ export const BIKE_PATH_FINDER_PAGE_SIZE = 5
  */
 export const BIKE_PATH_FINDER_MAX_SIZE = 10
 
-// ==================== BIKE PATH ====================
-
 /**
  * Default page size for user bike paths endpoints.
  * Endpoints: GET /api/bike-paths, POST /api/bike-paths/search
@@ -35,8 +31,6 @@ export const BIKE_PATH_PAGE_SIZE = 6
  * Maximum page size for user bike paths endpoints.
  */
 export const BIKE_PATH_MAX_SIZE = 12
-
-// ==================== TRIP ====================
 
 /**
  * Default page size for trip endpoints.

@@ -1,7 +1,6 @@
-/*
+/**
  * Authentication service for user registration and login.
  */
-
 import api from '@/api/axios'
 import type { UserRegisterRequest, UserLoginRequest } from '@/types/user'
 import type { UserAuthResponse } from '@/types/user'

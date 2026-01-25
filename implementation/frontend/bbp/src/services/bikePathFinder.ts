@@ -1,7 +1,6 @@
-/*
+/**
  * Bike path finder service for geographic search operations.
  */
-
 import api from '@/api/axios'
 import type { BikePathFinderRequest, PagedBikePathResponse } from '@/types/bikePath'
 

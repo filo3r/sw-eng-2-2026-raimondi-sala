@@ -4,7 +4,11 @@ import { useRouter } from 'vue-router'
 import { Mail, Lock } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
-import api from '@/api/axios'
+import { login } from '@/services/auth'
+import type { UserLoginRequest } from '@/types/user'
+import { parseApiError } from '@/utils/error'
+import { logError } from '@/utils/logger'
+import { EMAIL_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/constants/validation'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -18,17 +22,18 @@ async function handleLogin() {
   loading.value = true
 
   try {
-    const response = await api.post('/api/auth/login', {
+    const request: UserLoginRequest = {
       email: email.value,
       password: password.value
-    })
+    }
 
-    authStore.setAuth(response.data.token, response.data.userId)
+    const response = await login(request)
+    authStore.setAuth(response.token, response.userId)
     show('Login successful!', 'success')
     await router.push('/')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Login failed'
-    show(message, 'error')
+    logError(error, 'Login.handleLogin')
+    show(parseApiError(error), 'error')
   } finally {
     loading.value = false
   }
@@ -44,12 +49,26 @@ async function handleLogin() {
         <form @submit.prevent="handleLogin" class="space-y-4 w-full self-stretch">
           <label class="input input-bordered flex items-center gap-2 w-full">
             <Mail :size="16" />
-            <input type="email" class="grow" placeholder="Email" v-model.trim="email" required maxlength="150" />
+            <input
+                type="email"
+                class="grow"
+                placeholder="Email"
+                v-model.trim="email"
+                required
+                :maxlength="EMAIL_MAX_LENGTH"
+            />
           </label>
 
           <label class="input input-bordered flex items-center gap-2 w-full">
             <Lock :size="16" />
-            <input type="password" class="grow" placeholder="Password" v-model.trim="password" required minlength="8" />
+            <input
+                type="password"
+                class="grow"
+                placeholder="Password"
+                v-model.trim="password"
+                required
+                :minlength="PASSWORD_MIN_LENGTH"
+            />
           </label>
 
           <button type="submit" class="btn btn-neutral w-full" :disabled="loading">

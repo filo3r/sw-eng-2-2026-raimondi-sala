@@ -2,50 +2,49 @@
  * Utility for generating Mapbox static map images with route optimization.
  * Handles polyline encoding and Douglas-Peucker simplification to respect URL length limits.
  */
-
 import polyline from '@mapbox/polyline'
-import { ROUTE_LINE_COLOR, ROUTE_LINE_WIDTH, ORIGIN_MARKER_COLOR, DESTINATION_MARKER_COLOR } from '@/constants/map'
+import {
+    ROUTE_LINE_COLOR,
+    ROUTE_LINE_WIDTH,
+    ORIGIN_MARKER_COLOR,
+    DESTINATION_MARKER_COLOR,
+    STATIC_MAP_WIDTH,
+    STATIC_MAP_HEIGHT,
+    STATIC_MAP_STYLE_ID,
+    STATIC_MAP_USERNAME,
+    STATIC_MAP_STROKE_OPACITY,
+    STATIC_MAP_MAX_URL_LENGTH,
+    STATIC_MAP_MIN_TOLERANCE,
+    STATIC_MAP_MAX_TOLERANCE,
+    STATIC_MAP_TOLERANCE_STEP,
+    STATIC_MAP_MIN_VERTICAL_PADDING,
+    STATIC_MAP_MIN_HORIZONTAL_PADDING,
+    STATIC_MAP_VERTICAL_PADDING_PERCENT,
+    STATIC_MAP_HORIZONTAL_PADDING_PERCENT,
+    STATIC_MAP_MAX_PADDING_PERCENT
+} from '@/constants/map'
 import type { BikePathPointResponse } from '@/types/bikePath'
 
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-
-const MAX_URL_LENGTH = 8192
-const MIN_TOLERANCE = 0.00001 // ~1 meter
-const MAX_TOLERANCE = 0.01 // ~1 km
-const TOLERANCE_STEP = 0.00005
-
 export interface StaticMapConfig {
-    /** Mapbox access token */
     accessToken: string
-    /** Image width in pixels */
     width?: number
-    /** Image height in pixels */
     height?: number
-    /** Mapbox style ID */
     styleId?: string
-    /** Mapbox username */
     username?: string
-    /** Path stroke color (hex without #) */
     strokeColor?: string
-    /** Path stroke width */
     strokeWidth?: number
-    /** Path stroke opacity (0-1) */
     strokeOpacity?: number
-    /** Add origin/destination markers */
     addMarkers?: boolean
 }
-
-// ============================================================================
-// DOUGLAS-PEUCKER SIMPLIFICATION
-// ============================================================================
 
 interface Point {
     x: number
     y: number
 }
 
+/**
+ * Calculates perpendicular distance from point to line segment.
+ */
 function getSquareSegmentDistance(p: Point, p1: Point, p2: Point): number {
     let x = p1.x
     let y = p1.y
@@ -70,6 +69,9 @@ function getSquareSegmentDistance(p: Point, p1: Point, p2: Point): number {
     return dx * dx + dy * dy
 }
 
+/**
+ * Recursive Douglas-Peucker simplification step.
+ */
 function simplifyDPStep(
     points: Point[],
     first: number,
@@ -111,6 +113,9 @@ function simplifyDPStep(
     }
 }
 
+/**
+ * Simplifies path using Douglas-Peucker algorithm.
+ */
 function simplifyDouglasPeucker(points: Point[], sqTolerance: number): Point[] {
     if (points.length === 0) return []
 
@@ -128,6 +133,9 @@ function simplifyDouglasPeucker(points: Point[], sqTolerance: number): Point[] {
     return simplified
 }
 
+/**
+ * Simplifies path with given tolerance.
+ */
 function simplifyPath(points: Point[], tolerance: number): Point[] {
     if (points.length <= 2) return points
 
@@ -135,10 +143,9 @@ function simplifyPath(points: Point[], tolerance: number): Point[] {
     return simplifyDouglasPeucker(points, sqTolerance)
 }
 
-// ============================================================================
-// STATIC MAP URL GENERATION
-// ============================================================================
-
+/**
+ * Rounds coordinate to 6 decimal places (~10cm precision).
+ */
 function roundTo6Decimals(value: number): number {
     return Math.round(value * 1000000) / 1000000
 }
@@ -153,13 +160,13 @@ export function generateStaticMapUrl(
 ): string {
     const {
         accessToken,
-        width = 600,
-        height = 400,
-        styleId = 'streets-v12',
-        username = 'mapbox',
-        strokeColor = ROUTE_LINE_COLOR.replace('#', ''), // Remove # for Mapbox API
+        width = STATIC_MAP_WIDTH,
+        height = STATIC_MAP_HEIGHT,
+        styleId = STATIC_MAP_STYLE_ID,
+        username = STATIC_MAP_USERNAME,
+        strokeColor = ROUTE_LINE_COLOR.replace('#', ''),
         strokeWidth = ROUTE_LINE_WIDTH,
-        strokeOpacity = 0.9,
+        strokeOpacity = STATIC_MAP_STROKE_OPACITY,
         addMarkers = false
     } = config
 
@@ -167,14 +174,12 @@ export function generateStaticMapUrl(
         throw new Error('No points provided for static map generation')
     }
 
-    // Sort by sequential position
     const sortedPoints = [...points].sort((a, b) => a.sequentialPosition - b.sequentialPosition)
 
     if (sortedPoints.length === 0) {
         throw new Error('No valid points after sorting')
     }
 
-    // Convert to Point format
     const pathPoints: Point[] = sortedPoints.map(p => ({
         x: p.longitude,
         y: p.latitude
@@ -187,11 +192,10 @@ export function generateStaticMapUrl(
         throw new Error('Missing origin or destination point')
     }
 
-    // Try with increasing tolerance until URL is valid
-    let tolerance = MIN_TOLERANCE
+    let tolerance = STATIC_MAP_MIN_TOLERANCE
     let lastError: Error | null = null
 
-    while (tolerance <= MAX_TOLERANCE) {
+    while (tolerance <= STATIC_MAP_MAX_TOLERANCE) {
         try {
             const url = buildStaticMapUrl(
                 pathPoints,
@@ -211,7 +215,7 @@ export function generateStaticMapUrl(
                 }
             )
 
-            if (url.length <= MAX_URL_LENGTH) {
+            if (url.length <= STATIC_MAP_MAX_URL_LENGTH) {
                 const simplified = simplifyPath(pathPoints, tolerance)
                 const reduction = ((1 - simplified.length / pathPoints.length) * 100).toFixed(1)
                 console.log(
@@ -221,10 +225,10 @@ export function generateStaticMapUrl(
             }
 
             lastError = new Error(`URL too long: ${url.length} characters`)
-            tolerance += TOLERANCE_STEP
+            tolerance += STATIC_MAP_TOLERANCE_STEP
         } catch (error) {
             lastError = error as Error
-            tolerance += TOLERANCE_STEP
+            tolerance += STATIC_MAP_TOLERANCE_STEP
         }
     }
 
@@ -233,6 +237,9 @@ export function generateStaticMapUrl(
     )
 }
 
+/**
+ * Builds Mapbox static map URL using 'auto' with smart padding.
+ */
 function buildStaticMapUrl(
     points: Point[],
     tolerance: number,
@@ -250,22 +257,17 @@ function buildStaticMapUrl(
         destinationPoint: BikePathPointResponse
     }
 ): string {
-    // Simplify path
     const simplified = simplifyPath(points, tolerance)
 
-    // Round to 6 decimals and convert to [lat, lng] for polyline encoding
     const coordinates: [number, number][] = simplified.map(p => [
-        roundTo6Decimals(p.y), // latitude
-        roundTo6Decimals(p.x)  // longitude
+        roundTo6Decimals(p.y),
+        roundTo6Decimals(p.x)
     ])
 
-    // Encode as polyline
     const encoded = polyline.encode(coordinates)
 
-    // Build overlays
     const overlays: string[] = []
 
-    // Add markers if requested
     if (options.addMarkers) {
         const originColor = ORIGIN_MARKER_COLOR.replace('#', '')
         const destColor = DESTINATION_MARKER_COLOR.replace('#', '')
@@ -278,14 +280,28 @@ function buildStaticMapUrl(
         )
     }
 
-    // Add path
     const pathOverlay = `path-${options.strokeWidth}+${options.strokeColor}-${options.strokeOpacity}(${encodeURIComponent(encoded)})`
     overlays.push(pathOverlay)
 
-    // Build final URL
     const baseUrl = `https://api.mapbox.com/styles/v1/${options.username}/${options.styleId}/static`
     const overlay = overlays.join(',')
-    const url = `${baseUrl}/${overlay}/auto/${options.width}x${options.height}@2x?access_token=${options.accessToken}`
 
-    return url
+    // Calculate smart padding
+    const padY = Math.max(
+        STATIC_MAP_MIN_VERTICAL_PADDING,
+        Math.round(options.height * STATIC_MAP_VERTICAL_PADDING_PERCENT)
+    )
+
+    const padX = Math.max(
+        STATIC_MAP_MIN_HORIZONTAL_PADDING,
+        Math.round(options.width * STATIC_MAP_HORIZONTAL_PADDING_PERCENT)
+    )
+
+    // Apply safety limits
+    const finalPadY = Math.min(padY, Math.round(options.height * STATIC_MAP_MAX_PADDING_PERCENT))
+    const finalPadX = Math.min(padX, Math.round(options.width * STATIC_MAP_MAX_PADDING_PERCENT))
+
+    const padding = `${finalPadY},${finalPadX},${finalPadY},${finalPadX}`
+
+    return `${baseUrl}/${overlay}/auto/${options.width}x${options.height}@2x?padding=${padding}&access_token=${options.accessToken}`
 }

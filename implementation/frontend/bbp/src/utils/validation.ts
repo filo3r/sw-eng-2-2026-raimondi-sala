@@ -1,4 +1,4 @@
-/*
+/**
  * Validation utility functions for the Bike Path application.
  * Uses constants from @/constants/validation for validation rules.
  */

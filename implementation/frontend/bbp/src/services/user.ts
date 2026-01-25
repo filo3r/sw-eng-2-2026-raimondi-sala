@@ -1,7 +1,6 @@
-/*
+/**
  * User service for profile management operations.
  */
-
 import api from '@/api/axios'
 import type { UserUpdateRequest, UserResponse } from '@/types/user'
 

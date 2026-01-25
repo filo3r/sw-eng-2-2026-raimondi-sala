@@ -1,3 +1,7 @@
+/**
+ * Vue Router configuration with authentication guards.
+ * Implements lazy loading for all route components.
+ */
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -69,10 +73,11 @@ const router = createRouter({
     ]
 })
 
-// Route guard to protect authenticated routes
+/**
+ * Global navigation guard: redirects to login if route requires authentication.
+ */
 router.beforeEach((to, _from, next) => {
     const authStore = useAuthStore()
-
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         next({ name: 'Login' })
     } else {

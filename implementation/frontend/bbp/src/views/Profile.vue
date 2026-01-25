@@ -4,7 +4,18 @@ import { useRouter } from 'vue-router'
 import { User, Mail, Lock, UserCircle } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
-import api from '@/api/axios'
+import { getCurrentUser, updateCurrentUser, deleteCurrentUser } from '@/services/user'
+import type { UserUpdateRequest, UserResponse } from '@/types/user'
+import { parseApiError } from '@/utils/error'
+import { logError } from '@/utils/logger'
+import {
+  USER_NAME_MAX_LENGTH,
+  USER_SURNAME_MAX_LENGTH,
+  USERNAME_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH
+} from '@/constants/validation'
+import { SPINNER_DELAY_MS } from '@/constants/ui'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -16,43 +27,44 @@ const username = ref('')
 const email = ref('')
 const password = ref('')
 
-const originalData = ref({
-  name: '',
-  surname: '',
-  username: '',
-  email: ''
-})
+const originalData = ref<UserResponse | null>(null)
 
 const isEditing = ref(false)
 const loading = ref(false)
 const showDeleteModal = ref(false)
+
+const initialLoading = ref(true)
+const showSpinner = ref(false)
+let spinnerTimeout: number | null = null
 
 onMounted(async () => {
   await fetchUserData()
 })
 
 async function fetchUserData() {
-  try {
-    const response = await api.get('/api/users/me')
-    name.value = response.data.name
-    surname.value = response.data.surname
-    username.value = response.data.username
-    email.value = response.data.email
+  spinnerTimeout = window.setTimeout(() => {
+    showSpinner.value = true
+  }, SPINNER_DELAY_MS)
 
-    originalData.value = {
-      name: response.data.name,
-      surname: response.data.surname,
-      username: response.data.username,
-      email: response.data.email
-    }
+  try {
+    const userData = await getCurrentUser()
+    name.value = userData.name
+    surname.value = userData.surname
+    username.value = userData.username
+    email.value = userData.email
+    originalData.value = userData
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to load profile'
-    show(message, 'error')
+    logError(error, 'Profile.fetchUserData')
+    show(parseApiError(error), 'error')
+  } finally {
+    if (spinnerTimeout) clearTimeout(spinnerTimeout)
+    showSpinner.value = false
+    initialLoading.value = false
   }
 }
 
 function toggleEdit() {
-  if (isEditing.value) {
+  if (isEditing.value && originalData.value) {
     name.value = originalData.value.name
     surname.value = originalData.value.surname
     username.value = originalData.value.username
@@ -66,23 +78,24 @@ async function handleSave() {
   loading.value = true
 
   try {
-    const updateData: any = {}
+    const updateData: UserUpdateRequest = {}
 
-    if (name.value !== originalData.value.name) updateData.name = name.value
-    if (surname.value !== originalData.value.surname) updateData.surname = surname.value
-    if (username.value !== originalData.value.username) updateData.username = username.value
-    if (email.value !== originalData.value.email) updateData.email = email.value
-    if (password.value) updateData.password = password.value
+    if (originalData.value) {
+      if (name.value !== originalData.value.name) updateData.name = name.value
+      if (surname.value !== originalData.value.surname) updateData.surname = surname.value
+      if (username.value !== originalData.value.username) updateData.username = username.value
+      if (email.value !== originalData.value.email) updateData.email = email.value
+      if (password.value) updateData.password = password.value
+    }
 
-    await api.patch('/api/users/me', updateData)
-
+    await updateCurrentUser(updateData)
     await fetchUserData()
     password.value = ''
     isEditing.value = false
     show('Profile updated successfully!', 'success')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to update profile'
-    show(message, 'error')
+    logError(error, 'Profile.handleSave')
+    show(parseApiError(error), 'error')
   } finally {
     loading.value = false
   }
@@ -102,19 +115,23 @@ async function confirmDelete() {
   showDeleteModal.value = false
 
   try {
-    await api.delete('/api/users/me')
+    await deleteCurrentUser()
     authStore.clearAuth()
     show('Account deleted successfully', 'success')
     await router.push('/login')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to delete account'
-    show(message, 'error')
+    logError(error, 'Profile.confirmDelete')
+    show(parseApiError(error), 'error')
   }
 }
 </script>
 
 <template>
-  <div class="flex h-screen items-center justify-center overflow-hidden">
+  <div v-if="showSpinner" class="flex h-screen items-center justify-center">
+    <span class="loading loading-spinner loading-lg"></span>
+  </div>
+
+  <div v-else-if="!initialLoading" class="flex h-screen items-center justify-center overflow-hidden">
     <div class="card w-full max-w-md bg-base-100 shadow-xl">
       <div class="card-body items-center">
         <h2 class="card-title text-2xl">Profile</h2>
@@ -171,7 +188,7 @@ async function confirmDelete() {
                 placeholder="Name"
                 v-model.trim="name"
                 required
-                maxlength="50"
+                :maxlength="USER_NAME_MAX_LENGTH"
             />
           </label>
 
@@ -183,7 +200,7 @@ async function confirmDelete() {
                 placeholder="Surname"
                 v-model.trim="surname"
                 required
-                maxlength="50"
+                :maxlength="USER_SURNAME_MAX_LENGTH"
             />
           </label>
 
@@ -195,7 +212,7 @@ async function confirmDelete() {
                 placeholder="Username"
                 v-model.trim="username"
                 required
-                maxlength="50"
+                :maxlength="USERNAME_MAX_LENGTH"
             />
           </label>
 
@@ -207,7 +224,7 @@ async function confirmDelete() {
                 placeholder="Email"
                 v-model.trim="email"
                 required
-                maxlength="150"
+                :maxlength="EMAIL_MAX_LENGTH"
             />
           </label>
 
@@ -218,7 +235,7 @@ async function confirmDelete() {
                 class="grow"
                 placeholder="New Password (optional)"
                 v-model.trim="password"
-                minlength="8"
+                :minlength="PASSWORD_MIN_LENGTH"
             />
           </label>
 

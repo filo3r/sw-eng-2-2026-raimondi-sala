@@ -1,7 +1,6 @@
-/*
+/**
  * Bike path service for CRUD and search operations.
  */
-
 import api from '@/api/axios'
 import type {
     BikePathResponse,

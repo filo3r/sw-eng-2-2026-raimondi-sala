@@ -80,8 +80,6 @@ export interface UserUpdateRequest {
     password?: string
 }
 
-// ==================== RESPONSE DTOs ====================
-
 /**
  * Response for user authentication containing JWT token and user ID.
  */

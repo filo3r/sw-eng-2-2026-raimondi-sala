@@ -1,4 +1,4 @@
-/*
+/**
  * Formatting utilities for numbers and measurements.
  */
 

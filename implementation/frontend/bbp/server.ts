@@ -1,10 +1,11 @@
+/**
+ * Production server for serving the compiled Vue frontend.
+ * Injects runtime configuration (Mapbox API key, backend URL) into HTML.
+ */
 import { serve } from "bun";
 import { parseArgs } from "util";
 
-// ============================================================================
-// CLI Arguments Parsing
-// ============================================================================
-
+// Parse CLI arguments
 const { values } = parseArgs({
     args: Bun.argv,
     options: {
@@ -19,6 +20,8 @@ const { values } = parseArgs({
 const mapboxApiKey = values["mapbox.api.key"];
 const frontendPort = parseInt(values["frontend.port"] || "3000");
 const backendPort = values["backend.port"] || "8080";
+const backendUrl = `http://localhost:${backendPort}`;
+const distPath = "./dist";
 
 // Validate required API key
 if (!mapboxApiKey) {
@@ -28,90 +31,57 @@ if (!mapboxApiKey) {
     process.exit(1);
 }
 
+/**
+ * Injects runtime configuration into HTML.
+ */
+function injectConfig(html: string): string {
+    const configScript = `
+  <script>
+    window.MAPBOX_API_KEY = "${mapboxApiKey}";
+    window.BACKEND_URL = "${backendUrl}";
+  </script>`;
+    return html.replace("</head>", `${configScript}</head>`);
+}
+
 console.log("Starting frontend server...");
-
-const backendUrl = `http://localhost:${backendPort}`;
-
-// ============================================================================
-// HTTP Server
-// ============================================================================
 
 serve({
     port: frontendPort,
     async fetch(req) {
         const url = new URL(req.url);
-        let filePath = url.pathname;
-
-        // Redirect root to index.html
-        if (filePath === "/") {
-            filePath = "/index.html";
-        }
-
-        const file = Bun.file(`./dist${filePath}`);
-
+        let filePath = url.pathname === "/" ? "/index.html" : url.pathname;
+        const file = Bun.file(`${distPath}${filePath}`);
         // Serve existing files
         if (await file.exists()) {
-            // Inject runtime configuration into HTML files
             if (filePath.endsWith(".html")) {
-                let html = await file.text();
-
-                // Inject Mapbox API key and backend URL as global variables
-                const keyScript = `
-          <script>
-            window.MAPBOX_API_KEY = "${mapboxApiKey}";
-            window.BACKEND_URL = "${backendUrl}";
-          </script>
-        `;
-                html = html.replace("</head>", `${keyScript}</head>`);
-
-                return new Response(html, {
+                const html = await file.text();
+                return new Response(injectConfig(html), {
                     headers: { "Content-Type": "text/html" },
                 });
             }
-
-            // Serve other files as-is (CSS, JS, images, etc.)
             return new Response(file);
         }
-
         // SPA fallback: serve index.html for client-side routes
         if (!filePath.includes(".")) {
-            const indexFile = Bun.file("./dist/index.html");
-            let html = await indexFile.text();
-
-            const keyScript = `
-        <script>
-          window.MAPBOX_API_KEY = "${mapboxApiKey}";
-          window.BACKEND_URL = "${backendUrl}";
-        </script>
-      `;
-            html = html.replace("</head>", `${keyScript}</head>`);
-
-            return new Response(html, {
+            const indexFile = Bun.file(`${distPath}/index.html`);
+            const html = await indexFile.text();
+            return new Response(injectConfig(html), {
                 headers: { "Content-Type": "text/html" },
             });
         }
-
         return new Response("Not Found", { status: 404 });
     },
 });
-
-// ============================================================================
-// Startup Info & Browser Launch
-// ============================================================================
 
 console.log(`\nFrontend server started!`);
 console.log(`Frontend: http://localhost:${frontendPort}`);
 console.log(`Backend:  ${backendUrl}`);
 console.log(`\nPress Ctrl+C to stop\n`);
 
-// Auto-open browser (skip on headless Linux servers)
+// Auto-open browser (skip on headless servers)
 if (process.platform !== "linux" || process.env.DISPLAY) {
     const openCommand =
-        process.platform === "darwin"
-            ? "open"
-            : process.platform === "win32"
-                ? "start"
-                : "xdg-open";
-
+        process.platform === "darwin" ? "open" :
+            process.platform === "win32" ? "start" : "xdg-open";
     Bun.spawn([openCommand, `http://localhost:${frontendPort}`]);
 }

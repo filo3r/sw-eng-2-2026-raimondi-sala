@@ -1,7 +1,5 @@
 import type { MeteorologicalDataResponse } from './meteorologicalData.ts'
 
-// ==================== REQUEST DTOs ====================
-
 /**
  * Request for manually recording a trip by providing addresses and trip details.
  * Addresses will be geocoded and used to calculate the cycling route.
@@ -64,8 +62,6 @@ export interface TripSearchRequest {
     /** Maximum start time (inclusive, ISO format) */
     startTimeTo?: string
 }
-
-// ==================== RESPONSE DTOs ====================
 
 /**
  * GPS coordinate point along a trip route.

@@ -24,9 +24,13 @@ import { useMapObstacles } from '@/composables/useMapObstacles'
 import { useToast } from '@/composables/useToast'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDateTime } from '@/utils/date'
+import { parseApiError } from '@/utils/error'
+import { logError } from '@/utils/logger'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
 import { BIKE_PATH_STATUS_OPTIONS } from '@/constants/bikePath'
 import { OBSTACLE_SEVERITY_COLORS } from '@/constants/map'
+import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
+import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { BikePathResponse, BikePathStatus, BikePathUpdateRequest } from '@/types/bikePath'
 import type { ObstacleType, ObstacleSeverity } from '@/types/obstacle'
 
@@ -54,6 +58,10 @@ const obstacleEditData = ref<{
 
 const showDeleteBikePathModal = ref(false)
 
+const initialLoading = ref(true)
+const showSpinner = ref(false)
+let spinnerTimeout: number | null = null
+
 const { map, isReady, initMap } = useMap({
   container: mapContainer,
   accessToken: getMapboxApiKey(),
@@ -72,20 +80,25 @@ async function loadBikePath() {
   if (stateData && stateData.id === bikePathId) {
     bikePath.value = stateData
     originalVersion.value = stateData.version
-
+    initialLoading.value = false
     await nextTick()
     return
   }
 
-  loading.value = true
+  spinnerTimeout = window.setTimeout(() => {
+    showSpinner.value = true
+  }, SPINNER_DELAY_MS)
+
   try {
     bikePath.value = await getBikePathById(bikePathId)
     originalVersion.value = bikePath.value.version
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to load bike path'
-    show(message, 'error')
+    logError(error, 'BikePathDetail.loadBikePath')
+    show(parseApiError(error), 'error')
   } finally {
-    loading.value = false
+    if (spinnerTimeout) clearTimeout(spinnerTimeout)
+    showSpinner.value = false
+    initialLoading.value = false
   }
 }
 
@@ -113,10 +126,8 @@ function goBack() {
 
   if (from === 'BikePathFinder') {
     router.push({ name: 'BikePathFinder' })
-  } else if (from === 'BikePaths') {
-    router.push({ name: 'BikePaths' })
   } else {
-    router.back()
+    router.push('/bike-paths')
   }
 }
 
@@ -182,8 +193,8 @@ async function handleSave() {
 
     show('Bike path updated successfully', 'success')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to update bike path'
-    show(message, 'error')
+    logError(error, 'BikePathDetail.handleSave')
+    show(parseApiError(error), 'error')
   } finally {
     saving.value = false
   }
@@ -192,14 +203,17 @@ async function handleSave() {
 async function handleDelete() {
   if (!bikePath.value) return
 
+  loading.value = true
+
   try {
     await deleteBikePath(bikePath.value.id)
     show('Bike path deleted successfully', 'success')
-    router.push('/bike-paths')
+    await router.push('/bike-paths')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to delete bike path'
-    show(message, 'error')
+    logError(error, 'BikePathDetail.handleDelete')
+    show(parseApiError(error), 'error')
   } finally {
+    loading.value = false
     showDeleteBikePathModal.value = false
   }
 }
@@ -250,8 +264,8 @@ async function saveObstacle(obstacleId: number) {
 
     show('Obstacle updated successfully', 'success')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to update obstacle'
-    show(message, 'error')
+    logError(error, 'BikePathDetail.saveObstacle')
+    show(parseApiError(error), 'error')
   } finally {
     saving.value = false
   }
@@ -272,12 +286,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="p-6 overflow-x-hidden overflow-y-auto min-h-screen">
-    <div v-if="loading" class="flex justify-center items-center py-12">
-      <span class="loading loading-spinner loading-lg"></span>
-    </div>
+  <div v-if="showSpinner" class="flex h-screen items-center justify-center">
+    <span class="loading loading-spinner loading-lg"></span>
+  </div>
 
-    <div v-else-if="!bikePath" class="text-center py-12">
+  <div v-else-if="!initialLoading" class="p-6 overflow-x-hidden overflow-y-auto min-h-screen">
+    <div v-if="!bikePath" class="text-center py-12">
       <p class="text-gray-500">Bike path not found</p>
       <button @click="goBack" class="btn btn-neutral mt-4">Go Back</button>
     </div>
@@ -320,6 +334,7 @@ onUnmounted(() => {
                   :disabled="saving"
               >
                 <Save :size="16" />
+                {{ saving ? 'Saving...' : 'Save' }}
               </button>
               <button
                   v-if="!isEditing"
@@ -419,7 +434,7 @@ onUnmounted(() => {
                 v-model="editDescription"
                 class="textarea textarea-bordered w-full"
                 rows="3"
-                maxlength="1000"
+                :maxlength="DESCRIPTION_MAX_LENGTH"
                 placeholder="Add a description..."
             ></textarea>
             <p v-else-if="bikePath.description" class="text-gray-700">{{ bikePath.description }}</p>
@@ -594,7 +609,9 @@ onUnmounted(() => {
         <p class="mb-6">Are you sure you want to delete this bike path? This action cannot be undone.</p>
         <div class="flex gap-2 justify-end">
           <button @click="showDeleteBikePathModal = false" class="btn btn-ghost">Cancel</button>
-          <button @click="handleDelete" class="btn btn-error">Delete</button>
+          <button @click="handleDelete" class="btn btn-error" :disabled="loading">
+            {{ loading ? 'Deleting...' : 'Delete' }}
+          </button>
         </div>
       </div>
       <form method="dialog" class="modal-backdrop">

@@ -10,7 +10,6 @@ declare global {
          * Mapbox API key (injected from --mapbox.api.key CLI argument)
          */
         MAPBOX_API_KEY?: string;
-
         /**
          * Backend API URL (injected from --backend.port CLI argument)
          */

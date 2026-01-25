@@ -4,15 +4,19 @@ import { useRouter } from 'vue-router'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { Search, X, Eraser, Star, Bike, ArrowRight, ChevronDown } from 'lucide-vue-next'
 import { useToast } from '@/composables/useToast'
-import { useNoScroll } from '@/composables/useScrollFix'
+import { useNoScroll } from '@/composables/useNoScroll.ts'
 import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
 import { useMapObstacles } from '@/composables/useMapObstacles'
 import { useBikePathFinderStore } from '@/stores/bikePathFinder'
 import { findBikePaths } from '@/services/bikePathFinder'
-import { RADIUS_OPTIONS } from '@/constants/bikePath'
-import { BIKE_PATH_FINDER_PAGE_SIZE } from '@/constants/pagination'
+import { parseApiError } from '@/utils/error'
+import { logError } from '@/utils/logger'
 import { formatDistance, formatScore } from '@/utils/format'
+import { RADIUS_OPTIONS, DEFAULT_RADIUS_KM } from '@/constants/bikePath'
+import { BIKE_PATH_FINDER_PAGE_SIZE } from '@/constants/pagination'
+import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
+import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { BikePathResponse } from '@/types/bikePath'
 
 const router = useRouter()
@@ -35,14 +39,17 @@ const { addObstacles, clearObstacles } = useMapObstacles(map)
 // Search state
 const isSidebarOpen = ref(false)
 const originAddress = ref('')
-const originRadius = ref(0.1)
+const originRadius = ref(DEFAULT_RADIUS_KM)
 const destinationAddress = ref('')
-const destinationRadius = ref(0.1)
+const destinationRadius = ref(DEFAULT_RADIUS_KM)
 const loading = ref(false)
 const searchResults = ref<BikePathResponse[]>([])
 const selectedBikePathId = ref<number | null>(null)
 const currentPage = ref(0)
 const hasMore = ref(false)
+
+const showSpinner = ref(false)
+let spinnerTimeout: number | null = null
 
 function selectOriginRadius(value: number) {
   originRadius.value = value
@@ -55,9 +62,12 @@ function selectDestinationRadius(value: number) {
 }
 
 async function handleSearch() {
-  loading.value = true
   currentPage.value = 0
   selectedBikePathId.value = null
+
+  spinnerTimeout = window.setTimeout(() => {
+    showSpinner.value = true
+  }, SPINNER_DELAY_MS)
 
   try {
     const response = await findBikePaths(
@@ -75,18 +85,22 @@ async function handleSearch() {
     hasMore.value = response.hasNext
     show(`Found ${response.totalElements} bike paths`, 'success')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Search failed'
-    show(message, 'error')
+    logError(error, 'BikePathFinder.handleSearch')
+    show(parseApiError(error), 'error')
     searchResults.value = []
     hasMore.value = false
   } finally {
-    loading.value = false
+    if (spinnerTimeout) clearTimeout(spinnerTimeout)
+    showSpinner.value = false
   }
 }
 
 async function loadMore() {
-  loading.value = true
   currentPage.value++
+
+  let loadMoreSpinnerTimeout = window.setTimeout(() => {
+    loading.value = true
+  }, SPINNER_DELAY_MS)
 
   try {
     const response = await findBikePaths(
@@ -103,18 +117,19 @@ async function loadMore() {
     searchResults.value.push(...response.content)
     hasMore.value = response.hasNext
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to load more'
-    show(message, 'error')
+    logError(error, 'BikePathFinder.loadMore')
+    show(parseApiError(error), 'error')
   } finally {
+    clearTimeout(loadMoreSpinnerTimeout)
     loading.value = false
   }
 }
 
 function clearSearch() {
   originAddress.value = ''
-  originRadius.value = 0.1
+  originRadius.value = DEFAULT_RADIUS_KM
   destinationAddress.value = ''
-  destinationRadius.value = 0.1
+  destinationRadius.value = DEFAULT_RADIUS_KM
   searchResults.value = []
   selectedBikePathId.value = null
   currentPage.value = 0
@@ -320,6 +335,7 @@ onMounted(() => {
                 v-model.trim="originAddress"
                 placeholder="Enter origin address"
                 class="input input-bordered w-full"
+                :maxlength="ADDRESS_MAX_LENGTH"
                 required
             />
             <label class="label">
@@ -355,6 +371,7 @@ onMounted(() => {
                 v-model.trim="destinationAddress"
                 placeholder="Enter destination address"
                 class="input input-bordered w-full"
+                :maxlength="ADDRESS_MAX_LENGTH"
                 required
             />
             <label class="label">
@@ -386,9 +403,9 @@ onMounted(() => {
               <Eraser :size="16" />
               Clear
             </button>
-            <button type="submit" class="btn btn-neutral flex-1" :disabled="loading">
+            <button type="submit" class="btn btn-neutral flex-1" :disabled="showSpinner">
               <Search :size="16" />
-              {{ loading ? 'Searching...' : 'Search' }}
+              {{ showSpinner ? 'Searching...' : 'Search' }}
             </button>
           </div>
         </form>
@@ -396,7 +413,7 @@ onMounted(() => {
         <div class="divider"></div>
 
         <!-- Results Section -->
-        <div v-if="loading && searchResults.length === 0" class="text-center text-gray-500">
+        <div v-if="showSpinner && searchResults.length === 0" class="text-center text-gray-500">
           <span class="loading loading-spinner loading-md"></span>
           <p class="mt-2">Searching...</p>
         </div>

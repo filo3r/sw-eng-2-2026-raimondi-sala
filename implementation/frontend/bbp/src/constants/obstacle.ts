@@ -1,12 +1,8 @@
-/*
+/**
  * Obstacle related constants.
  */
 
 import type { ObstacleType, ObstacleSeverity } from '@/types/obstacle'
-
-// ============================================================================
-// OBSTACLE TYPE OPTIONS
-// ============================================================================
 
 /**
  * Obstacle type option for UI selection.
@@ -82,10 +78,6 @@ export const OBSTACLE_TYPE_LABELS: Record<ObstacleType, string> = {
     NARROW_PATH: 'Narrow Path',
     OTHER: 'Other'
 }
-
-// ============================================================================
-// OBSTACLE SEVERITY OPTIONS
-// ============================================================================
 
 /**
  * Obstacle severity option for UI selection.

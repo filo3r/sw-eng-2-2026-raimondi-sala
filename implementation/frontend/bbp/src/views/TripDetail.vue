@@ -20,6 +20,9 @@ import { useMapRoute } from '@/composables/useMapRoute'
 import { useToast } from '@/composables/useToast'
 import { formatDistance, formatDuration, formatSpeed, formatTemperature, formatHumidity, formatWindSpeed } from '@/utils/format'
 import { formatDateTime } from '@/utils/date'
+import { parseApiError } from '@/utils/error'
+import { logError } from '@/utils/logger'
+import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { TripResponse } from '@/types/trip'
 
 const route = useRoute()
@@ -31,6 +34,10 @@ const loading = ref(false)
 const mapContainer = ref<HTMLElement | null>(null)
 
 const showDeleteModal = ref(false)
+
+const initialLoading = ref(true)
+const showSpinner = ref(false)
+let spinnerTimeout: number | null = null
 
 const { map, isReady, initMap } = useMap({
   container: mapContainer,
@@ -48,17 +55,23 @@ async function loadTrip() {
 
   if (stateData && stateData.id === tripId) {
     trip.value = stateData
+    initialLoading.value = false
     return
   }
 
-  loading.value = true
+  spinnerTimeout = window.setTimeout(() => {
+    showSpinner.value = true
+  }, SPINNER_DELAY_MS)
+
   try {
     trip.value = await getTripById(tripId)
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to load trip'
-    show(message, 'error')
+    logError(error, 'TripDetail.loadTrip')
+    show(parseApiError(error), 'error')
   } finally {
-    loading.value = false
+    if (spinnerTimeout) clearTimeout(spinnerTimeout)
+    showSpinner.value = false
+    initialLoading.value = false
   }
 }
 
@@ -81,26 +94,23 @@ watch([isReady, trip], ([ready, tripData]) => {
 })
 
 function goBack() {
-  const from = history.state?.from
-
-  if (from === 'Trips') {
-    router.push({ name: 'Trips' })
-  } else {
-    router.back()
-  }
+  router.push('/trips')
 }
 
 async function handleDelete() {
   if (!trip.value) return
 
+  loading.value = true
+
   try {
     await deleteTrip(trip.value.id)
     show('Trip deleted successfully', 'success')
-    router.push('/trips')
+    await router.push('/trips')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to delete trip'
-    show(message, 'error')
+    logError(error, 'TripDetail.handleDelete')
+    show(parseApiError(error), 'error')
   } finally {
+    loading.value = false
     showDeleteModal.value = false
   }
 }
@@ -112,12 +122,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-6 overflow-x-hidden">
-    <div v-if="loading" class="flex justify-center items-center py-12">
-      <span class="loading loading-spinner loading-lg"></span>
-    </div>
+  <div v-if="showSpinner" class="flex h-screen items-center justify-center">
+    <span class="loading loading-spinner loading-lg"></span>
+  </div>
 
-    <div v-else-if="!trip" class="text-center py-12">
+  <div v-else-if="!initialLoading" class="p-6 overflow-x-hidden">
+    <div v-if="!trip" class="text-center py-12">
       <p class="text-gray-500">Trip not found</p>
       <button @click="goBack" class="btn btn-neutral mt-4">Go Back</button>
     </div>
@@ -219,6 +229,7 @@ onMounted(async () => {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-4">
               <div class="flex items-center gap-2">
+                <Thermometer :size="18" />
                 <span class="font-medium">Temperature:</span>
                 <span>{{ formatTemperature(trip.meteorologicalData.temperature) }}</span>
               </div>
@@ -252,7 +263,9 @@ onMounted(async () => {
         <p class="mb-6">Are you sure you want to delete this trip? This action cannot be undone.</p>
         <div class="flex gap-2 justify-end">
           <button @click="showDeleteModal = false" class="btn btn-ghost">Cancel</button>
-          <button @click="handleDelete" class="btn btn-error">Delete</button>
+          <button @click="handleDelete" class="btn btn-error" :disabled="loading">
+            {{ loading ? 'Deleting...' : 'Delete' }}
+          </button>
         </div>
       </div>
       <form method="dialog" class="modal-backdrop">

@@ -8,6 +8,11 @@ import { generateStaticMapUrl } from '@/utils/mapStatic'
 import { useToast } from '@/composables/useToast'
 import { formatDistance, formatDuration } from '@/utils/format'
 import { formatDateRange } from '@/utils/date'
+import { parseApiError } from '@/utils/error'
+import { logError } from '@/utils/logger'
+import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
+import { TRIP_PAGE_SIZE, SORT_DESC } from '@/constants/pagination'
+import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { TripResponse } from '@/types/trip'
 
 const router = useRouter()
@@ -25,23 +30,35 @@ const startTimeFrom = ref('')
 const startTimeTo = ref('')
 const hasActiveFilters = ref(false)
 
+const initialLoading = ref(true)
+const showSpinner = ref(false)
+let spinnerTimeout: number | null = null
+
 async function loadTrips() {
-  loading.value = true
+  spinnerTimeout = window.setTimeout(() => {
+    showSpinner.value = true
+  }, SPINNER_DELAY_MS)
+
   try {
-    const response = await getUserTrips(currentPage.value, 6, 'startTime', 'DESC')
+    const response = await getUserTrips(currentPage.value, TRIP_PAGE_SIZE, 'startTime', SORT_DESC)
     trips.value = response.content
     hasMore.value = response.hasNext
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to load trips'
-    show(message, 'error')
+    logError(error, 'Trips.loadTrips')
+    show(parseApiError(error), 'error')
   } finally {
-    loading.value = false
+    if (spinnerTimeout) clearTimeout(spinnerTimeout)
+    showSpinner.value = false
+    initialLoading.value = false
   }
 }
 
 async function loadMore() {
-  loading.value = true
   currentPage.value++
+
+  let loadMoreSpinnerTimeout = window.setTimeout(() => {
+    loading.value = true
+  }, SPINNER_DELAY_MS)
 
   try {
     const response = hasActiveFilters.value
@@ -53,18 +70,19 @@ async function loadMore() {
               startTimeTo: startTimeTo.value ? new Date(startTimeTo.value).toISOString() : undefined
             },
             currentPage.value,
-            6,
+            TRIP_PAGE_SIZE,
             'startTime',
-            'DESC'
+            SORT_DESC
         )
-        : await getUserTrips(currentPage.value, 6, 'startTime', 'DESC')
+        : await getUserTrips(currentPage.value, TRIP_PAGE_SIZE, 'startTime', SORT_DESC)
 
     trips.value.push(...response.content)
     hasMore.value = response.hasNext
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to load more'
-    show(message, 'error')
+    logError(error, 'Trips.loadMore')
+    show(parseApiError(error), 'error')
   } finally {
+    clearTimeout(loadMoreSpinnerTimeout)
     loading.value = false
   }
 }
@@ -98,17 +116,17 @@ async function applyFilters() {
           startTimeTo: startTimeTo.value ? new Date(startTimeTo.value).toISOString() : undefined
         },
         0,
-        6,
+        TRIP_PAGE_SIZE,
         'startTime',
-        'DESC'
+        SORT_DESC
     )
 
     trips.value = response.content
     hasMore.value = response.hasNext
     show(`Found ${response.totalElements} trips`, 'success')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Search failed'
-    show(message, 'error')
+    logError(error, 'Trips.applyFilters')
+    show(parseApiError(error), 'error')
     trips.value = []
     hasMore.value = false
   } finally {
@@ -141,7 +159,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-6 overflow-x-hidden">
+  <div v-if="showSpinner" class="flex h-screen items-center justify-center">
+    <span class="loading loading-spinner loading-lg"></span>
+  </div>
+
+  <div v-else-if="!initialLoading" class="p-6 overflow-x-hidden">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-3xl font-bold">Trips</h1>
       <div class="flex gap-2">
@@ -175,7 +197,7 @@ onMounted(() => {
                 v-model="originFilter"
                 placeholder="Search by origin location"
                 class="input input-bordered w-full"
-                maxlength="256"
+                :maxlength="ADDRESS_MAX_LENGTH"
             />
           </div>
 
@@ -188,7 +210,7 @@ onMounted(() => {
                 v-model="destinationFilter"
                 placeholder="Search by destination location"
                 class="input input-bordered w-full"
-                maxlength="256"
+                :maxlength="ADDRESS_MAX_LENGTH"
             />
           </div>
 
@@ -231,11 +253,7 @@ onMounted(() => {
       </form>
     </dialog>
 
-    <div v-if="loading && trips.length === 0" class="flex justify-center items-center py-12">
-      <span class="loading loading-spinner loading-lg"></span>
-    </div>
-
-    <div v-else-if="trips.length === 0" class="text-center py-12">
+    <div v-if="trips.length === 0" class="text-center py-12">
       <p class="text-gray-500">No trips found. Record your first one!</p>
     </div>
 

@@ -2,10 +2,6 @@
  * Bike path related constants and enums.
  */
 
-// ============================================================================
-// RADIUS CONFIGURATION
-// ============================================================================
-
 /**
  * Radius option for bike path search.
  */
@@ -35,9 +31,6 @@ export const RADIUS_OPTIONS: readonly RadiusOption[] = [
  */
 export const DEFAULT_RADIUS_KM = 0.1
 
-// ============================================================================
-// BIKE PATH STATUS OPTIONS
-// ============================================================================
 
 import type { BikePathStatus } from '@/types/bikePath'
 

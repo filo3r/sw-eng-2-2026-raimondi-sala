@@ -1,11 +1,9 @@
-// ==================== ENUMS ====================
-
 /**
  * Types of obstacles found on bike paths.
  * Can be detected automatically through sensors or reported manually.
  */
 export type ObstacleType =
-/** A hole or depression in the path surface */
+    /** A hole or depression in the path surface */
     | 'POTHOLE'
     /** A visible crack in the path surface */
     | 'CRACK'

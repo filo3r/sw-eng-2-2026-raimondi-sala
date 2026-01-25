@@ -8,6 +8,11 @@ import { generateStaticMapUrl } from '@/utils/mapStatic'
 import { useToast } from '@/composables/useToast'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDate } from '@/utils/date'
+import { parseApiError } from '@/utils/error'
+import { logError } from '@/utils/logger'
+import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
+import { BIKE_PATH_PAGE_SIZE, SORT_DESC } from '@/constants/pagination'
+import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { BikePathResponse } from '@/types/bikePath'
 
 const router = useRouter()
@@ -25,23 +30,35 @@ const createdAtFrom = ref('')
 const createdAtTo = ref('')
 const hasActiveFilters = ref(false)
 
+const initialLoading = ref(true)
+const showSpinner = ref(false)
+let spinnerTimeout: number | null = null
+
 async function loadBikePaths() {
-  loading.value = true
+  spinnerTimeout = window.setTimeout(() => {
+    showSpinner.value = true
+  }, SPINNER_DELAY_MS)
+
   try {
-    const response = await getUserBikePaths(currentPage.value, 6, 'createdAt', 'DESC')
+    const response = await getUserBikePaths(currentPage.value, BIKE_PATH_PAGE_SIZE, 'createdAt', SORT_DESC)
     bikePaths.value = response.content
     hasMore.value = response.hasNext
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to load bike paths'
-    show(message, 'error')
+    logError(error, 'BikePaths.loadBikePaths')
+    show(parseApiError(error), 'error')
   } finally {
-    loading.value = false
+    if (spinnerTimeout) clearTimeout(spinnerTimeout)
+    showSpinner.value = false
+    initialLoading.value = false
   }
 }
 
 async function loadMore() {
-  loading.value = true
   currentPage.value++
+
+  let loadMoreSpinnerTimeout = window.setTimeout(() => {
+    loading.value = true
+  }, SPINNER_DELAY_MS)
 
   try {
     const response = hasActiveFilters.value
@@ -53,18 +70,19 @@ async function loadMore() {
               createdAtTo: createdAtTo.value ? new Date(createdAtTo.value).toISOString() : undefined
             },
             currentPage.value,
-            6,
+            BIKE_PATH_PAGE_SIZE,
             'createdAt',
-            'DESC'
+            SORT_DESC
         )
-        : await getUserBikePaths(currentPage.value, 6, 'createdAt', 'DESC')
+        : await getUserBikePaths(currentPage.value, BIKE_PATH_PAGE_SIZE, 'createdAt', SORT_DESC)
 
     bikePaths.value.push(...response.content)
     hasMore.value = response.hasNext
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to load more'
-    show(message, 'error')
+    logError(error, 'BikePaths.loadMore')
+    show(parseApiError(error), 'error')
   } finally {
+    clearTimeout(loadMoreSpinnerTimeout)
     loading.value = false
   }
 }
@@ -98,17 +116,17 @@ async function applyFilters() {
           createdAtTo: createdAtTo.value ? new Date(createdAtTo.value).toISOString() : undefined
         },
         0,
-        6,
+        BIKE_PATH_PAGE_SIZE,
         'createdAt',
-        'DESC'
+        SORT_DESC
     )
 
     bikePaths.value = response.content
     hasMore.value = response.hasNext
     show(`Found ${response.totalElements} bike paths`, 'success')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Search failed'
-    show(message, 'error')
+    logError(error, 'BikePaths.applyFilters')
+    show(parseApiError(error), 'error')
     bikePaths.value = []
     hasMore.value = false
   } finally {
@@ -141,7 +159,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-6 overflow-x-hidden">
+  <div v-if="showSpinner" class="flex h-screen items-center justify-center">
+    <span class="loading loading-spinner loading-lg"></span>
+  </div>
+
+  <div v-else-if="!initialLoading" class="p-6 overflow-x-hidden">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-3xl font-bold">Bike Paths</h1>
       <div class="flex gap-2">
@@ -175,7 +197,7 @@ onMounted(() => {
                 v-model="originFilter"
                 placeholder="Search by origin location"
                 class="input input-bordered w-full"
-                maxlength="256"
+                :maxlength="ADDRESS_MAX_LENGTH"
             />
           </div>
 
@@ -188,7 +210,7 @@ onMounted(() => {
                 v-model="destinationFilter"
                 placeholder="Search by destination location"
                 class="input input-bordered w-full"
-                maxlength="256"
+                :maxlength="ADDRESS_MAX_LENGTH"
             />
           </div>
 
@@ -231,11 +253,7 @@ onMounted(() => {
       </form>
     </dialog>
 
-    <div v-if="loading && bikePaths.length === 0" class="flex justify-center items-center py-12">
-      <span class="loading loading-spinner loading-lg"></span>
-    </div>
-
-    <div v-else-if="bikePaths.length === 0" class="text-center py-12">
+    <div v-if="bikePaths.length === 0" class="text-center py-12">
       <p class="text-gray-500">No bike paths found. Create your first one!</p>
     </div>
 

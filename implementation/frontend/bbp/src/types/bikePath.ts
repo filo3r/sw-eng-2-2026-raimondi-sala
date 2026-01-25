@@ -1,5 +1,3 @@
-// ==================== ENUMS ====================
-
 /**
  * Maintenance and condition status of a bike path.
  * Each status has an associated score for quality assessment and routing.
@@ -33,11 +31,7 @@ export type BikePathStatus =
     /** Path is permanently closed and no longer available (no score) */
     | 'PERMANENTLY_CLOSED'
 
-// ==================== IMPORTS ====================
-
 import type { ObstacleCreateRequest, ObstacleUpdateRequest, ObstacleResponse } from './obstacle'
-
-// ==================== REQUEST DTOs ====================
 
 /**
  * Request for searching bike paths within geographic radius.
@@ -167,8 +161,6 @@ export interface BikePathUpdateRequest {
      */
     obstaclesToUpdate?: ObstacleUpdateRequest[]
 }
-
-// ==================== RESPONSE DTOs ====================
 
 /**
  * GPS coordinate point along a bike path route.

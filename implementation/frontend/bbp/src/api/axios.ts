@@ -1,13 +1,13 @@
 /**
  * Axios instance for backend API calls.
- * Base URL is automatically configured based on environment.
+ * Automatically configures base URL and handles JWT authentication.
  */
-
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
 
 /**
- * Gets backend API base URL (dev: from env, prod: from window).
+ * Resolves backend API base URL based on environment.
+ * @returns Backend URL string
  */
 const getBackendUrl = (): string => {
     // Development: from VITE_BACKEND_PORT
@@ -15,12 +15,10 @@ const getBackendUrl = (): string => {
         const port = import.meta.env.VITE_BACKEND_PORT || '8080'
         return `http://localhost:${port}`
     }
-
     // Production: from window.BACKEND_URL
     if (window.BACKEND_URL) {
         return window.BACKEND_URL
     }
-
     // Fallback
     return 'http://localhost:8080'
 }
@@ -33,7 +31,9 @@ const api = axios.create({
     }
 })
 
-// Request interceptor: Add JWT token to all requests
+/**
+ * Request interceptor: Injects JWT token into Authorization header.
+ */
 api.interceptors.request.use(
     (config) => {
         const authStore = useAuthStore()
@@ -42,19 +42,18 @@ api.interceptors.request.use(
         }
         return config
     },
-    (error) => {
-        return Promise.reject(error)
-    }
+    (error) => Promise.reject(error)
 )
 
-// Response interceptor: Handle 401 Unauthorized
+/**
+ * Response interceptor: Handles 401 Unauthorized by clearing auth and redirecting.
+ */
 api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
             const authStore = useAuthStore()
             authStore.clearAuth()
-
             // Only redirect if NOT already on login/register
             const currentPath = window.location.pathname
             if (currentPath !== '/login' && currentPath !== '/register') {

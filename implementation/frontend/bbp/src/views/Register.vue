@@ -4,7 +4,17 @@ import { useRouter } from 'vue-router'
 import { User, Mail, Lock, UserCircle } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
-import api from '@/api/axios'
+import { register } from '@/services/auth'
+import type { UserRegisterRequest } from '@/types/user'
+import { parseApiError } from '@/utils/error'
+import { logError } from '@/utils/logger'
+import {
+  USER_NAME_MAX_LENGTH,
+  USER_SURNAME_MAX_LENGTH,
+  USERNAME_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH
+} from '@/constants/validation'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -21,20 +31,21 @@ async function handleRegister() {
   loading.value = true
 
   try {
-    const response = await api.post('/api/auth/register', {
+    const request: UserRegisterRequest = {
       name: name.value,
       surname: surname.value,
       username: username.value,
       email: email.value,
       password: password.value
-    })
+    }
 
-    authStore.setAuth(response.data.token, response.data.userId)
+    const response = await register(request)
+    authStore.setAuth(response.token, response.userId)
     show('Registration successful!', 'success')
     await router.push('/')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Registration failed'
-    show(message, 'error')
+    logError(error, 'Register.handleRegister')
+    show(parseApiError(error), 'error')
   } finally {
     loading.value = false
   }
@@ -50,27 +61,62 @@ async function handleRegister() {
         <form @submit.prevent="handleRegister" class="space-y-4 w-full self-stretch">
           <label class="input input-bordered flex items-center gap-2 w-full">
             <User :size="16" />
-            <input type="text" class="grow" placeholder="Name" v-model.trim="name" required maxlength="50" />
+            <input
+                type="text"
+                class="grow"
+                placeholder="Name"
+                v-model.trim="name"
+                required
+                :maxlength="USER_NAME_MAX_LENGTH"
+            />
           </label>
 
           <label class="input input-bordered flex items-center gap-2 w-full">
             <User :size="16" />
-            <input type="text" class="grow" placeholder="Surname" v-model.trim="surname" required maxlength="50" />
+            <input
+                type="text"
+                class="grow"
+                placeholder="Surname"
+                v-model.trim="surname"
+                required
+                :maxlength="USER_SURNAME_MAX_LENGTH"
+            />
           </label>
 
           <label class="input input-bordered flex items-center gap-2 w-full">
             <UserCircle :size="16" />
-            <input type="text" class="grow" placeholder="Username" v-model.trim="username" required maxlength="50" />
+            <input
+                type="text"
+                class="grow"
+                placeholder="Username"
+                v-model.trim="username"
+                required
+                :maxlength="USERNAME_MAX_LENGTH"
+            />
           </label>
 
           <label class="input input-bordered flex items-center gap-2 w-full">
             <Mail :size="16" />
-            <input type="email" class="grow" placeholder="Email" v-model.trim="email" required maxlength="150" />
+            <input
+                type="email"
+                class="grow"
+                placeholder="Email"
+                v-model.trim="email"
+                required
+                :maxlength="EMAIL_MAX_LENGTH"
+            />
           </label>
 
           <label class="input input-bordered flex items-center gap-2 w-full">
             <Lock :size="16" />
-            <input type="password" class="grow" placeholder="Password" v-model.trim="password" required minlength="8" />
+            <input
+                type="password"
+                class="grow"
+                placeholder="Password"
+                v-model.trim="password"
+                required
+                :minlength="PASSWORD_MIN_LENGTH"
+            />
           </label>
 
           <button type="submit" class="btn btn-neutral w-full" :disabled="loading">
