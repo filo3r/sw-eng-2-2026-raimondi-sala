@@ -1,16 +1,34 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Plus, Trash2, ChevronDown } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Trash2, ChevronDown, GripVertical } from 'lucide-vue-next'
 import { createBikePathManually } from '@/services/bikePath'
+import { forwardGeocode, reverseGeocode, calculateCyclingRoute } from '@/services/mapbox'
 import { useToast } from '@/composables/useToast'
-import { getMapboxApiKey } from '@/config/mapbox'
 import { useMap } from '@/composables/useMap'
+import { useInteractiveMarkers } from '@/composables/useInteractiveMarkers'
+import { useMapboxAutocomplete, type AutocompleteSuggestion } from '@/composables/useMapboxAutocomplete'
+import { useDraggableList } from '@/composables/useDraggableList'
+import { useMapClickHandler } from '@/composables/useMapClickHandler'
+import { getRouteMarkerConfig } from '@/composables/useRouteMarkerConfig'
+import { getMapboxApiKey } from '@/config/mapbox'
+import { parseApiError } from '@/utils/error'
+import { logError } from '@/utils/logger'
 import { BIKE_PATH_STATUS_OPTIONS } from '@/constants/bikePath'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
+import {
+  MAP_CURSOR_CROSSHAIR,
+  ROUTE_LINE_COLOR,
+  ROUTE_LINE_WIDTH,
+  ROUTE_LINE_JOIN,
+  ROUTE_LINE_CAP,
+  OBSTACLE_SEVERITY_COLORS,
+  DEFAULT_OBSTACLE_COLOR
+} from '@/constants/map'
 import type { BikePathStatus } from '@/types/bikePath'
 import type { ObstacleType, ObstacleSeverity } from '@/types/obstacle'
-import mapboxgl from 'mapbox-gl'
+import type { Coordinate } from '@/types/mapbox'
+import type { MarkerConfig } from '@/composables/useInteractiveMarkers'
 
 const router = useRouter()
 const { show } = useToast()
@@ -23,14 +41,33 @@ const { initMap, map } = useMap({
   enableGeolocation: true
 })
 
+const {
+  createMarker: createRouteMarker,
+  removeMarker: removeRouteMarker,
+  markers: routeMarkers,
+  addSlot: addRouteSlot
+} = useInteractiveMarkers(map)
+
+const {
+  createMarker: createObstacleMarker,
+  removeMarker: removeObstacleMarker,
+  addSlot: addObstacleSlot,
+  markers: obstacleMarkers
+} = useInteractiveMarkers(map)
+
+const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
+    useMapboxAutocomplete()
+
+const { draggedIndex, dragOverIndex, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd } =
+    useDraggableList()
+
+const { activeField, setActiveField, handleMapClick: handleMapClickBase } = useMapClickHandler()
+
 const addresses = ref<string[]>(['', ''])
 const description = ref('')
 const status = ref<BikePathStatus>('GOOD')
 const published = ref(false)
 const loading = ref(false)
-
-const routeMarkers = ref<(mapboxgl.Marker | null)[]>([null, null])
-const obstacleMarkers = ref<(mapboxgl.Marker | null)[]>([])
 
 interface ObstacleForm {
   address: string
@@ -40,174 +77,234 @@ interface ObstacleForm {
 
 const obstacles = ref<ObstacleForm[]>([])
 
-const activeField = ref<{ type: 'route' | 'obstacle', index: number } | null>(null)
+async function selectSuggestion(
+    suggestion: AutocompleteSuggestion,
+    type: 'route' | 'obstacle',
+    index: number
+) {
+  const address = suggestion.full_address || ''
 
-function onInputFocus(type: 'route' | 'obstacle', index: number) {
-  activeField.value = { type, index }
+  if (type === 'route') {
+    addresses.value[index] = address
+  } else if (obstacles.value[index]) {
+    obstacles.value[index].address = address
+  }
+
+  showSuggestions.value = false
+
+  const lng = suggestion.coordinates?.longitude
+  const lat = suggestion.coordinates?.latitude
+
+  if (typeof lng === 'number' && typeof lat === 'number') {
+    setMarker(type, index, lng, lat)
+  } else if (address) {
+    await geocodeAndSetMarker(address, type, index)
+  }
+}
+
+async function geocodeAndSetMarker(address: string, type: 'route' | 'obstacle', index: number) {
+  try {
+    const result = await forwardGeocode({ address })
+    setMarker(type, index, result.longitude, result.latitude)
+  } catch (e) {
+    logError(e, 'BikePathCreateManual.geocodeAndSetMarker')
+    show(parseApiError(e), 'error')
+  }
 }
 
 async function updateRoute() {
   if (!map.value) return
 
   const coordinates = routeMarkers.value
-    .filter((m): m is mapboxgl.Marker => m !== null)
-    .map(m => m.getLngLat())
-  
+      .filter((m): m is import('mapbox-gl').Marker => m !== null)
+      .map(m => m.getLngLat())
+
   if (coordinates.length < 2) {
-    const source = map.value.getSource('route') as mapboxgl.GeoJSONSource
-    if (source) {
-      source.setData({ type: 'FeatureCollection', features: [] })
-    }
+    const source = map.value.getSource('route') as import('mapbox-gl').GeoJSONSource | undefined
+    if (source) source.setData({ type: 'FeatureCollection', features: [] })
     return
   }
 
-  const coordString = coordinates.map(c => `${c.lng},${c.lat}`).join(';')
-  const token = getMapboxApiKey()
-  
-  const url = `https://api.mapbox.com/directions/v5/mapbox/cycling/${coordString}?geometries=geojson&access_token=${token}`
-
   try {
-    const res = await fetch(url)
-    const data = await res.json()
+    const waypoints: Coordinate[] = coordinates.map(c => ({
+      latitude: c.lat,
+      longitude: c.lng
+    }))
 
-    if (data.routes && data.routes.length > 0) {
-      const routeGeoJSON = data.routes[0].geometry
+    const routeResult = await calculateCyclingRoute({ waypoints })
 
-      const source = map.value.getSource('route') as mapboxgl.GeoJSONSource
-      if (source) {
-        source.setData({
-          type: 'Feature',
-          properties: {},
-          geometry: routeGeoJSON
-        })
-      }
+    const routeCoordinates = routeResult.points
+        .sort((a, b) => a.sequentialPosition - b.sequentialPosition)
+        .map(point => [point.longitude, point.latitude])
+
+    const source = map.value.getSource('route') as import('mapbox-gl').GeoJSONSource | undefined
+    if (source) {
+      source.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: routeCoordinates
+        }
+      })
     }
   } catch (e) {
-    console.error('Error fetching route:', e)
+    logError(e, 'BikePathCreateManual.updateRoute')
+    show(parseApiError(e), 'error')
+  }
+}
+
+function getMarkerConfig(type: 'route' | 'obstacle', index: number): MarkerConfig {
+  if (type === 'obstacle' && obstacles.value[index]) {
+    const severity = obstacles.value[index].severity
+    return {
+      color: OBSTACLE_SEVERITY_COLORS[severity] || DEFAULT_OBSTACLE_COLOR,
+      label: '!',
+      draggable: true,
+      onDragEnd: async (lng, lat) => {
+        if (obstacles.value[index]) {
+          obstacles.value[index].address = await getAddressFromCoordinates(lng, lat)
+        }
+      }
+    }
+  }
+
+  const { color, label } = getRouteMarkerConfig(index, addresses.value.length)
+
+  return {
+    color,
+    label,
+    draggable: true,
+    onDragEnd: async (lng, lat) => {
+      addresses.value[index] = await getAddressFromCoordinates(lng, lat)
+      await updateRoute()
+    }
   }
 }
 
 function setMarker(type: 'route' | 'obstacle', index: number, lng: number, lat: number) {
-  if (!map.value) return
-
-  const markersArray = type === 'route' ? routeMarkers : obstacleMarkers
-  const color = type === 'obstacle' ? '#ef4444' : '#3b82f6'
-
-  if (markersArray.value[index]) {
-    markersArray.value[index]?.remove()
-  }
-
-  const newMarker = new mapboxgl.Marker({ color, draggable: true })
-    .setLngLat([lng, lat])
-    .addTo(map.value)
-
-  newMarker.on('dragend', async () => {
-    const { lng, lat } = newMarker.getLngLat()
-    const address = await getAddressFromCoordinates(lng, lat)
-    
-    if (type === 'route') {
-      addresses.value[index] = address
-      updateRoute() 
-    } else {
-      if (obstacles.value[index]) obstacles.value[index].address = address
-    }
-  })
-
-  markersArray.value[index] = newMarker
+  const config = getMarkerConfig(type, index)
 
   if (type === 'route') {
-    updateRoute()
+    createRouteMarker(index, lng, lat, config)
+    void updateRoute()
+  } else {
+    createObstacleMarker(index, lng, lat, config)
   }
 }
 
 async function getAddressFromCoordinates(lng: number, lat: number): Promise<string> {
-  const token = getMapboxApiKey()
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&types=address,poi`
-    
   try {
-    const res = await fetch(url)
-    const data = await res.json()
-    return data.features?.[0]?.place_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    const result = await reverseGeocode({
+      coordinate: { latitude: lat, longitude: lng }
+    })
+    return result.address
   } catch (e) {
+    logError(e, 'BikePathCreateManual.getAddressFromCoordinates')
     return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
   }
 }
 
-async function handleMapClick(e: mapboxgl.MapMouseEvent) {
-  if (!activeField.value) return
-
+function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
   const { lng, lat } = e.lngLat
-  const { type, index } = activeField.value
 
-  const address = await getAddressFromCoordinates(lng, lat)
-  if (type === 'route') {
-    addresses.value[index] = address
-  } else {
-    if (obstacles.value[index]) obstacles.value[index].address = address
-  }
+  handleMapClickBase(lng, lat, addresses, {
+    onRouteClick: async (index, lng, lat) => {
+      addresses.value[index] = await getAddressFromCoordinates(lng, lat)
 
-  setMarker(type, index, lng, lat)
+      while (routeMarkers.value.length <= index) {
+        addRouteSlot()
+      }
+
+      setMarker('route', index, lng, lat)
+      redrawRouteMarkers()
+    },
+    onObstacleClick: async (index, lng, lat) => {
+      if (obstacles.value[index]) {
+        obstacles.value[index].address = await getAddressFromCoordinates(lng, lat)
+        setMarker('obstacle', index, lng, lat)
+      }
+    }
+  })
 }
 
-watch(map, (newMap) => {
-  if (newMap) {
-    newMap.on('load', () => {
-      if (!newMap.getSource('route')) {
-        newMap.addSource('route', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
-        })
+watch(map, newMap => {
+  if (!newMap) return
 
-        newMap.addLayer({
-          id: 'route',
-          type: 'line',
-          source: 'route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round'
-          },
-          paint: {
-            'line-color': '#3b82f6',
-            'line-width': 4,
-            'line-opacity': 0.75
-          }
-        })
-      }
-    })
+  newMap.on('load', () => {
+    if (!newMap.getSource('route')) {
+      newMap.addSource('route', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      })
 
-    newMap.on('click', handleMapClick)
-    newMap.getCanvas().style.cursor = 'crosshair'
-  }
+      newMap.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': ROUTE_LINE_JOIN,
+          'line-cap': ROUTE_LINE_CAP
+        },
+        paint: {
+          'line-color': ROUTE_LINE_COLOR,
+          'line-width': ROUTE_LINE_WIDTH
+        }
+      })
+    }
+  })
+
+  newMap.on('click', handleMapClick)
+  newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
 })
 
 function addAddress() {
   addresses.value.push('')
-  routeMarkers.value.push(null)
+  addRouteSlot()
+  redrawRouteMarkers()
 }
 
 function removeAddress(index: number) {
   if (addresses.value.length > 2) {
-    routeMarkers.value[index]?.remove()
-    
-    routeMarkers.value.splice(index, 1)
+    removeRouteMarker(index)
     addresses.value.splice(index, 1)
 
     if (activeField.value?.type === 'route' && activeField.value.index === index) {
       activeField.value = null
     }
 
-    updateRoute()
+    redrawRouteMarkers()
+    void updateRoute()
   }
+}
+
+function reorderAddresses(fromIndex: number, toIndex: number) {
+  const [movedAddress = ''] = addresses.value.splice(fromIndex, 1)
+  addresses.value.splice(toIndex, 0, movedAddress)
+
+  const [movedMarker = null] = routeMarkers.value.splice(fromIndex, 1)
+  routeMarkers.value.splice(toIndex, 0, movedMarker)
+
+  redrawRouteMarkers()
+  void updateRoute()
+}
+
+function redrawRouteMarkers() {
+  routeMarkers.value.forEach((marker, index) => {
+    if (marker) {
+      const { lng, lat } = marker.getLngLat()
+      setMarker('route', index, lng, lat)
+    }
+  })
 }
 
 function addObstacle() {
   obstacles.value.push({ address: '', type: 'POTHOLE', severity: 'LOW' })
-  obstacleMarkers.value.push(null)
+  addObstacleSlot()
 }
 
 function removeObstacle(index: number) {
-  obstacleMarkers.value[index]?.remove()
-  obstacleMarkers.value.splice(index, 1)
+  removeObstacleMarker(index)
   obstacles.value.splice(index, 1)
 
   if (activeField.value?.type === 'obstacle' && activeField.value.index === index) {
@@ -217,17 +314,27 @@ function removeObstacle(index: number) {
 
 function selectStatus(value: BikePathStatus) {
   status.value = value
-  ;(document.activeElement as HTMLElement)?.blur()
+  ;(document.activeElement as HTMLElement | null)?.blur?.()
 }
 
 function selectObstacleType(index: number, value: ObstacleType) {
-  if (obstacles.value[index]) obstacles.value[index].type = value
-  ;(document.activeElement as HTMLElement)?.blur()
+  if (obstacles.value[index]) {
+    obstacles.value[index].type = value
+  }
+  ;(document.activeElement as HTMLElement | null)?.blur?.()
 }
 
 function selectObstacleSeverity(index: number, value: ObstacleSeverity) {
-  if (obstacles.value[index]) obstacles.value[index].severity = value
-  ;(document.activeElement as HTMLElement)?.blur()
+  if (obstacles.value[index]) {
+    obstacles.value[index].severity = value
+
+    const marker = obstacleMarkers.value[index]
+    if (marker) {
+      const { lng, lat } = marker.getLngLat()
+      setMarker('obstacle', index, lng, lat)
+    }
+  }
+  ;(document.activeElement as HTMLElement | null)?.blur?.()
 }
 
 async function handleSubmit() {
@@ -239,7 +346,7 @@ async function handleSubmit() {
   }
 
   for (let i = 0; i < obstacles.value.length; i++) {
-    if (!obstacles.value[i].address.trim()) {
+    if (!obstacles.value[i]?.address.trim()) {
       show(`Obstacle ${i + 1}: Address is required`, 'error')
       return
     }
@@ -248,9 +355,9 @@ async function handleSubmit() {
   loading.value = true
 
   try {
-    const bikePathId = await createBikePathManually({
+    await createBikePathManually({
       addresses: validAddresses,
-      description: description.value || undefined,
+      description: description.value.trim() || undefined,
       status: status.value,
       published: published.value,
       obstacles: obstacles.value.map(o => ({
@@ -261,10 +368,10 @@ async function handleSubmit() {
     })
 
     show('Bike path created successfully', 'success')
-    router.push(`/bike-paths/`)
+    await router.push('/bike-paths/')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to create bike path'
-    show(message, 'error')
+    logError(error, 'BikePathCreateManual.handleSubmit')
+    show(parseApiError(error), 'error')
   } finally {
     loading.value = false
   }
@@ -297,29 +404,91 @@ onMounted(() => {
     <form @submit.prevent="handleSubmit" class="space-y-6">
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <h2 class="card-title mb-4">Route Addresses</h2>
-          <div class="text-sm text-gray-500 mb-2">
+          <h2 class="card-title mb-2">Route Addresses</h2>
+
+          <div class="collapse collapse-arrow bg-base-200 mb-4">
+            <input type="checkbox" />
+            <div class="collapse-title text-sm font-medium">How does it work?</div>
+            <div class="collapse-content text-sm">
+              <p>
+                Click on the map to add points in sequence, or type addresses (autocomplete available). You can also
+                drag to reorder waypoints.
+              </p>
+            </div>
           </div>
 
           <div class="space-y-4">
-            <div v-for="(_address, index) in addresses" :key="index" class="flex items-start gap-2">
-              <div class="flex-1">
+            <div
+                v-for="(_address, index) in addresses"
+                :key="index"
+                class="flex items-start gap-2 transition-all"
+                :class="{
+                'opacity-50': draggedIndex === index,
+                'border-t-2 border-primary':
+                  dragOverIndex === index && draggedIndex !== null && draggedIndex !== index
+              }"
+                @dragover="(e) => onDragOver(e, index)"
+                @dragleave="onDragLeave"
+                @drop="onDrop(index, reorderAddresses)"
+            >
+              <div
+                  class="cursor-move mt-9 text-gray-400 hover:text-gray-600"
+                  draggable="true"
+                  @dragstart="onDragStart(index)"
+                  @dragend="onDragEnd"
+              >
+                <GripVertical :size="20" />
+              </div>
+
+              <div class="flex-1 relative">
                 <label class="label">
                   <span class="label-text">
-                    {{ index === 0 ? 'Origin' : index === addresses.length - 1 ? 'Destination' : `Waypoint ${index}` }}
+                    {{
+                      index === 0
+                          ? 'Origin'
+                          : index === addresses.length - 1
+                              ? 'Destination'
+                              : `Waypoint ${index}`
+                    }}
                   </span>
                 </label>
+
                 <input
                     v-model="addresses[index]"
                     type="text"
-                    placeholder="Select field then click on map"
+                    placeholder="Type address or click on map"
                     class="input input-bordered w-full transition-colors"
-                    :class="{ 'input-primary border-2': activeField?.type === 'route' && activeField?.index === index }"
-                    @focus="onInputFocus('route', index)"
-                    readonly
+                    :class="{
+                    'input-primary border-2':
+                      activeField?.type === 'route' && activeField?.index === index
+                  }"
+                    @focus="setActiveField('route', index)"
+                    @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
+                    @blur="onAutocompleteBlur"
                     required
                 />
+
+                <div
+                    v-if="
+                    showSuggestions &&
+                    activeField?.type === 'route' &&
+                    activeField?.index === index &&
+                    suggestions.length > 0
+                  "
+                    class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                >
+                  <div
+                      v-for="(suggestion, i) in suggestions"
+                      :key="i"
+                      @click="selectSuggestion(suggestion, 'route', index)"
+                      class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
+                  >
+                    <div class="font-medium">{{ suggestion.name }}</div>
+                    <div class="text-sm text-gray-500">{{ suggestion.full_address }}</div>
+                  </div>
+                </div>
               </div>
+
               <button
                   v-if="addresses.length > 2"
                   type="button"
@@ -341,7 +510,7 @@ onMounted(() => {
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <h2 class="card-title mb-4">Details</h2>
-          
+
           <div>
             <label class="label"><span class="label-text">Description (optional)</span></label>
             <textarea
@@ -360,7 +529,10 @@ onMounted(() => {
                 {{ BIKE_PATH_STATUS_OPTIONS.find(o => o.value === status)?.label || 'Select status' }}
                 <ChevronDown :size="16" />
               </div>
-              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-full p-2 shadow max-h-60 overflow-y-auto">
+              <ul
+                  tabindex="0"
+                  class="dropdown-content menu bg-base-100 rounded-box z-10 w-full p-2 shadow max-h-60 overflow-y-auto"
+              >
                 <li v-for="option in BIKE_PATH_STATUS_OPTIONS" :key="option.value">
                   <a @click="selectStatus(option.value)">{{ option.label }}</a>
                 </li>
@@ -389,9 +561,7 @@ onMounted(() => {
             </button>
           </div>
 
-          <div v-if="obstacles.length === 0" class="text-center text-gray-500 py-4 text-sm">
-            No obstacles added
-          </div>
+          <div v-if="obstacles.length === 0" class="text-center text-gray-500 py-4 text-sm">No obstacles added</div>
 
           <div v-else class="space-y-6">
             <div v-for="(obstacle, index) in obstacles" :key="index" class="p-4 border rounded-lg space-y-4">
@@ -404,16 +574,42 @@ onMounted(() => {
 
               <div>
                 <label class="label"><span class="label-text">Address</span></label>
-                <input
-                    v-model="obstacle.address"
-                    type="text"
-                    placeholder="Location or click on map"
-                    class="input input-bordered w-full transition-colors"
-                    :class="{ 'input-primary border-2': activeField?.type === 'obstacle' && activeField?.index === index }"
-                    @focus="onInputFocus('obstacle', index)"
-                    readonly
-                    required
-                />
+                <div class="relative">
+                  <input
+                      v-model="obstacle.address"
+                      type="text"
+                      placeholder="Type address or click on map"
+                      class="input input-bordered w-full transition-colors"
+                      :class="{
+                      'input-primary border-2':
+                        activeField?.type === 'obstacle' && activeField?.index === index
+                    }"
+                      @focus="setActiveField('obstacle', index)"
+                      @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
+                      @blur="onAutocompleteBlur"
+                      required
+                  />
+
+                  <div
+                      v-if="
+                      showSuggestions &&
+                      activeField?.type === 'obstacle' &&
+                      activeField?.index === index &&
+                      suggestions.length > 0
+                    "
+                      class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                  >
+                    <div
+                        v-for="(suggestion, i) in suggestions"
+                        :key="i"
+                        @click="selectSuggestion(suggestion, 'obstacle', index)"
+                        class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
+                    >
+                      <div class="font-medium">{{ suggestion.name }}</div>
+                      <div class="text-sm text-gray-500">{{ suggestion.full_address }}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

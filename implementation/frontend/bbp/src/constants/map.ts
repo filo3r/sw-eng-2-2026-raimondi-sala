@@ -79,3 +79,16 @@ export const STATIC_MAP_MIN_HORIZONTAL_PADDING = 60
 export const STATIC_MAP_VERTICAL_PADDING_PERCENT = 0.15
 export const STATIC_MAP_HORIZONTAL_PADDING_PERCENT = 0.10
 export const STATIC_MAP_MAX_PADDING_PERCENT = 0.45
+
+// Autocomplete configuration
+export const AUTOCOMPLETE_DEBOUNCE_MS = 300
+export const AUTOCOMPLETE_MIN_CHARS = 3
+export const AUTOCOMPLETE_LIMIT = 5
+export const AUTOCOMPLETE_BLUR_DELAY_MS = 200
+
+// Interactive marker colors
+export const ROUTE_MARKER_COLOR = '#3b82f6'
+
+// Map cursor styles
+export const MAP_CURSOR_CROSSHAIR = 'crosshair'
+export const MAP_CURSOR_DEFAULT = 'default'

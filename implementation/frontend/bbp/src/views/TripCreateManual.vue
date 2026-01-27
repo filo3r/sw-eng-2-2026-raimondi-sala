@@ -1,13 +1,29 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Trash2, GripVertical, AlertCircle } from 'lucide-vue-next'
 import { createTripManually } from '@/services/trip'
+import { forwardGeocode, reverseGeocode, calculateCyclingRoute } from '@/services/mapbox'
 import { useToast } from '@/composables/useToast'
-import { getMapboxApiKey } from '@/config/mapbox'
 import { useMap } from '@/composables/useMap'
+import { useInteractiveMarkers } from '@/composables/useInteractiveMarkers'
+import { useMapboxAutocomplete, type AutocompleteSuggestion } from '@/composables/useMapboxAutocomplete'
+import { useDraggableList } from '@/composables/useDraggableList'
+import { useMapClickHandler } from '@/composables/useMapClickHandler'
+import { getRouteMarkerConfig } from '@/composables/useRouteMarkerConfig'
+import { getMapboxApiKey } from '@/config/mapbox'
+import { parseApiError } from '@/utils/error'
+import { logError } from '@/utils/logger'
 import { isEndTimeAfterStartTime, isValidTripDuration, isValidMaxSpeed } from '@/utils/validation'
-import mapboxgl from 'mapbox-gl'
+import {
+  MAP_CURSOR_CROSSHAIR,
+  ROUTE_LINE_COLOR,
+  ROUTE_LINE_WIDTH,
+  ROUTE_LINE_JOIN,
+  ROUTE_LINE_CAP
+} from '@/constants/map'
+import type { Coordinate } from '@/types/mapbox'
+import type { MarkerConfig } from '@/composables/useInteractiveMarkers'
 
 const router = useRouter()
 const { show } = useToast()
@@ -20,151 +36,255 @@ const { initMap, map } = useMap({
   enableGeolocation: true
 })
 
+const {
+  createMarker: createRouteMarker,
+  removeMarker: removeRouteMarker,
+  markers: routeMarkers,
+  addSlot: addRouteSlot
+} = useInteractiveMarkers(map)
+
+const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
+    useMapboxAutocomplete()
+
+const { draggedIndex, dragOverIndex, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd } =
+    useDraggableList()
+
+const { activeField, setActiveField, handleMapClick: handleMapClickBase } = useMapClickHandler()
+
 const addresses = ref<string[]>(['', ''])
 const description = ref('')
-const startTime = ref('')
-const endTime = ref('')
+
+// Date/Time nativi separati
+const startDateStr = ref('') // YYYY-MM-DD
+const startTimeStr = ref('') // HH:mm:ss (step=1)
+const endDateStr = ref('')
+const endTimeStr = ref('')
+
 const maxSpeed = ref<number | ''>('')
 const loading = ref(false)
 
-const routeMarkers = ref<(mapboxgl.Marker | null)[]>([null, null])
-const activeField = ref<number | null>(null)
+function normalizeTime(t: string): string {
+  // Alcuni browser possono dare "HH:mm" anche con step; normalizziamo a "HH:mm:ss"
+  if (!t) return ''
+  return t.length === 5 ? `${t}:00` : t
+}
 
+function toDate(dateStr: string, timeStr: string): Date | null {
+  if (!dateStr || !timeStr) return null
+  const d = new Date(`${dateStr}T${normalizeTime(timeStr)}`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
 
-function onInputFocus(index: number) {
-  activeField.value = index
+const startTime = computed<Date | null>(() => toDate(startDateStr.value, startTimeStr.value))
+const endTime = computed<Date | null>(() => toDate(endDateStr.value, endTimeStr.value))
+
+// min "soft" nativi
+const minEndDate = computed(() => (startDateStr.value ? startDateStr.value : undefined))
+const minEndTime = computed(() => {
+  if (!startDateStr.value || !endDateStr.value) return undefined
+  if (startDateStr.value !== endDateStr.value) return undefined
+  const t = normalizeTime(startTimeStr.value)
+  return t || undefined
+})
+
+// Validazioni
+const isStartValid = computed(() => !!startTime.value)
+const isEndValid = computed(() => !!endTime.value)
+const isEndAfterStart = computed(() => {
+  if (!startTime.value || !endTime.value) return true
+  return isEndTimeAfterStartTime(startTime.value, endTime.value)
+})
+const isDurationValid = computed(() => {
+  if (!startTime.value || !endTime.value) return true
+  return isValidTripDuration(startTime.value, endTime.value)
+})
+
+async function selectSuggestion(suggestion: AutocompleteSuggestion, index: number) {
+  const address = suggestion.full_address || ''
+  addresses.value[index] = address
+  showSuggestions.value = false
+
+  const lng = suggestion.coordinates?.longitude
+  const lat = suggestion.coordinates?.latitude
+
+  if (typeof lng === 'number' && typeof lat === 'number') {
+    setMarker(index, lng, lat)
+  } else if (address) {
+    await geocodeAndSetMarker(address, index)
+  }
+}
+
+async function geocodeAndSetMarker(address: string, index: number) {
+  try {
+    const result = await forwardGeocode({ address })
+    setMarker(index, result.longitude, result.latitude)
+  } catch (e) {
+    logError(e, 'TripCreateManual.geocodeAndSetMarker')
+    show(parseApiError(e), 'error')
+  }
 }
 
 async function updateRoute() {
   if (!map.value) return
 
   const coordinates = routeMarkers.value
-    .filter((m): m is mapboxgl.Marker => m !== null)
-    .map(m => m.getLngLat())
-  
+      .filter((m): m is import('mapbox-gl').Marker => m !== null)
+      .map(m => m.getLngLat())
+
   if (coordinates.length < 2) {
-    const source = map.value.getSource('trip-route') as mapboxgl.GeoJSONSource
-    if (source) {
-      source.setData({ type: 'FeatureCollection', features: [] })
-    }
+    const source = map.value.getSource('trip-route') as import('mapbox-gl').GeoJSONSource | undefined
+    if (source) source.setData({ type: 'FeatureCollection', features: [] })
     return
   }
 
-  const coordString = coordinates.map(c => `${c.lng},${c.lat}`).join(';')
-  const token = getMapboxApiKey()
-  const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordString}?geometries=geojson&access_token=${token}`
-
   try {
-    const res = await fetch(url)
-    const data = await res.json()
+    const waypoints: Coordinate[] = coordinates.map(c => ({
+      latitude: c.lat,
+      longitude: c.lng
+    }))
 
-    if (data.routes && data.routes.length > 0) {
-      const routeGeoJSON = data.routes[0].geometry
-      const source = map.value.getSource('trip-route') as mapboxgl.GeoJSONSource
-      if (source) {
-        source.setData({
-          type: 'Feature',
-          properties: {},
-          geometry: routeGeoJSON
-        })
-      }
+    const routeResult = await calculateCyclingRoute({ waypoints })
+
+    const routeCoordinates = routeResult.points
+        .sort((a, b) => a.sequentialPosition - b.sequentialPosition)
+        .map(point => [point.longitude, point.latitude])
+
+    const source = map.value.getSource('trip-route') as import('mapbox-gl').GeoJSONSource | undefined
+    if (source) {
+      source.setData({
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: routeCoordinates
+        }
+      })
     }
   } catch (e) {
-    console.error('Error fetching route:', e)
+    logError(e, 'TripCreateManual.updateRoute')
+    show(parseApiError(e), 'error')
   }
 }
 
-async function getAddressFromCoordinates(lng: number, lat: number): Promise<string> {
-  const token = getMapboxApiKey()
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&types=address,poi`
-  try {
-    const res = await fetch(url)
-    const data = await res.json()
-    return data.features?.[0]?.place_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-  } catch (e) {
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+function getMarkerConfig(index: number): MarkerConfig {
+  const { color, label } = getRouteMarkerConfig(index, addresses.value.length)
+
+  return {
+    color,
+    label,
+    draggable: true,
+    onDragEnd: async (lng, lat) => {
+      addresses.value[index] = await getAddressFromCoordinates(lng, lat)
+      await updateRoute()
+    }
   }
 }
 
 function setMarker(index: number, lng: number, lat: number) {
-  if (!map.value) return
+  const config = getMarkerConfig(index)
+  createRouteMarker(index, lng, lat, config)
+  void updateRoute()
+}
 
-  if (routeMarkers.value[index]) {
-    routeMarkers.value[index]?.remove()
+async function getAddressFromCoordinates(lng: number, lat: number): Promise<string> {
+  try {
+    const result = await reverseGeocode({
+      coordinate: { latitude: lat, longitude: lng }
+    })
+    return result.address
+  } catch (e) {
+    logError(e, 'TripCreateManual.getAddressFromCoordinates')
+    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
   }
+}
 
-  const newMarker = new mapboxgl.Marker({ color: '#10b981', draggable: true }) 
-    .setLngLat([lng, lat])
-    .addTo(map.value)
+function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
+  const { lng, lat } = e.lngLat
 
-  newMarker.on('dragend', async () => {
-    const { lng, lat } = newMarker.getLngLat()
-    const address = await getAddressFromCoordinates(lng, lat)
-    addresses.value[index] = address
-    updateRoute()
+  handleMapClickBase(lng, lat, addresses, {
+    onRouteClick: async (index, lng, lat) => {
+      addresses.value[index] = await getAddressFromCoordinates(lng, lat)
+
+      while (routeMarkers.value.length <= index) {
+        addRouteSlot()
+      }
+
+      setMarker(index, lng, lat)
+      redrawRouteMarkers()
+    },
+    onObstacleClick: () => {}
+  })
+}
+
+watch(map, newMap => {
+  if (!newMap) return
+
+  newMap.on('load', () => {
+    if (!newMap.getSource('trip-route')) {
+      newMap.addSource('trip-route', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      })
+
+      newMap.addLayer({
+        id: 'trip-route',
+        type: 'line',
+        source: 'trip-route',
+        layout: {
+          'line-join': ROUTE_LINE_JOIN,
+          'line-cap': ROUTE_LINE_CAP
+        },
+        paint: {
+          'line-color': ROUTE_LINE_COLOR,
+          'line-width': ROUTE_LINE_WIDTH
+        }
+      })
+    }
   })
 
-  routeMarkers.value[index] = newMarker
-  
-  updateRoute()
-}
-
-async function handleMapClick(e: mapboxgl.MapMouseEvent) {
-  if (activeField.value === null) return
-
-  const { lng, lat } = e.lngLat
-  const index = activeField.value
-
-  const address = await getAddressFromCoordinates(lng, lat)
-  addresses.value[index] = address
-
-  setMarker(index, lng, lat)
-}
-
-watch(map, (newMap) => {
-  if (newMap) {
-    newMap.on('load', () => {
-      if (!newMap.getSource('trip-route')) {
-        newMap.addSource('trip-route', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] }
-        })
-        newMap.addLayer({
-          id: 'trip-route',
-          type: 'line',
-          source: 'trip-route',
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: {
-            'line-color': '#10b981',
-            'line-width': 4,
-            'line-opacity': 0.75
-          }
-        })
-      }
-    })
-    
-    newMap.on('click', handleMapClick)
-    newMap.getCanvas().style.cursor = 'crosshair'
-  }
+  newMap.on('click', handleMapClick)
+  newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
 })
 
 function addAddress() {
   addresses.value.push('')
-  routeMarkers.value.push(null)
+  addRouteSlot()
+  redrawRouteMarkers()
 }
 
 function removeAddress(index: number) {
   if (addresses.value.length > 2) {
-    routeMarkers.value[index]?.remove()
-    
+    removeRouteMarker(index)
     addresses.value.splice(index, 1)
-    routeMarkers.value.splice(index, 1)
-    if (activeField.value === index) activeField.value = null
 
-    updateRoute()
+    if (activeField.value?.type === 'route' && activeField.value.index === index) {
+      activeField.value = null
+    }
+
+    redrawRouteMarkers()
+    void updateRoute()
   }
 }
 
+function reorderAddresses(fromIndex: number, toIndex: number) {
+  const [movedAddress = ''] = addresses.value.splice(fromIndex, 1)
+  addresses.value.splice(toIndex, 0, movedAddress)
+
+  const [movedMarker = null] = routeMarkers.value.splice(fromIndex, 1)
+  routeMarkers.value.splice(toIndex, 0, movedMarker)
+
+  redrawRouteMarkers()
+  void updateRoute()
+}
+
+function redrawRouteMarkers() {
+  routeMarkers.value.forEach((marker, index) => {
+    if (marker) {
+      const { lng, lat } = marker.getLngLat()
+      setMarker(index, lng, lat)
+    }
+  })
+}
 
 async function handleSubmit() {
   const validAddresses = addresses.value.filter(addr => addr.trim() !== '')
@@ -184,12 +304,12 @@ async function handleSubmit() {
     return
   }
 
-  if (!isEndTimeAfterStartTime(startTime.value, endTime.value)) {
+  if (!isEndAfterStart.value) {
     show('End time must be after start time', 'error')
     return
   }
 
-  if (!isValidTripDuration(startTime.value, endTime.value)) {
+  if (!isDurationValid.value) {
     show('Trip must be at least 1 minute long', 'error')
     return
   }
@@ -202,19 +322,19 @@ async function handleSubmit() {
   loading.value = true
 
   try {
-    const tripId = await createTripManually({
+    await createTripManually({
       addresses: validAddresses,
-      description: description.value || undefined,
-      startTime: new Date(startTime.value).toISOString(),
-      endTime: new Date(endTime.value).toISOString(),
+      description: description.value.trim() || undefined,
+      startTime: startTime.value.toISOString(),
+      endTime: endTime.value.toISOString(),
       maxSpeed: maxSpeed.value !== '' ? Number(maxSpeed.value) : undefined
     })
 
-    show('Trip created successfully', 'success')
-    router.push(`/trips/`)
+    show('Trip recorded successfully', 'success')
+    await router.push('/trips/')
   } catch (error: any) {
-    const message = error.response?.data?.message || 'Failed to create trip'
-    show(message, 'error')
+    logError(error, 'TripCreateManual.handleSubmit')
+    show(parseApiError(error), 'error')
   } finally {
     loading.value = false
   }
@@ -247,31 +367,91 @@ onMounted(() => {
     <form @submit.prevent="handleSubmit" class="space-y-6">
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <h2 class="card-title mb-4">Route Addresses</h2>
-          <div class="text-sm text-gray-500 mb-2">
-            Click on an input field, then click on the map to set the point.
+          <h2 class="card-title mb-2">Route Addresses</h2>
+
+          <div class="collapse collapse-arrow bg-base-200 mb-4">
+            <input type="checkbox" />
+            <div class="collapse-title text-sm font-medium">How does it work?</div>
+            <div class="collapse-content text-sm">
+              <p>
+                Click on the map to add points in sequence, or type addresses (autocomplete available). You can also
+                drag to reorder waypoints.
+              </p>
+            </div>
           </div>
 
           <div class="space-y-4">
-            <div v-for="(_address, index) in addresses" :key="index" class="flex items-start gap-2">
-              <div class="flex-1">
+            <div
+                v-for="(_address, index) in addresses"
+                :key="index"
+                class="flex items-start gap-2 transition-all"
+                :class="{
+                'opacity-50': draggedIndex === index,
+                'border-t-2 border-primary':
+                  dragOverIndex === index && draggedIndex !== null && draggedIndex !== index
+              }"
+                @dragover="(e) => onDragOver(e, index)"
+                @dragleave="onDragLeave"
+                @drop="onDrop(index, reorderAddresses)"
+            >
+              <div
+                  class="cursor-move mt-9 text-gray-400 hover:text-gray-600"
+                  draggable="true"
+                  @dragstart="onDragStart(index)"
+                  @dragend="onDragEnd"
+              >
+                <GripVertical :size="20" />
+              </div>
+
+              <div class="flex-1 relative">
                 <label class="label">
                   <span class="label-text">
-                    {{ index === 0 ? 'Origin' : index === addresses.length - 1 ? 'Destination' : `Waypoint ${index}` }}
+                    {{
+                      index === 0
+                          ? 'Origin'
+                          : index === addresses.length - 1
+                              ? 'Destination'
+                              : `Waypoint ${index}`
+                    }}
                   </span>
                 </label>
+
                 <input
                     v-model="addresses[index]"
                     type="text"
-                    placeholder="Select field then click on map"
+                    placeholder="Type address or click on map"
                     class="input input-bordered w-full transition-colors"
-                    :class="{ 'input-success border-2': activeField === index }"
-                    @focus="onInputFocus(index)"
-                    readonly
+                    :class="{
+                    'input-primary border-2':
+                      activeField?.type === 'route' && activeField?.index === index
+                  }"
+                    @focus="setActiveField('route', index)"
+                    @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
+                    @blur="onAutocompleteBlur"
                     required
-                    maxlength="256"
                 />
+
+                <div
+                    v-if="
+                    showSuggestions &&
+                    activeField?.type === 'route' &&
+                    activeField?.index === index &&
+                    suggestions.length > 0
+                  "
+                    class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                >
+                  <div
+                      v-for="(suggestion, i) in suggestions"
+                      :key="i"
+                      @click="selectSuggestion(suggestion, index)"
+                      class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
+                  >
+                    <div class="font-medium">{{ suggestion.name }}</div>
+                    <div class="text-sm text-gray-500">{{ suggestion.full_address }}</div>
+                  </div>
+                </div>
               </div>
+
               <button
                   v-if="addresses.length > 2"
                   type="button"
@@ -283,11 +463,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <button
-              type="button"
-              @click="addAddress"
-              class="btn btn-ghost btn-sm mt-4"
-          >
+          <button type="button" @click="addAddress" class="btn btn-ghost btn-sm mt-4">
             <Plus :size="16" />
             Add Waypoint
           </button>
@@ -299,9 +475,7 @@ onMounted(() => {
           <h2 class="card-title mb-4">Trip Details</h2>
 
           <div>
-            <label class="label">
-              <span class="label-text">Description (optional)</span>
-            </label>
+            <label class="label"><span class="label-text">Description (optional)</span></label>
             <textarea
                 v-model="description"
                 placeholder="Add notes or description"
@@ -309,41 +483,48 @@ onMounted(() => {
                 rows="3"
                 maxlength="500"
             ></textarea>
-            <label class="label">
-              <span class="label-text-alt">{{ description.length }}/500</span>
-            </label>
+            <label class="label"><span class="label-text-alt">{{ description.length }}/500</span></label>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="label">
-                <span class="label-text">Start Time</span>
-              </label>
-              <input
-                  v-model="startTime"
-                  type="datetime-local"
-                  class="input input-bordered w-full"
-                  required
-              />
+            <div class="space-y-2">
+              <label class="label"><span class="label-text">Start</span></label>
+              <input v-model="startDateStr" type="date" class="input input-bordered w-full" required />
+              <input v-model="startTimeStr" type="time" step="1" class="input input-bordered w-full" required />
             </div>
 
-            <div>
-              <label class="label">
-                <span class="label-text">End Time</span>
-              </label>
+            <div class="space-y-2">
+              <label class="label"><span class="label-text">End</span></label>
               <input
-                  v-model="endTime"
-                  type="datetime-local"
+                  v-model="endDateStr"
+                  type="date"
                   class="input input-bordered w-full"
+                  :min="minEndDate"
+                  required
+              />
+              <input
+                  v-model="endTimeStr"
+                  type="time"
+                  step="1"
+                  class="input input-bordered w-full"
+                  :min="minEndTime"
                   required
               />
             </div>
           </div>
 
+          <div v-if="isStartValid && isEndValid && !isEndAfterStart" class="alert alert-error text-sm">
+            <AlertCircle :size="20" />
+            <span>End time must be after start time</span>
+          </div>
+
+          <div v-if="isStartValid && isEndValid && isEndAfterStart && !isDurationValid" class="alert alert-error text-sm">
+            <AlertCircle :size="20" />
+            <span>Trip must be at least 1 minute long</span>
+          </div>
+
           <div>
-            <label class="label">
-              <span class="label-text">Max Speed (optional)</span>
-            </label>
+            <label class="label"><span class="label-text">Max Speed (optional)</span></label>
             <input
                 v-model="maxSpeed"
                 type="number"
@@ -361,18 +542,8 @@ onMounted(() => {
       </div>
 
       <div class="flex gap-2 justify-end">
-        <button
-            type="button"
-            @click="goBack"
-            class="btn btn-ghost"
-        >
-          Cancel
-        </button>
-        <button
-            type="submit"
-            class="btn btn-neutral"
-            :disabled="loading"
-        >
+        <button type="button" @click="goBack" class="btn btn-ghost">Cancel</button>
+        <button type="submit" class="btn btn-neutral" :disabled="loading">
           {{ loading ? 'Recording...' : 'Record' }}
         </button>
       </div>
