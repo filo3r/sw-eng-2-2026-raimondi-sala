@@ -43,9 +43,14 @@ public class MapboxService {
     private static final int MAX_WAYPOINTS_PER_REQUEST = 25;
 
     /**
-     * Maximum geocoding requests per second.
+     * Maximum forward geocoding requests per second.
      */
-    private static final int GEOCODING_REQUESTS_PER_SECOND = 10;
+    private static final int FORWARD_GEOCODING_REQUESTS_PER_SECOND = 10;
+
+    /**
+     * Maximum reverse geocoding requests per second.
+     */
+    private static final int REVERSE_GEOCODING_REQUESTS_PER_SECOND = 10;
 
     /**
      * Maximum directions requests per second.
@@ -85,9 +90,14 @@ public class MapboxService {
     private final ExecutorService executorService;
 
     /**
-     * Rate limiter for geocoding API (10 requests/second).
+     * Rate limiter for forward geocoding API (10 requests/second).
      */
-    private final RateLimiter geocodingRateLimiter;
+    private final RateLimiter forwardGeocodingRateLimiter;
+
+    /**
+     * Rate limiter for reverse geocoding API (10 requests/second).
+     */
+    private final RateLimiter reverseGeocodingRateLimiter;
 
     /**
      * Rate limiter for directions API (5 requests/second).
@@ -108,6 +118,12 @@ public class MapboxService {
     private String searchBoxForwardEndpoint;
 
     /**
+     * Mapbox Search Box Reverse API endpoint path.
+     */
+    @Value("${mapbox.api.searchbox.reverse.endpoint}")
+    private String searchBoxReverseEndpoint;
+
+    /**
      * Mapbox Directions API endpoint path.
      */
     @Value("${mapbox.api.directions.endpoint}")
@@ -123,8 +139,13 @@ public class MapboxService {
         this.mapboxRestClient = mapboxRestClient;
         this.mapboxConfig = mapboxConfig;
         this.executorService = Executors.newVirtualThreadPerTaskExecutor();
-        this.geocodingRateLimiter = RateLimiter.of("geocoding", RateLimiterConfig.custom()
-                .limitForPeriod(GEOCODING_REQUESTS_PER_SECOND)
+        this.forwardGeocodingRateLimiter = RateLimiter.of("forwardGeocoding", RateLimiterConfig.custom()
+                .limitForPeriod(FORWARD_GEOCODING_REQUESTS_PER_SECOND)
+                .limitRefreshPeriod(Duration.ofSeconds(RATE_LIMIT_REFRESH_PERIOD_SECONDS))
+                .timeoutDuration(Duration.ofSeconds(RATE_LIMITER_TIMEOUT_SECONDS))
+                .build());
+        this.reverseGeocodingRateLimiter = RateLimiter.of("reverseGeocoding", RateLimiterConfig.custom()
+                .limitForPeriod(REVERSE_GEOCODING_REQUESTS_PER_SECOND)
                 .limitRefreshPeriod(Duration.ofSeconds(RATE_LIMIT_REFRESH_PERIOD_SECONDS))
                 .timeoutDuration(Duration.ofSeconds(RATE_LIMITER_TIMEOUT_SECONDS))
                 .build());
@@ -148,14 +169,14 @@ public class MapboxService {
      * @throws MapboxTimeoutException if request times out
      * @throws MapboxApiException if Mapbox returns error or malformed response
      */
-    @Cacheable(value = "geocoding", key = "#address.trim().toLowerCase().replaceAll('\\s+', ' ').replaceAll('[,.]', '')", sync = true)
+    @Cacheable(value = "forwardGeocoding", key = "#address.trim().toLowerCase().replaceAll('\\s+', ' ').replaceAll('[,.]', '')", sync = true)
     public GeocodeResult geocodeAddress(String address) {
         // Defensive check
         if (address == null || address.isBlank())
             throw new IllegalArgumentException("Address cannot be null or blank");
         // Acquire rate limiter permit
         try {
-            RateLimiter.waitForPermission(geocodingRateLimiter);
+            RateLimiter.waitForPermission(forwardGeocodingRateLimiter);
         } catch (RequestNotPermitted e) {
             throw new MapboxRateLimitException("Geocoding service is temporarily unavailable due to high traffic. Please try again later.", e);
         }
@@ -251,6 +272,72 @@ public class MapboxService {
             }
         }
         return finalResults;
+    }
+
+    /**
+     * Converts coordinates to address using Mapbox Search Box Reverse API.
+     * Results cached, rate limited to 10 req/sec.
+     * @param coordinate geographic coordinates to reverse geocode
+     * @return GeocodeResult with formatted address and coordinates
+     * @throws IllegalArgumentException if coordinate is null
+     * @throws InvalidCoordinateException if no address found at coordinates
+     * @throws MapboxRateLimitException if rate limit exceeded
+     * @throws MapboxTimeoutException if request times out
+     * @throws MapboxApiException if Mapbox returns error or malformed response
+     */
+    @Cacheable(value = "reverseGeocoding", key = "T(java.lang.String).format('%.4f,%.4f', #coordinate.latitude, #coordinate.longitude)", sync = true)
+    public GeocodeResult geocodeCoordinate(Coordinate coordinate) {
+        // Defensive check
+        if (coordinate == null)
+            throw new IllegalArgumentException("Coordinate cannot be null");
+        // Acquire rate limiter permit
+        try {
+            RateLimiter.waitForPermission(reverseGeocodingRateLimiter);
+        } catch (RequestNotPermitted e) {
+            throw new MapboxRateLimitException("Reverse geocoding service is temporarily unavailable due to high traffic. Please try again later.", e);
+        }
+        // Execute Mapbox API request and handle infrastructure exceptions
+        try {
+            // Build the API request URL with query parameters
+            String url = UriComponentsBuilder.fromPath(searchBoxReverseEndpoint)
+                    .queryParam("longitude", coordinate.getLongitude())
+                    .queryParam("latitude", coordinate.getLatitude())
+                    .queryParam("access_token", mapboxConfig.getApiKey())
+                    .queryParam("types", "address,street,poi")
+                    .queryParam("limit", 1)
+                    .queryParam("language", "en")
+                    .toUriString();
+            // Execute HTTP GET request and deserialize JSON response
+            MapboxGeocodeResponse response = mapboxRestClient.get()
+                    .uri(url)
+                    .retrieve()
+                    .body(MapboxGeocodeResponse.class);
+            // Defensive null check
+            if (response == null)
+                throw new MapboxApiException("Received null response from Mapbox API");
+            // Parse JSON response and create GeocodeResult DTO
+            return response.toGeocodeResult(coordinate);
+        } catch (InvalidCoordinateException | MapboxApiException e) {
+            // Domain exceptions - re-throw without wrapping
+            throw e;
+        } catch (ResourceAccessException e) {
+            // Timeout or network connection failure
+            throw new MapboxTimeoutException("Geocoding request timed out. Please try again.", e);
+        } catch (HttpClientErrorException e) {
+            // HTTP 4xx errors - special handling for rate limit (429)
+            if (e.getStatusCode().value() == 429)
+                throw new MapboxRateLimitException("Mapbox API rate limit exceeded. Please try again later.", e);
+            throw new MapboxApiException(String.format("Mapbox API client error: %s", e.getStatusCode()), e);
+        } catch (HttpServerErrorException e) {
+            // HTTP 5xx errors - Mapbox server issues
+            throw new MapboxApiException(String.format("Mapbox API server error: %s", e.getStatusCode()), e);
+        } catch (RestClientException e) {
+            // Other REST errors (JSON parsing, encoding, etc.)
+            throw new MapboxApiException("Mapbox API request failed", e);
+        } catch (Exception e) {
+            // Safety net for unexpected errors
+            throw new MapboxApiException("Unexpected error during reverse geocoding", e);
+        }
     }
 
     /**

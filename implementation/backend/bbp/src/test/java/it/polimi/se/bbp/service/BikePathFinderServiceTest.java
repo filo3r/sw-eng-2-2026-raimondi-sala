@@ -3,8 +3,6 @@ package it.polimi.se.bbp.service;
 import it.polimi.se.bbp.dto.request.BikePathFinderRequest;
 import it.polimi.se.bbp.dto.result.GeocodeResult;
 import it.polimi.se.bbp.entity.BikePath;
-import it.polimi.se.bbp.entity.BikePathPoint;
-import it.polimi.se.bbp.entity.Obstacle;
 import it.polimi.se.bbp.geo.Coordinate;
 import it.polimi.se.bbp.repository.BikePathPointRepository;
 import it.polimi.se.bbp.repository.BikePathRepository;
@@ -17,7 +15,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
 import java.util.Collections;

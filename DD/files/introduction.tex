@@ -74,9 +74,27 @@ The scope of the BBP system focuses on managing cyclists' activities and collect
 \hline
 1.0 & 07-01-2026 & Raimondi F., Sala M. \\
 \hline
+2.0 & 27-01-2026 & Raimondi F., Sala M. \\
+\hline
 \end{tabular}
 \caption{Document Revision History}
 \end{table}
+
+\subsubsection{Changes in Version 2.0}
+The following changes have been made to this document after the initial submission:
+\begin{itemize}
+    \item \textbf{Figure 2 (Component view)}: Renamed \texttt{MapboxAccessTokenController} to \texttt{MapboxController} to better reflect the component's expanded responsibilities beyond token management.
+    
+    \item \textbf{Section 2.5.1 (REST API Interface)}: Added three new Mapbox-related endpoints to the REST API specification:
+    \begin{itemize}
+        \item \texttt{POST /api/mapbox/geocode/forward} - Forward geocoding endpoint
+        \item \texttt{POST /api/mapbox/geocode/reverse} - Reverse geocoding endpoint
+        \item \texttt{POST /api/mapbox/cycling-route} - Cycling route calculation endpoint
+    \end{itemize}
+    
+    \item \textbf{Section 2.5.3 (External Services Interfaces)}: Added method \texttt{GeocodeResult geocodeCoordinate(\\Coordinate coordinate)} to the \texttt{MapboxService} interface to support reverse geocoding functionality (converting coordinates to addresses).
+\end{itemize}
+
 
 \subsection{Reference Documents}
 \begin{enumerate}

@@ -77,7 +77,7 @@ These components are external to the BBP system but essential for its operation.
 
 \begin{figure}[H]
     \centering
-        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/component-view.png}
+        \includegraphics[width=\linewidth, height=\textheight, keepaspectratio]{DD/images/component-view.jpg}
     \caption{Component view}
     \label{fig:component-view}
 \end{figure}
@@ -269,6 +269,9 @@ This interface is exposed by Spring Boot Controllers and consumed by the Client.
     \item \texttt{POST /api/bike-paths/sensor-analysis/validate-anomalies( \\ PreliminaryAnomaliesRequest)}
     \item \texttt{POST /api/finder/bike-paths(BikePathFinderRequest, page, size)}
     \item \texttt{GET /api/mapbox/access-token}
+    \item \texttt{POST /api/mapbox/geocode/forward}
+    \item \texttt{POST /api/mapbox/geocode/reverse}
+    \item \texttt{POST /api/mapbox/cycling-route}
 \end{itemize}
 
 \subsubsection{Logic Interfaces}
@@ -333,6 +336,7 @@ These interfaces are used by internal adapters to communicate with third-party s
 \begin{itemize}
     \item \texttt{GeocodeResult geocodeAddress(String address)}
     \item \texttt{List<GeocodeResult> geocodeAddresses(List<String> addresses)}
+    \item \texttt{GeocodeResult geocodeCoordinate(Coordinate coordinate)}
     \item \texttt{CyclingRouteResult calculateCyclingRoute(List<Coordinate> waypoints)}
 \end{itemize}
 

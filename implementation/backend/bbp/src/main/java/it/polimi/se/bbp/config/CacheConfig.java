@@ -18,16 +18,16 @@ import java.util.concurrent.TimeUnit;
  * For production deployment, cache policies must be reviewed and aligned with:
  * - Mapbox API Terms of Service and caching guidelines
  * - Open-Meteo API usage policies and data retention rules
- * Defines three caches with different eviction strategies:
- * geocoding (24h TTL for development), cyclingRoute (24h TTL for development),
- * weatherData (no TTL, historical data is immutable, LRU eviction only).
+ * Defines four caches with different eviction strategies:
+ * forwardGeocoding (24h TTL), reverseGeocoding (24h TTL),
+ * cyclingRoute (24h TTL), weatherData (no TTL, LRU only).
  */
 @Configuration
 @EnableCaching
 public class CacheConfig {
 
     /**
-     * Configures cache manager with three Caffeine caches.
+     * Configures cache manager with four Caffeine caches.
      * Cache sizes are set for development/demo purposes and should be adjusted
      * for production based on actual usage patterns and API provider policies.
      * @return configured cache manager
@@ -36,7 +36,8 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
         cacheManager.setCaches(Arrays.asList(
-                buildCache("geocoding", 500, 24, TimeUnit.HOURS),
+                buildCache("forwardGeocoding", 500, 24, TimeUnit.HOURS),
+                buildCache("reverseGeocoding", 500, 24, TimeUnit.HOURS),
                 buildCache("cyclingRoute", 200, 24, TimeUnit.HOURS),
                 buildCache("weatherData", 1000)
         ));

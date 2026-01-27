@@ -144,6 +144,26 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles invalid coordinates from Mapbox reverse geocoding.
+     * @param ex exception
+     * @param request HTTP request
+     * @return error response with 400 BAD REQUEST
+     */
+    @ExceptionHandler(InvalidCoordinateException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidCoordinate(
+            InvalidCoordinateException ex, HttpServletRequest request) {
+        Map<String, Object> response = createErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Invalid Coordinate",
+                ex.getMessage(),
+                request
+        );
+        String requestId = (String) response.get("requestId");
+        logWarn(requestId, "InvalidCoordinateException", ex.getMessage(), request.getRequestURI());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /**
      * Handles invalid route from Mapbox routing.
      * @param ex exception
      * @param request HTTP request

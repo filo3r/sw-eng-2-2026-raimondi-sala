@@ -3,6 +3,7 @@ package it.polimi.se.bbp.dto.mapbox;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import it.polimi.se.bbp.exception.mapbox.InvalidAddressException;
+import it.polimi.se.bbp.exception.mapbox.InvalidCoordinateException;
 import it.polimi.se.bbp.exception.mapbox.MapboxApiException;
 import it.polimi.se.bbp.geo.Coordinate;
 import it.polimi.se.bbp.dto.result.GeocodeResult;
@@ -10,7 +11,7 @@ import it.polimi.se.bbp.dto.result.GeocodeResult;
 import java.util.List;
 
 /**
- * Raw JSON response from Mapbox Search Box Forward API.
+ * Raw JSON response from Mapbox Search Box API (Forward and Reverse).
  * Follows GeoJSON FeatureCollection structure.
  * Ignores unknown properties for forward compatibility.
  */
@@ -107,18 +108,38 @@ public record MapboxGeocodeResponse(
     }
 
     /**
-     * Extracts first valid feature and converts to GeocodeResult.
-     * Performs strict validation to distinguish user errors (address not found)
-     * from technical errors (malformed API response).
-     * @param address original address string that was geocoded (for error messages)
+     * Converts forward geocoding response to GeocodeResult.
+     * @param address original address string that was searched
      * @return validated geocode result with best match address and coordinates
-     * @throws InvalidAddressException if no features found (address not found)
+     * @throws InvalidAddressException if address not found
      * @throws MapboxApiException if API response is malformed or missing required data
      */
     public GeocodeResult toGeocodeResult(String address) {
-        // Validate features list - user error if empty (address not found)
         if (features == null || features.isEmpty())
             throw new InvalidAddressException(address);
+        return extractGeocodeResult();
+    }
+
+    /**
+     * Converts reverse geocoding response to GeocodeResult.
+     * @param coordinate original coordinates that were reverse geocoded
+     * @return validated geocode result with best match address and coordinates
+     * @throws InvalidCoordinateException if no address found for coordinates
+     * @throws MapboxApiException if API response is malformed or missing required data
+     */
+    public GeocodeResult toGeocodeResult(Coordinate coordinate) {
+        if (features == null || features.isEmpty())
+            throw new InvalidCoordinateException(coordinate);
+        return extractGeocodeResult();
+    }
+
+    /**
+     * Internal method to extract and validate geocode result from first feature.
+     * Shared logic for both forward and reverse geocoding.
+     * @return validated GeocodeResult
+     * @throws MapboxApiException if response is malformed or missing required data
+     */
+    private GeocodeResult extractGeocodeResult() {
         Feature firstFeature = features.getFirst();
         // Validate feature existence - technical error if null
         if (firstFeature == null)
