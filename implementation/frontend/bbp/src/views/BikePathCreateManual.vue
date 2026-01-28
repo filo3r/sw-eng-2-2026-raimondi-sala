@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Trash2, ChevronDown, GripVertical } from 'lucide-vue-next'
 import { createBikePathManually } from '@/services/bikePath'
@@ -44,8 +44,7 @@ const { initMap, map } = useMap({
 const {
   createMarker: createRouteMarker,
   removeMarker: removeRouteMarker,
-  markers: routeMarkers,
-  addSlot: addRouteSlot
+  markers: routeMarkers
 } = useInteractiveMarkers(map)
 
 const {
@@ -212,8 +211,14 @@ function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
     onRouteClick: async (index, lng, lat) => {
       addresses.value[index] = await getAddressFromCoordinates(lng, lat)
 
+      // Sincronizza routeMarkers: inserisci slot se necessario
       while (routeMarkers.value.length <= index) {
-        addRouteSlot()
+        routeMarkers.value.push(null)
+      }
+
+      // Se l'indice è nel mezzo (waypoint inserito), aggiungi slot alla posizione corretta
+      if (routeMarkers.value.length === addresses.value.length - 1 && index < routeMarkers.value.length) {
+        routeMarkers.value.splice(index, 0, null)
       }
 
       setMarker('route', index, lng, lat)
@@ -258,9 +263,23 @@ watch(map, newMap => {
   newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
 })
 
-function addAddress() {
-  addresses.value.push('')
-  addRouteSlot()
+async function addAddress() {
+  // Inserisci il nuovo waypoint prima della destinazione
+  const insertIndex = addresses.value.length - 1
+  addresses.value.splice(insertIndex, 0, '')
+
+  // Inserisci anche uno slot marker alla stessa posizione
+  routeMarkers.value.splice(insertIndex, 0, null)
+
+  setActiveField('route', insertIndex)
+
+  await nextTick()
+
+  // Focus sull'input del nuovo waypoint
+  const inputs = document.querySelectorAll('input[type="text"]')
+  const input = inputs[insertIndex] as HTMLInputElement
+  input?.focus()
+
   redrawRouteMarkers()
 }
 
@@ -268,6 +287,7 @@ function removeAddress(index: number) {
   if (addresses.value.length > 2) {
     removeRouteMarker(index)
     addresses.value.splice(index, 1)
+    routeMarkers.value.splice(index, 1)
 
     if (activeField.value?.type === 'route' && activeField.value.index === index) {
       activeField.value = null
@@ -298,9 +318,20 @@ function redrawRouteMarkers() {
   })
 }
 
-function addObstacle() {
+async function addObstacle() {
   obstacles.value.push({ address: '', type: 'POTHOLE', severity: 'LOW' })
   addObstacleSlot()
+
+  const newIndex = obstacles.value.length - 1
+  setActiveField('obstacle', newIndex)
+
+  await nextTick()
+
+  // Focus sull'input del nuovo ostacolo
+  const inputs = document.querySelectorAll('input[type="text"]')
+  const obstacleInputIndex = addresses.value.length + newIndex
+  const input = inputs[obstacleInputIndex] as HTMLInputElement
+  input?.focus()
 }
 
 function removeObstacle(index: number) {
@@ -410,9 +441,17 @@ onMounted(() => {
             <input type="checkbox" />
             <div class="collapse-title text-sm font-medium">How does it work?</div>
             <div class="collapse-content text-sm">
+              <p class="mb-2">
+                Start by entering only the Origin and Destination and check the route preview. If it doesn't match what you want, add one or more intermediate waypoints to guide the route.
+              </p>
+              <p class="mb-2">
+                You can add waypoints in order by clicking on the map or typing the address.
+              </p>
+              <p class="mb-2">
+                You can drag markers to fine-tune their position and reorder waypoints via drag and drop.
+              </p>
               <p>
-                Click on the map to add points in sequence, or type addresses (autocomplete available). You can also
-                drag to reorder waypoints.
+                Note: the route preview is an estimate and may differ slightly from the saved route due to address-to-coordinate conversion. If you need higher accuracy, we recommend using the automatic recording mode.
               </p>
             </div>
           </div>
@@ -559,6 +598,16 @@ onMounted(() => {
             <button type="button" @click="addObstacle" class="btn btn-sm btn-ghost">
               <Plus :size="16" /> Add Obstacle
             </button>
+          </div>
+
+          <div v-if="obstacles.length > 0" class="collapse collapse-arrow bg-base-200 mb-4">
+            <input type="checkbox" />
+            <div class="collapse-title text-sm font-medium">How does it work?</div>
+            <div class="collapse-content text-sm">
+              <p>
+                Click on the map to position the obstacle or type the address. You can drag the marker to adjust position.
+              </p>
+            </div>
           </div>
 
           <div v-if="obstacles.length === 0" class="text-center text-gray-500 py-4 text-sm">No obstacles added</div>

@@ -4,6 +4,7 @@
  */
 import { ref, type Ref } from 'vue'
 import mapboxgl from 'mapbox-gl'
+import { createCustomMarkerElement } from '@/utils/mapMarkers'
 import {
     ROUTE_LINE_COLOR,
     ROUTE_LINE_WIDTH,
@@ -84,8 +85,16 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
             return
         const mapInstance = map.value
         const currentMarkers: mapboxgl.Marker[] = []
-        // Create origin marker (green)
-        const originMarker = new mapboxgl.Marker({ color: ORIGIN_MARKER_COLOR })
+
+        // Create custom origin marker element
+        const originEl = createCustomMarkerElement({
+            color: ORIGIN_MARKER_COLOR,
+            label: 'O',
+            draggable: false
+        })
+
+        // Create origin marker (green with 'O' label)
+        const originMarker = new mapboxgl.Marker({ element: originEl })
             .setLngLat([origin.longitude, origin.latitude])
             .setPopup(
                 new mapboxgl.Popup({ offset: POPUP_OFFSET, className: ROUTE_POPUP_CLASS }).setHTML(`
@@ -102,8 +111,16 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
             )
             .addTo(mapInstance)
         currentMarkers.push(originMarker)
-        // Create destination marker (purple)
-        const destinationMarker = new mapboxgl.Marker({ color: DESTINATION_MARKER_COLOR })
+
+        // Create custom destination marker element
+        const destinationEl = createCustomMarkerElement({
+            color: DESTINATION_MARKER_COLOR,
+            label: 'D',
+            draggable: false
+        })
+
+        // Create destination marker (purple with 'D' label)
+        const destinationMarker = new mapboxgl.Marker({ element: destinationEl })
             .setLngLat([destination.longitude, destination.latitude])
             .setPopup(
                 new mapboxgl.Popup({ offset: POPUP_OFFSET, className: ROUTE_POPUP_CLASS }).setHTML(`

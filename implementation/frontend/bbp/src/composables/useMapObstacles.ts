@@ -4,13 +4,10 @@
  */
 import { ref, type Ref } from 'vue'
 import mapboxgl from 'mapbox-gl'
+import { createCustomMarkerElement } from '@/utils/mapMarkers'
 import {
     OBSTACLE_SEVERITY_COLORS,
     DEFAULT_OBSTACLE_COLOR,
-    OBSTACLE_MARKER_SIZE,
-    OBSTACLE_MARKER_BORDER_WIDTH,
-    OBSTACLE_MARKER_BORDER_COLOR,
-    OBSTACLE_MARKER_BOX_SHADOW,
     POPUP_OFFSET,
     OBSTACLE_POPUP_CLASS,
     POPUP_CONTENT_PADDING,
@@ -41,16 +38,14 @@ export function useMapObstacles(map: Ref<mapboxgl.Map | null>) {
         const currentMarkers: mapboxgl.Marker[] = []
         activeObstacles.forEach(obstacle => {
             const markerColor = OBSTACLE_SEVERITY_COLORS[obstacle.severity] || DEFAULT_OBSTACLE_COLOR
-            // Create custom circular marker
-            const el = document.createElement('div')
-            el.className = 'obstacle-marker'
-            el.style.backgroundColor = markerColor
-            el.style.width = `${OBSTACLE_MARKER_SIZE}px`
-            el.style.height = `${OBSTACLE_MARKER_SIZE}px`
-            el.style.borderRadius = '50%'
-            el.style.border = `${OBSTACLE_MARKER_BORDER_WIDTH}px solid ${OBSTACLE_MARKER_BORDER_COLOR}`
-            el.style.cursor = 'pointer'
-            el.style.boxShadow = OBSTACLE_MARKER_BOX_SHADOW
+
+            // Create custom obstacle marker with exclamation mark
+            const el = createCustomMarkerElement({
+                color: markerColor,
+                label: '!',
+                draggable: false
+            })
+
             // Create info popup
             const popup = new mapboxgl.Popup({
                 offset: POPUP_OFFSET,

@@ -219,7 +219,7 @@ export function generateStaticMapUrl(
                 const simplified = simplifyPath(pathPoints, tolerance)
                 const reduction = ((1 - simplified.length / pathPoints.length) * 100).toFixed(1)
                 console.log(
-                    `✓ Static map URL generated: ${simplified.length}/${pathPoints.length} points (${reduction}% reduction), tolerance: ${tolerance.toFixed(5)}`
+                    `âœ“ Static map URL generated: ${simplified.length}/${pathPoints.length} points (${reduction}% reduction), tolerance: ${tolerance.toFixed(5)}`
                 )
                 return url
             }
@@ -272,11 +272,12 @@ function buildStaticMapUrl(
         const originColor = ORIGIN_MARKER_COLOR.replace('#', '')
         const destColor = DESTINATION_MARKER_COLOR.replace('#', '')
 
+        // Add markers with labels 'O' and 'D'
         overlays.push(
-            `pin-s+${originColor}(${options.originPoint.longitude},${options.originPoint.latitude})`
+            `pin-s-o+${originColor}(${options.originPoint.longitude},${options.originPoint.latitude})`
         )
         overlays.push(
-            `pin-s+${destColor}(${options.destinationPoint.longitude},${options.destinationPoint.latitude})`
+            `pin-s-d+${destColor}(${options.destinationPoint.longitude},${options.destinationPoint.latitude})`
         )
     }
 
