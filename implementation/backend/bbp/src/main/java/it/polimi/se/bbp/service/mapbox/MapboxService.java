@@ -446,7 +446,7 @@ public class MapboxService {
         List<Coordinate> allRouteCoordinates = new ArrayList<>();
         double totalDistance = 0.0;
         int start = 0;
-        while (start < waypoints.size()) {
+        while (start < waypoints.size() - 1) {
             // Determine end index for this chunk (max 25 waypoints)
             int end = Math.min(start + MAX_WAYPOINTS_PER_REQUEST, waypoints.size());
             // Extract chunk of waypoints
