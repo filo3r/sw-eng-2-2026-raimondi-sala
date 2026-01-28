@@ -16,6 +16,7 @@ import { parseApiError } from '@/utils/error'
 import { logError } from '@/utils/logger'
 import { BIKE_PATH_STATUS_OPTIONS } from '@/constants/bikePath'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
+import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
 import {
   MAP_CURSOR_CROSSHAIR,
   ROUTE_LINE_COLOR,
@@ -557,8 +558,9 @@ onMounted(() => {
                 placeholder="Add notes..."
                 class="textarea textarea-bordered w-full"
                 rows="3"
-                maxlength="500"
+                :maxlength="DESCRIPTION_MAX_LENGTH"
             ></textarea>
+            <label class="label"><span class="label-text-alt">{{ description.length }}/{{ DESCRIPTION_MAX_LENGTH }}</span></label>
           </div>
 
           <div>

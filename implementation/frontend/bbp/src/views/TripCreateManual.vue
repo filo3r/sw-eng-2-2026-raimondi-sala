@@ -15,6 +15,7 @@ import { getMapboxApiKey } from '@/config/mapbox'
 import { parseApiError } from '@/utils/error'
 import { logError } from '@/utils/logger'
 import { isEndTimeAfterStartTime, isValidTripDuration, isValidMaxSpeed } from '@/utils/validation'
+import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
 import {
   MAP_CURSOR_CROSSHAIR,
   ROUTE_LINE_COLOR,
@@ -506,9 +507,9 @@ onMounted(() => {
                 placeholder="Add notes or description"
                 class="textarea textarea-bordered w-full"
                 rows="3"
-                maxlength="500"
+                :maxlength="DESCRIPTION_MAX_LENGTH"
             ></textarea>
-            <label class="label"><span class="label-text-alt">{{ description.length }}/500</span></label>
+            <label class="label"><span class="label-text-alt">{{ description.length }}/{{ DESCRIPTION_MAX_LENGTH }}</span></label>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
