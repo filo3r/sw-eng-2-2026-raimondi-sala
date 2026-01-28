@@ -24,6 +24,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -189,6 +190,36 @@ class MapboxServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> mapboxService.calculateCyclingRoute(singleWaypoint));
         assertThrows(IllegalArgumentException.class, () -> mapboxService.calculateCyclingRoute(null));
+    }
+
+    @Test
+    @DisplayName("Should split large route into overlapping chunks and merge results")
+    void calculateCyclingRoute_LargeRequest_SplitsIntoChunksAndMerges() {
+        List<Coordinate> allWaypoints = new java.util.ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            allWaypoints.add(new Coordinate((double) i, (double) i));
+        }
+        // create 2 chunks and test calculateCyclingRoute method
+        List<Coordinate> chunk1 = allWaypoints.subList(0, 25);
+        List<Coordinate> chunk2 = allWaypoints.subList(24, 30);
+
+        CyclingRouteResult result1 = new CyclingRouteResult(new java.util.ArrayList<>(chunk1), 1000.0);
+        CyclingRouteResult result2 = new CyclingRouteResult(new java.util.ArrayList<>(chunk2), 500.0);
+
+        when(self.calculateSingleRoute(argThat(list -> list != null && list.size() == 25)))
+                .thenReturn(result1);
+
+        when(self.calculateSingleRoute(argThat(list -> list != null && list.size() == 6)))
+                .thenReturn(result2);
+
+        CyclingRouteResult finalResult = mapboxService.calculateCyclingRoute(allWaypoints);
+
+        assertNotNull(finalResult);
+        assertEquals(1500.0, finalResult.distanceInMeters());
+        assertEquals(30, finalResult.routeCoordinates().size());
+        assertEquals(allWaypoints, finalResult.routeCoordinates());
+
+        verify(self, times(2)).calculateSingleRoute(anyList());
     }
 
     @Test
