@@ -28,7 +28,7 @@ export const GEOLOCATION_SHOW_HEADING = true
 // Animation timings
 export const FIT_BOUNDS_DURATION = 1000
 export const COMPASS_RESET_DURATION = 500
-export const FIT_BOUNDS_PADDING = 50
+export const FIT_BOUNDS_PADDING = 100
 export const MAP_RESIZE_TIMEOUT = 300
 export const GEOLOCATION_TIMEOUT = 5000
 
