@@ -8,6 +8,7 @@ import { useNoScroll } from '@/composables/useNoScroll.ts'
 import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
 import { useMapObstacles } from '@/composables/useMapObstacles'
+import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { useBikePathFinderStore } from '@/stores/bikePathFinder'
 import { findBikePaths } from '@/services/bikePathFinder'
 import { parseApiError } from '@/utils/error'
@@ -36,6 +37,11 @@ const { map, isReady, initMap } = useMap({
 const { drawRoute, addMarkers, clearRoute } = useMapRoute(map)
 const { addObstacles, clearObstacles } = useMapObstacles(map)
 
+// Autocomplete
+const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
+    useMapboxAutocomplete()
+const activeField = ref<'origin' | 'destination' | null>(null)
+
 // Search state
 const isSidebarOpen = ref(false)
 const originAddress = ref('')
@@ -59,6 +65,23 @@ function selectOriginRadius(value: number) {
 function selectDestinationRadius(value: number) {
   destinationRadius.value = value
   ;(document.activeElement as HTMLElement)?.blur()
+}
+
+function setActiveField(field: 'origin' | 'destination') {
+  activeField.value = field
+}
+
+function selectSuggestion(suggestion: any, field: 'origin' | 'destination') {
+  const address = suggestion.full_address || ''
+
+  if (field === 'origin') {
+    originAddress.value = address
+  } else {
+    destinationAddress.value = address
+  }
+
+  showSuggestions.value = false
+  activeField.value = null
 }
 
 async function handleSearch() {
@@ -206,11 +229,11 @@ function viewDetails(bikePathId: number) {
  */
 function restoreSearchState() {
   if (!store.hasSearchState) {
-    console.log('⊘ No saved search state to restore')
+    console.log('âŠ˜ No saved search state to restore')
     return
   }
 
-  console.log('↻ Restoring search state from store...')
+  console.log('â†» Restoring search state from store...')
 
   // Restore search parameters
   originAddress.value = store.originAddress
@@ -227,7 +250,7 @@ function restoreSearchState() {
   selectedBikePathId.value = store.selectedBikePathId
   isSidebarOpen.value = store.isSidebarOpen
 
-  console.log(`✓ Restored ${searchResults.value.length} search results`)
+  console.log(`âœ“ Restored ${searchResults.value.length} search results`)
 }
 
 /**
@@ -239,7 +262,7 @@ function restoreMapState() {
   const selectedPath = searchResults.value.find(bp => bp.id === store.selectedBikePathId)
   if (!selectedPath) return
 
-  console.log('↻ Restoring map state...')
+  console.log('â†» Restoring map state...')
 
   // Draw route
   drawRoute(selectedPath.bikePathPoints)
@@ -263,7 +286,7 @@ function restoreMapState() {
     addObstacles(selectedPath.obstacles)
   }
 
-  console.log('✓ Map state restored')
+  console.log('âœ“ Map state restored')
 }
 
 // Watch for map ready to restore map state
@@ -330,14 +353,35 @@ onMounted(() => {
             <label class="label">
               <span class="label-text">Origin</span>
             </label>
-            <input
-                type="text"
-                v-model.trim="originAddress"
-                placeholder="Enter origin address"
-                class="input input-bordered w-full"
-                :maxlength="ADDRESS_MAX_LENGTH"
-                required
-            />
+            <div class="relative">
+              <input
+                  type="text"
+                  v-model.trim="originAddress"
+                  placeholder="Enter origin address"
+                  class="input input-bordered w-full"
+                  :maxlength="ADDRESS_MAX_LENGTH"
+                  @focus="setActiveField('origin')"
+                  @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
+                  @blur="onAutocompleteBlur"
+                  required
+              />
+
+              <!-- Suggestions dropdown -->
+              <div
+                  v-if="showSuggestions && activeField === 'origin' && suggestions.length > 0"
+                  class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+              >
+                <div
+                    v-for="(suggestion, i) in suggestions"
+                    :key="i"
+                    @click="selectSuggestion(suggestion, 'origin')"
+                    class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
+                >
+                  <div class="font-medium">{{ suggestion.name }}</div>
+                  <div class="text-sm text-gray-500">{{ suggestion.full_address }}</div>
+                </div>
+              </div>
+            </div>
             <label class="label">
               <span class="label-text">Radius</span>
             </label>
@@ -366,14 +410,35 @@ onMounted(() => {
             <label class="label">
               <span class="label-text">Destination</span>
             </label>
-            <input
-                type="text"
-                v-model.trim="destinationAddress"
-                placeholder="Enter destination address"
-                class="input input-bordered w-full"
-                :maxlength="ADDRESS_MAX_LENGTH"
-                required
-            />
+            <div class="relative">
+              <input
+                  type="text"
+                  v-model.trim="destinationAddress"
+                  placeholder="Enter destination address"
+                  class="input input-bordered w-full"
+                  :maxlength="ADDRESS_MAX_LENGTH"
+                  @focus="setActiveField('destination')"
+                  @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
+                  @blur="onAutocompleteBlur"
+                  required
+              />
+
+              <!-- Suggestions dropdown -->
+              <div
+                  v-if="showSuggestions && activeField === 'destination' && suggestions.length > 0"
+                  class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+              >
+                <div
+                    v-for="(suggestion, i) in suggestions"
+                    :key="i"
+                    @click="selectSuggestion(suggestion, 'destination')"
+                    class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
+                >
+                  <div class="font-medium">{{ suggestion.name }}</div>
+                  <div class="text-sm text-gray-500">{{ suggestion.full_address }}</div>
+                </div>
+              </div>
+            </div>
             <label class="label">
               <span class="label-text">Radius</span>
             </label>

@@ -6,6 +6,7 @@ import { getUserBikePaths, searchBikePaths } from '@/services/bikePath'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { generateStaticMapUrl } from '@/utils/mapStatic'
 import { useToast } from '@/composables/useToast'
+import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDate } from '@/utils/date'
 import { parseApiError } from '@/utils/error'
@@ -18,6 +19,11 @@ import type { BikePathResponse } from '@/types/bikePath'
 const router = useRouter()
 const { show } = useToast()
 
+// Autocomplete
+const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
+    useMapboxAutocomplete()
+const activeField = ref<'origin' | 'destination' | null>(null)
+
 const bikePaths = ref<BikePathResponse[]>([])
 const loading = ref(false)
 const currentPage = ref(0)
@@ -26,13 +32,46 @@ const hasMore = ref(false)
 const isFilterModalOpen = ref(false)
 const originFilter = ref('')
 const destinationFilter = ref('')
-const createdAtFrom = ref('')
-const createdAtTo = ref('')
+
+// Date/Time separati per i filtri
+const createdDateFromStr = ref('')
+const createdTimeFromStr = ref('')
+const createdDateToStr = ref('')
+const createdTimeToStr = ref('')
+
 const hasActiveFilters = ref(false)
 
 const initialLoading = ref(true)
 const showSpinner = ref(false)
 let spinnerTimeout: number | null = null
+
+function normalizeTime(t: string): string {
+  if (!t) return ''
+  return t.length === 5 ? `${t}:00` : t
+}
+
+function toDate(dateStr: string, timeStr: string): Date | null {
+  if (!dateStr || !timeStr) return null
+  const d = new Date(`${dateStr}T${normalizeTime(timeStr)}`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function setActiveField(field: 'origin' | 'destination') {
+  activeField.value = field
+}
+
+function selectSuggestion(suggestion: any, field: 'origin' | 'destination') {
+  const address = suggestion.full_address || ''
+
+  if (field === 'origin') {
+    originFilter.value = address
+  } else {
+    destinationFilter.value = address
+  }
+
+  showSuggestions.value = false
+  activeField.value = null
+}
 
 async function loadBikePaths() {
   spinnerTimeout = window.setTimeout(() => {
@@ -66,8 +105,8 @@ async function loadMore() {
             {
               origin: originFilter.value || undefined,
               destination: destinationFilter.value || undefined,
-              createdAtFrom: createdAtFrom.value ? new Date(createdAtFrom.value).toISOString() : undefined,
-              createdAtTo: createdAtTo.value ? new Date(createdAtTo.value).toISOString() : undefined
+              createdAtFrom: toDate(createdDateFromStr.value, createdTimeFromStr.value)?.toISOString(),
+              createdAtTo: toDate(createdDateToStr.value, createdTimeToStr.value)?.toISOString()
             },
             currentPage.value,
             BIKE_PATH_PAGE_SIZE,
@@ -98,22 +137,28 @@ function closeFilterModal() {
 function clearFilters() {
   originFilter.value = ''
   destinationFilter.value = ''
-  createdAtFrom.value = ''
-  createdAtTo.value = ''
+  createdDateFromStr.value = ''
+  createdTimeFromStr.value = ''
+  createdDateToStr.value = ''
+  createdTimeToStr.value = ''
 }
 
 async function applyFilters() {
   loading.value = true
   currentPage.value = 0
-  hasActiveFilters.value = !!(originFilter.value || destinationFilter.value || createdAtFrom.value || createdAtTo.value)
+
+  const createdAtFrom = toDate(createdDateFromStr.value, createdTimeFromStr.value)
+  const createdAtTo = toDate(createdDateToStr.value, createdTimeToStr.value)
+
+  hasActiveFilters.value = !!(originFilter.value || destinationFilter.value || createdAtFrom || createdAtTo)
 
   try {
     const response = await searchBikePaths(
         {
           origin: originFilter.value || undefined,
           destination: destinationFilter.value || undefined,
-          createdAtFrom: createdAtFrom.value ? new Date(createdAtFrom.value).toISOString() : undefined,
-          createdAtTo: createdAtTo.value ? new Date(createdAtTo.value).toISOString() : undefined
+          createdAtFrom: createdAtFrom ? createdAtFrom.toISOString() : undefined,
+          createdAtTo: createdAtTo ? createdAtTo.toISOString() : undefined
         },
         0,
         BIKE_PATH_PAGE_SIZE,
@@ -192,48 +237,104 @@ onMounted(() => {
             <label class="label">
               <span class="label-text">Origin</span>
             </label>
-            <input
-                type="text"
-                v-model="originFilter"
-                placeholder="Search by origin location"
-                class="input input-bordered w-full"
-                :maxlength="ADDRESS_MAX_LENGTH"
-            />
+            <div class="relative">
+              <input
+                  type="text"
+                  v-model="originFilter"
+                  placeholder="Search by origin location"
+                  class="input input-bordered w-full"
+                  :maxlength="ADDRESS_MAX_LENGTH"
+                  @focus="setActiveField('origin')"
+                  @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
+                  @blur="onAutocompleteBlur"
+              />
+
+              <div
+                  v-if="showSuggestions && activeField === 'origin' && suggestions.length > 0"
+                  class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+              >
+                <div
+                    v-for="(suggestion, i) in suggestions"
+                    :key="i"
+                    @click="selectSuggestion(suggestion, 'origin')"
+                    class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
+                >
+                  <div class="font-medium">{{ suggestion.name }}</div>
+                  <div class="text-sm text-gray-500">{{ suggestion.full_address }}</div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div>
             <label class="label">
               <span class="label-text">Destination</span>
             </label>
-            <input
-                type="text"
-                v-model="destinationFilter"
-                placeholder="Search by destination location"
-                class="input input-bordered w-full"
-                :maxlength="ADDRESS_MAX_LENGTH"
-            />
+            <div class="relative">
+              <input
+                  type="text"
+                  v-model="destinationFilter"
+                  placeholder="Search by destination location"
+                  class="input input-bordered w-full"
+                  :maxlength="ADDRESS_MAX_LENGTH"
+                  @focus="setActiveField('destination')"
+                  @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
+                  @blur="onAutocompleteBlur"
+              />
+
+              <div
+                  v-if="showSuggestions && activeField === 'destination' && suggestions.length > 0"
+                  class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+              >
+                <div
+                    v-for="(suggestion, i) in suggestions"
+                    :key="i"
+                    @click="selectSuggestion(suggestion, 'destination')"
+                    class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
+                >
+                  <div class="font-medium">{{ suggestion.name }}</div>
+                  <div class="text-sm text-gray-500">{{ suggestion.full_address }}</div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div>
             <label class="label">
               <span class="label-text">Created From</span>
             </label>
-            <input
-                type="datetime-local"
-                v-model="createdAtFrom"
-                class="input input-bordered w-full"
-            />
+            <div class="grid grid-cols-2 gap-2">
+              <input
+                  v-model="createdDateFromStr"
+                  type="date"
+                  class="input input-bordered w-full"
+              />
+              <input
+                  v-model="createdTimeFromStr"
+                  type="time"
+                  step="1"
+                  class="input input-bordered w-full"
+              />
+            </div>
           </div>
 
           <div>
             <label class="label">
               <span class="label-text">Created To</span>
             </label>
-            <input
-                type="datetime-local"
-                v-model="createdAtTo"
-                class="input input-bordered w-full"
-            />
+            <div class="grid grid-cols-2 gap-2">
+              <input
+                  v-model="createdDateToStr"
+                  type="date"
+                  class="input input-bordered w-full"
+              />
+              <input
+                  v-model="createdTimeToStr"
+                  type="time"
+                  step="1"
+                  class="input input-bordered w-full"
+              />
+            </div>
           </div>
 
           <div class="flex gap-2 mt-6">
