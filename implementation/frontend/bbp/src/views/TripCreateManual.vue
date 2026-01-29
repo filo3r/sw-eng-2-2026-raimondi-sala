@@ -198,7 +198,8 @@ async function getAddressFromCoordinates(lng: number, lat: number): Promise<stri
 function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
   const { lng, lat } = e.lngLat
 
-  handleMapClickBase(lng, lat, addresses, {
+  handleMapClickBase(lng, lat, {
+    getCurrentAddresses: () => addresses.value,
     onRouteClick: async (index, lng, lat) => {
       addresses.value[index] = await getAddressFromCoordinates(lng, lat)
 
@@ -215,7 +216,13 @@ function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
       setMarker(index, lng, lat)
       redrawRouteMarkers()
     },
-    onObstacleClick: () => {}
+    onObstacleClick: () => {},
+    onAddWaypoint: async (beforeIndex, lng, lat) => {
+      addresses.value.splice(beforeIndex, 0, await getAddressFromCoordinates(lng, lat))
+      routeMarkers.value.splice(beforeIndex, 0, null)
+      setMarker(beforeIndex, lng, lat)
+      redrawRouteMarkers()
+    }
   })
 }
 
