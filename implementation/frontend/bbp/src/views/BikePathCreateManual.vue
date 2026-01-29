@@ -12,8 +12,7 @@ import { useDraggableList } from '@/composables/useDraggableList'
 import { useMapClickHandler } from '@/composables/useMapClickHandler'
 import { getRouteMarkerConfig } from '@/composables/useRouteMarkerConfig'
 import { getMapboxApiKey } from '@/config/mapbox'
-import { parseApiError } from '@/utils/error'
-import { logError } from '@/utils/logger'
+import { catchApiError } from '@/utils/error'
 import { BIKE_PATH_STATUS_OPTIONS } from '@/constants/bikePath'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
 import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
@@ -107,8 +106,7 @@ async function geocodeAndSetMarker(address: string, type: 'route' | 'obstacle', 
     const result = await forwardGeocode({ address })
     setMarker(type, index, result.longitude, result.latitude)
   } catch (e) {
-    logError(e, 'BikePathCreateManual.geocodeAndSetMarker')
-    show(parseApiError(e), 'error')
+    catchApiError(e, 'BikePathCreateManual.geocodeAndSetMarker')
   }
 }
 
@@ -149,8 +147,7 @@ async function updateRoute() {
       })
     }
   } catch (e) {
-    logError(e, 'BikePathCreateManual.updateRoute')
-    show(parseApiError(e), 'error')
+    catchApiError(e, 'BikePathCreateManual.updateRoute')
   }
 }
 
@@ -200,7 +197,7 @@ async function getAddressFromCoordinates(lng: number, lat: number): Promise<stri
     })
     return result.address
   } catch (e) {
-    logError(e, 'BikePathCreateManual.getAddressFromCoordinates')
+    catchApiError(e, 'BikePathCreateManual.getAddressFromCoordinates')
     return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
   }
 }
@@ -402,8 +399,7 @@ async function handleSubmit() {
     show('Bike path created successfully', 'success')
     await router.push('/bike-paths/')
   } catch (error: any) {
-    logError(error, 'BikePathCreateManual.handleSubmit')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'BikePathCreateManual.handleSubmit')
   } finally {
     loading.value = false
   }

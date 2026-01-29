@@ -12,8 +12,7 @@ import { useDraggableList } from '@/composables/useDraggableList'
 import { useMapClickHandler } from '@/composables/useMapClickHandler'
 import { getRouteMarkerConfig } from '@/composables/useRouteMarkerConfig'
 import { getMapboxApiKey } from '@/config/mapbox'
-import { parseApiError } from '@/utils/error'
-import { logError } from '@/utils/logger'
+import { catchApiError } from '@/utils/error'
 import { isEndTimeAfterStartTime, isValidTripDuration, isValidMaxSpeed } from '@/utils/validation'
 import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
 import {
@@ -119,8 +118,7 @@ async function geocodeAndSetMarker(address: string, index: number) {
     const result = await forwardGeocode({ address })
     setMarker(index, result.longitude, result.latitude)
   } catch (e) {
-    logError(e, 'TripCreateManual.geocodeAndSetMarker')
-    show(parseApiError(e), 'error')
+    catchApiError(e, 'TripCreateManual.geocodeAndSetMarker')
   }
 }
 
@@ -161,8 +159,7 @@ async function updateRoute() {
       })
     }
   } catch (e) {
-    logError(e, 'TripCreateManual.updateRoute')
-    show(parseApiError(e), 'error')
+    catchApiError(e, 'TripCreateManual.updateRoute')
   }
 }
 
@@ -193,7 +190,7 @@ async function getAddressFromCoordinates(lng: number, lat: number): Promise<stri
     })
     return result.address
   } catch (e) {
-    logError(e, 'TripCreateManual.getAddressFromCoordinates')
+    catchApiError(e, 'TripCreateManual.getAddressFromCoordinates')
     return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
   }
 }
@@ -354,8 +351,7 @@ async function handleSubmit() {
     show('Trip recorded successfully', 'success')
     await router.push('/trips/')
   } catch (error: any) {
-    logError(error, 'TripCreateManual.handleSubmit')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'TripCreateManual.handleSubmit')
   } finally {
     loading.value = false
   }

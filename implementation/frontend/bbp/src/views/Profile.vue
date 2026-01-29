@@ -6,8 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { getCurrentUser, updateCurrentUser, deleteCurrentUser } from '@/services/user'
 import type { UserUpdateRequest, UserResponse } from '@/types/user'
-import { parseApiError } from '@/utils/error'
-import { logError } from '@/utils/logger'
+import { catchApiError } from '@/utils/error'
 import {
   USER_NAME_MAX_LENGTH,
   USER_SURNAME_MAX_LENGTH,
@@ -54,8 +53,7 @@ async function fetchUserData() {
     email.value = userData.email
     originalData.value = userData
   } catch (error: any) {
-    logError(error, 'Profile.fetchUserData')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'Profile.fetchUserData')
   } finally {
     if (spinnerTimeout) clearTimeout(spinnerTimeout)
     showSpinner.value = false
@@ -94,8 +92,7 @@ async function handleSave() {
     isEditing.value = false
     show('Profile updated successfully!', 'success')
   } catch (error: any) {
-    logError(error, 'Profile.handleSave')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'Profile.handleSave')
   } finally {
     loading.value = false
   }
@@ -120,8 +117,7 @@ async function confirmDelete() {
     show('Account deleted successfully', 'success')
     await router.push('/login')
   } catch (error: any) {
-    logError(error, 'Profile.confirmDelete')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'Profile.confirmDelete')
   }
 }
 </script>

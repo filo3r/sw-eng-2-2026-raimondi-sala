@@ -11,8 +11,7 @@ import { useMapObstacles } from '@/composables/useMapObstacles'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { useBikePathFinderStore } from '@/stores/bikePathFinder'
 import { findBikePaths } from '@/services/bikePathFinder'
-import { parseApiError } from '@/utils/error'
-import { logError } from '@/utils/logger'
+import { catchApiError } from '@/utils/error'
 import { formatDistance, formatScore } from '@/utils/format'
 import { RADIUS_OPTIONS, DEFAULT_RADIUS_KM } from '@/constants/bikePath'
 import { BIKE_PATH_FINDER_PAGE_SIZE } from '@/constants/pagination'
@@ -108,8 +107,7 @@ async function handleSearch() {
     hasMore.value = response.hasNext
     show(`Found ${response.totalElements} bike paths`, 'success')
   } catch (error: any) {
-    logError(error, 'BikePathFinder.handleSearch')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'BikePathFinder.handleSearch')
     searchResults.value = []
     hasMore.value = false
   } finally {
@@ -140,8 +138,7 @@ async function loadMore() {
     searchResults.value.push(...response.content)
     hasMore.value = response.hasNext
   } catch (error: any) {
-    logError(error, 'BikePathFinder.loadMore')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'BikePathFinder.loadMore')
   } finally {
     clearTimeout(loadMoreSpinnerTimeout)
     loading.value = false

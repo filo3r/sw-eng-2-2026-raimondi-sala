@@ -9,8 +9,7 @@ import { useToast } from '@/composables/useToast'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDate } from '@/utils/date'
-import { parseApiError } from '@/utils/error'
-import { logError } from '@/utils/logger'
+import { catchApiError } from '@/utils/error'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
 import { BIKE_PATH_PAGE_SIZE, SORT_DESC } from '@/constants/pagination'
 import { SPINNER_DELAY_MS } from '@/constants/ui'
@@ -83,8 +82,7 @@ async function loadBikePaths() {
     bikePaths.value = response.content
     hasMore.value = response.hasNext
   } catch (error: any) {
-    logError(error, 'BikePaths.loadBikePaths')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'BikePaths.loadBikePaths')
   } finally {
     if (spinnerTimeout) clearTimeout(spinnerTimeout)
     showSpinner.value = false
@@ -118,8 +116,7 @@ async function loadMore() {
     bikePaths.value.push(...response.content)
     hasMore.value = response.hasNext
   } catch (error: any) {
-    logError(error, 'BikePaths.loadMore')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'BikePaths.loadMore')
   } finally {
     clearTimeout(loadMoreSpinnerTimeout)
     loading.value = false
@@ -170,8 +167,7 @@ async function applyFilters() {
     hasMore.value = response.hasNext
     show(`Found ${response.totalElements} bike paths`, 'success')
   } catch (error: any) {
-    logError(error, 'BikePaths.applyFilters')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'BikePaths.applyFilters')
     bikePaths.value = []
     hasMore.value = false
   } finally {

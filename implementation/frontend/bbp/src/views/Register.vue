@@ -6,8 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { register } from '@/services/auth'
 import type { UserRegisterRequest } from '@/types/user'
-import { parseApiError } from '@/utils/error'
-import { logError } from '@/utils/logger'
+import { catchApiError } from '@/utils/error'
 import {
   USER_NAME_MAX_LENGTH,
   USER_SURNAME_MAX_LENGTH,
@@ -44,8 +43,7 @@ async function handleRegister() {
     show('Registration successful!', 'success')
     await router.push('/')
   } catch (error: any) {
-    logError(error, 'Register.handleRegister')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'Register.handleRegister')
   } finally {
     loading.value = false
   }

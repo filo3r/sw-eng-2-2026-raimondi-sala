@@ -6,8 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { login } from '@/services/auth'
 import type { UserLoginRequest } from '@/types/user'
-import { parseApiError } from '@/utils/error'
-import { logError } from '@/utils/logger'
+import { catchApiError } from '@/utils/error'
 import { EMAIL_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/constants/validation'
 
 const router = useRouter()
@@ -32,8 +31,7 @@ async function handleLogin() {
     show('Login successful!', 'success')
     await router.push('/')
   } catch (error: any) {
-    logError(error, 'Login.handleLogin')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'Login.handleLogin')
   } finally {
     loading.value = false
   }

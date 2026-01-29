@@ -20,8 +20,7 @@ import { useMapRoute } from '@/composables/useMapRoute'
 import { useToast } from '@/composables/useToast'
 import { formatDistance, formatDuration, formatSpeed, formatTemperature, formatHumidity, formatWindSpeed } from '@/utils/format'
 import { formatDateTime } from '@/utils/date'
-import { parseApiError } from '@/utils/error'
-import { logError } from '@/utils/logger'
+import { catchApiError } from '@/utils/error'
 import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { TripResponse } from '@/types/trip'
 
@@ -66,8 +65,7 @@ async function loadTrip() {
   try {
     trip.value = await getTripById(tripId)
   } catch (error: any) {
-    logError(error, 'TripDetail.loadTrip')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'TripDetail.loadTrip')
   } finally {
     if (spinnerTimeout) clearTimeout(spinnerTimeout)
     showSpinner.value = false
@@ -107,8 +105,7 @@ async function handleDelete() {
     show('Trip deleted successfully', 'success')
     await router.push('/trips')
   } catch (error: any) {
-    logError(error, 'TripDetail.handleDelete')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'TripDetail.handleDelete')
   } finally {
     loading.value = false
     showDeleteModal.value = false

@@ -9,8 +9,7 @@ import { useToast } from '@/composables/useToast'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { formatDistance, formatDuration } from '@/utils/format'
 import { formatDateRange } from '@/utils/date'
-import { parseApiError } from '@/utils/error'
-import { logError } from '@/utils/logger'
+import { catchApiError } from '@/utils/error'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
 import { TRIP_PAGE_SIZE, SORT_DESC } from '@/constants/pagination'
 import { SPINNER_DELAY_MS } from '@/constants/ui'
@@ -89,8 +88,7 @@ async function loadTrips() {
     trips.value = response.content
     hasMore.value = response.hasNext
   } catch (error: any) {
-    logError(error, 'Trips.loadTrips')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'Trips.loadTrips')
   } finally {
     if (spinnerTimeout) clearTimeout(spinnerTimeout)
     showSpinner.value = false
@@ -124,8 +122,7 @@ async function loadMore() {
     trips.value.push(...response.content)
     hasMore.value = response.hasNext
   } catch (error: any) {
-    logError(error, 'Trips.loadMore')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'Trips.loadMore')
   } finally {
     clearTimeout(loadMoreSpinnerTimeout)
     loading.value = false
@@ -176,8 +173,7 @@ async function applyFilters() {
     hasMore.value = response.hasNext
     show(`Found ${response.totalElements} trips`, 'success')
   } catch (error: any) {
-    logError(error, 'Trips.applyFilters')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'Trips.applyFilters')
     trips.value = []
     hasMore.value = false
   } finally {

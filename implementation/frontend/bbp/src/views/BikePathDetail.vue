@@ -24,8 +24,7 @@ import { useMapObstacles } from '@/composables/useMapObstacles'
 import { useToast } from '@/composables/useToast'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDateTime } from '@/utils/date'
-import { parseApiError } from '@/utils/error'
-import { logError } from '@/utils/logger'
+import { catchApiError } from '@/utils/error'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
 import { BIKE_PATH_STATUS_OPTIONS } from '@/constants/bikePath'
 import { OBSTACLE_SEVERITY_COLORS } from '@/constants/map'
@@ -93,8 +92,7 @@ async function loadBikePath() {
     bikePath.value = await getBikePathById(bikePathId)
     originalVersion.value = bikePath.value.version
   } catch (error: any) {
-    logError(error, 'BikePathDetail.loadBikePath')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'BikePathDetail.loadBikePath')
   } finally {
     if (spinnerTimeout) clearTimeout(spinnerTimeout)
     showSpinner.value = false
@@ -193,8 +191,7 @@ async function handleSave() {
 
     show('Bike path updated successfully', 'success')
   } catch (error: any) {
-    logError(error, 'BikePathDetail.handleSave')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'BikePathDetail.handleSave')
   } finally {
     saving.value = false
   }
@@ -210,8 +207,7 @@ async function handleDelete() {
     show('Bike path deleted successfully', 'success')
     await router.push('/bike-paths')
   } catch (error: any) {
-    logError(error, 'BikePathDetail.handleDelete')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'BikePathDetail.handleDelete')
   } finally {
     loading.value = false
     showDeleteBikePathModal.value = false
@@ -264,8 +260,7 @@ async function saveObstacle(obstacleId: number) {
 
     show('Obstacle updated successfully', 'success')
   } catch (error: any) {
-    logError(error, 'BikePathDetail.saveObstacle')
-    show(parseApiError(error), 'error')
+    catchApiError(error, 'BikePathDetail.saveObstacle')
   } finally {
     saving.value = false
   }
