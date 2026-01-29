@@ -4,23 +4,14 @@
  */
 import axios from 'axios'
 import { useAuthStore } from '@/stores/auth'
+import { getEnv } from '@/config/env'
 
 /**
  * Resolves backend API base URL based on environment.
  * @returns Backend URL string
  */
 const getBackendUrl = (): string => {
-    // Development: from VITE_BACKEND_PORT
-    if (import.meta.env.DEV) {
-        const port = import.meta.env.VITE_BACKEND_PORT || '8080'
-        return `http://localhost:${port}`
-    }
-    // Production: from window.BACKEND_URL
-    if (window.BACKEND_URL) {
-        return window.BACKEND_URL
-    }
-    // Fallback
-    return 'http://localhost:8080'
+    return getEnv('BACKEND_URL')
 }
 
 const api = axios.create({
