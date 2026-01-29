@@ -5,14 +5,13 @@
 import { type Ref } from 'vue'
 import mapboxgl from 'mapbox-gl'
 import { createCustomMarkerElement } from '@/utils/mapMarkers'
+import { createObstaclePopupHTML } from '@/utils/mapPopups'
 import { useMarkerManager } from './useMarkerManager'
 import {
     OBSTACLE_SEVERITY_COLORS,
     DEFAULT_OBSTACLE_COLOR,
     POPUP_OFFSET,
-    OBSTACLE_POPUP_CLASS,
-    POPUP_CONTENT_PADDING,
-    POPUP_MIN_WIDTH
+    OBSTACLE_POPUP_CLASS
 } from '@/constants/map'
 import type { ObstacleResponse } from '@/types/obstacle'
 
@@ -53,23 +52,7 @@ export function useMapObstacles(map: Ref<mapboxgl.Map | null>) {
             const popup = new mapboxgl.Popup({
                 offset: POPUP_OFFSET,
                 className: OBSTACLE_POPUP_CLASS
-            }).setHTML(`
-        <div style="padding: ${POPUP_CONTENT_PADDING}px; min-width: ${POPUP_MIN_WIDTH}px;">
-          <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0; color: #1f2937;">
-            ${obstacle.typeDescription}
-          </h3>
-          <div style="margin-bottom: 8px;">
-            <span style="font-size: 14px; font-weight: 500; color: #374151;">Location:</span>
-            <p style="font-size: 14px; color: #6b7280; margin: 4px 0 0 0;">${obstacle.address}</p>
-          </div>
-          <div>
-            <span style="font-size: 14px; font-weight: 500; color: #374151;">Severity:</span>
-            <span style="font-size: 14px; color: #6b7280; font-weight: 600; margin-left: 4px;">
-              ${obstacle.severityDescription}
-            </span>
-          </div>
-        </div>
-      `)
+            }).setHTML(createObstaclePopupHTML(obstacle))
 
             // Add marker to map
             const marker = new mapboxgl.Marker(el)

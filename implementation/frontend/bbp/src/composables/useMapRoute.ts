@@ -5,6 +5,7 @@
 import { type Ref } from 'vue'
 import mapboxgl from 'mapbox-gl'
 import { createCustomMarkerElement } from '@/utils/mapMarkers'
+import { createOriginPopupHTML, createDestinationPopupHTML } from '@/utils/mapPopups'
 import { useMarkerManager } from './useMarkerManager'
 import {
     ROUTE_LINE_COLOR,
@@ -16,8 +17,6 @@ import {
     FIT_BOUNDS_DURATION,
     FIT_BOUNDS_PADDING,
     POPUP_OFFSET,
-    POPUP_CONTENT_PADDING,
-    POPUP_MIN_WIDTH,
     ROUTE_POPUP_CLASS
 } from '@/constants/map'
 import type { BikePathPointResponse } from '@/types/bikePath'
@@ -103,17 +102,10 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
         const originMarker = new mapboxgl.Marker({ element: originEl })
             .setLngLat([origin.longitude, origin.latitude])
             .setPopup(
-                new mapboxgl.Popup({ offset: POPUP_OFFSET, className: ROUTE_POPUP_CLASS }).setHTML(`
-          <div style="padding: ${POPUP_CONTENT_PADDING}px; min-width: ${POPUP_MIN_WIDTH}px;">
-            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0; color: #1f2937;">
-              Origin
-            </h3>
-            <div>
-              <span style="font-size: 14px; font-weight: 500; color: #374151;">Address:</span>
-              <p style="font-size: 14px; color: #6b7280; margin: 4px 0 0 0;">${origin.address}</p>
-            </div>
-          </div>
-        `)
+                new mapboxgl.Popup({
+                    offset: POPUP_OFFSET,
+                    className: ROUTE_POPUP_CLASS
+                }).setHTML(createOriginPopupHTML(origin.address))
             )
             .addTo(mapInstance)
 
@@ -130,17 +122,10 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
         const destinationMarker = new mapboxgl.Marker({ element: destinationEl })
             .setLngLat([destination.longitude, destination.latitude])
             .setPopup(
-                new mapboxgl.Popup({ offset: POPUP_OFFSET, className: ROUTE_POPUP_CLASS }).setHTML(`
-          <div style="padding: ${POPUP_CONTENT_PADDING}px; min-width: ${POPUP_MIN_WIDTH}px;">
-            <h3 style="font-size: 16px; font-weight: 600; margin: 0 0 12px 0; color: #1f2937;">
-              Destination
-            </h3>
-            <div>
-              <span style="font-size: 14px; font-weight: 500; color: #374151;">Address:</span>
-              <p style="font-size: 14px; color: #6b7280; margin: 4px 0 0 0;">${destination.address}</p>
-            </div>
-          </div>
-        `)
+                new mapboxgl.Popup({
+                    offset: POPUP_OFFSET,
+                    className: ROUTE_POPUP_CLASS
+                }).setHTML(createDestinationPopupHTML(destination.address))
             )
             .addTo(mapInstance)
 
