@@ -2,9 +2,10 @@
  * Composable for managing interactive draggable markers on Mapbox maps.
  * Provides reusable marker creation with custom styling and drag behavior.
  */
-import { shallowRef, type Ref } from 'vue'
+import { type Ref } from 'vue'
 import mapboxgl from 'mapbox-gl'
 import { createCustomMarkerElement } from '@/utils/mapMarkers'
+import { useMarkerManager } from './useMarkerManager'
 
 export interface MarkerConfig {
     color: string
@@ -19,7 +20,7 @@ export interface MarkerConfig {
  * @returns Methods to create, remove, and manage markers
  */
 export function useInteractiveMarkers(map: Ref<mapboxgl.Map | null>) {
-    const markers = shallowRef<(mapboxgl.Marker | null)[]>([])
+    const { markers, setMarker, removeMarker, clearAll, addSlot } = useMarkerManager()
 
     /**
      * Creates or updates a marker at specified position.
@@ -36,11 +37,6 @@ export function useInteractiveMarkers(map: Ref<mapboxgl.Map | null>) {
         config: MarkerConfig
     ): mapboxgl.Marker | null {
         if (!map.value) return null
-
-        // Remove old marker if exists
-        if (markers.value[index]) {
-            markers.value[index]?.remove()
-        }
 
         // Create custom marker element
         const el = createCustomMarkerElement({
@@ -65,35 +61,8 @@ export function useInteractiveMarkers(map: Ref<mapboxgl.Map | null>) {
             })
         }
 
-        markers.value[index] = marker
+        setMarker(marker, index)
         return marker
-    }
-
-    /**
-     * Removes marker at specified index.
-     * @param index - Marker index to remove
-     */
-    function removeMarker(index: number) {
-        if (markers.value[index]) {
-            markers.value[index]?.remove()
-            markers.value[index] = null
-        }
-    }
-
-    /**
-     * Removes all markers from map and clears array.
-     */
-    function clearAll() {
-        markers.value.forEach(m => m?.remove())
-        markers.value = []
-    }
-
-    /**
-     * Adds empty slot to markers array.
-     * Used when adding new address/obstacle fields.
-     */
-    function addSlot() {
-        markers.value.push(null)
     }
 
     return {

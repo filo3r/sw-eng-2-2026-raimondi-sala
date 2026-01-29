@@ -2,9 +2,10 @@
  * Composable for managing obstacle markers on Mapbox map.
  * Handles rendering and cleanup of active obstacle markers with severity-based styling.
  */
-import { ref, type Ref } from 'vue'
+import { type Ref } from 'vue'
 import mapboxgl from 'mapbox-gl'
 import { createCustomMarkerElement } from '@/utils/mapMarkers'
+import { useMarkerManager } from './useMarkerManager'
 import {
     OBSTACLE_SEVERITY_COLORS,
     DEFAULT_OBSTACLE_COLOR,
@@ -21,7 +22,7 @@ import type { ObstacleResponse } from '@/types/obstacle'
  * @returns Methods to add and clear obstacle markers
  */
 export function useMapObstacles(map: Ref<mapboxgl.Map | null>) {
-    const obstacleMarkers = ref<mapboxgl.Marker[]>([])
+    const { markers: obstacleMarkers, clearAll } = useMarkerManager()
 
     /**
      * Adds obstacle markers to map with severity-based colors.
@@ -29,13 +30,15 @@ export function useMapObstacles(map: Ref<mapboxgl.Map | null>) {
      * @param obstacles - Array of obstacle data
      */
     function addObstacles(obstacles: ObstacleResponse[]) {
-        if (!map.value)
-            return
+        if (!map.value) return
+
         const mapInstance = map.value
         clearObstacles()
+
         // Filter only active obstacles
         const activeObstacles = obstacles.filter(obstacle => obstacle.active)
         const currentMarkers: mapboxgl.Marker[] = []
+
         activeObstacles.forEach(obstacle => {
             const markerColor = OBSTACLE_SEVERITY_COLORS[obstacle.severity] || DEFAULT_OBSTACLE_COLOR
 
@@ -67,13 +70,16 @@ export function useMapObstacles(map: Ref<mapboxgl.Map | null>) {
           </div>
         </div>
       `)
+
             // Add marker to map
             const marker = new mapboxgl.Marker(el)
                 .setLngLat([obstacle.longitude, obstacle.latitude])
                 .setPopup(popup)
                 .addTo(mapInstance)
+
             currentMarkers.push(marker)
         })
+
         obstacleMarkers.value = currentMarkers
     }
 
@@ -81,8 +87,7 @@ export function useMapObstacles(map: Ref<mapboxgl.Map | null>) {
      * Removes all obstacle markers from map.
      */
     function clearObstacles() {
-        obstacleMarkers.value.forEach(marker => marker.remove())
-        obstacleMarkers.value = []
+        clearAll()
     }
 
     return {

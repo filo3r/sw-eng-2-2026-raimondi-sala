@@ -2,9 +2,10 @@
  * Composable for drawing bike path or trip routes on Mapbox map.
  * Handles route rendering, markers, and map bounds fitting.
  */
-import { ref, type Ref } from 'vue'
+import { type Ref } from 'vue'
 import mapboxgl from 'mapbox-gl'
 import { createCustomMarkerElement } from '@/utils/mapMarkers'
+import { useMarkerManager } from './useMarkerManager'
 import {
     ROUTE_LINE_COLOR,
     ROUTE_LINE_WIDTH,
@@ -30,7 +31,7 @@ type RoutePoint = BikePathPointResponse | TripPointResponse
  * @returns Methods to draw, clear routes and add markers
  */
 export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
-    const markers = ref<mapboxgl.Marker[]>([])
+    const { markers, clearAll } = useMarkerManager()
 
     /**
      * Draws route line on map from sequential points.
@@ -38,11 +39,14 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
      */
     function drawRoute(points: RoutePoint[]) {
         if (!map.value) return
+
         const mapInstance = map.value
         clearRoute()
+
         // Sort by sequential position to ensure correct line order
         const sortedPoints = [...points].sort((a, b) => a.sequentialPosition - b.sequentialPosition)
         const coordinates = sortedPoints.map(point => [point.longitude, point.latitude])
+
         // Add route as GeoJSON LineString
         mapInstance.addSource('route', {
             type: 'geojson',
@@ -55,6 +59,7 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
                 }
             }
         })
+
         // Style the route line
         mapInstance.addLayer({
             id: 'route',
@@ -69,6 +74,7 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
                 'line-width': ROUTE_LINE_WIDTH
             }
         })
+
         fitRouteBounds(coordinates)
     }
 
@@ -81,8 +87,8 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
         origin: { address: string; latitude: number; longitude: number },
         destination: { address: string; latitude: number; longitude: number }
     ) {
-        if (!map.value)
-            return
+        if (!map.value) return
+
         const mapInstance = map.value
         const currentMarkers: mapboxgl.Marker[] = []
 
@@ -110,6 +116,7 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
         `)
             )
             .addTo(mapInstance)
+
         currentMarkers.push(originMarker)
 
         // Create custom destination marker element
@@ -147,6 +154,7 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
      */
     function fitRouteBounds(coordinates: number[][]) {
         if (!map.value || coordinates.length === 0) return
+
         const bounds = coordinates.reduce(
             (bounds, coord) => bounds.extend(coord as [number, number]),
             new mapboxgl.LngLatBounds(
@@ -154,6 +162,7 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
                 coordinates[0] as [number, number]
             )
         )
+
         map.value.fitBounds(bounds, {
             padding: FIT_BOUNDS_PADDING,
             duration: FIT_BOUNDS_DURATION
@@ -164,9 +173,10 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
      * Removes route line and markers from map.
      */
     function clearRoute() {
-        if (!map.value)
-            return
+        if (!map.value) return
+
         const mapInstance = map.value
+
         // Remove route layer and source
         if (mapInstance.getLayer('route')) {
             mapInstance.removeLayer('route')
@@ -174,9 +184,9 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
         if (mapInstance.getSource('route')) {
             mapInstance.removeSource('route')
         }
+
         // Remove all markers
-        markers.value.forEach(marker => marker.remove())
-        markers.value = []
+        clearAll()
     }
 
     return {
