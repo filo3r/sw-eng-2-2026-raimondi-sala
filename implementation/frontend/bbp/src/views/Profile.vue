@@ -4,9 +4,9 @@ import { useRouter } from 'vue-router'
 import { User, Mail, Lock, UserCircle } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { useAsyncState } from '@/composables/useAsyncState'
 import { getCurrentUser, updateCurrentUser, deleteCurrentUser } from '@/services/user'
 import type { UserUpdateRequest, UserResponse } from '@/types/user'
-import { catchApiError } from '@/utils/error'
 import {
   USER_NAME_MAX_LENGTH,
   USER_SURNAME_MAX_LENGTH,
@@ -20,6 +20,9 @@ const router = useRouter()
 const authStore = useAuthStore()
 const { show } = useToast()
 
+const { execute } = useAsyncState<UserResponse>()
+const { execute: executeDelete } = useAsyncState<void>()
+
 const name = ref('')
 const surname = ref('')
 const username = ref('')
@@ -29,36 +32,34 @@ const password = ref('')
 const originalData = ref<UserResponse | null>(null)
 
 const isEditing = ref(false)
-const loading = ref(false)
+const saving = ref(false)
+const deleting = ref(false)
 const showDeleteModal = ref(false)
 
-const initialLoading = ref(true)
 const showSpinner = ref(false)
+const initialLoadComplete = ref(false)
 let spinnerTimeout: number | null = null
-
-onMounted(async () => {
-  await fetchUserData()
-})
 
 async function fetchUserData() {
   spinnerTimeout = window.setTimeout(() => {
     showSpinner.value = true
   }, SPINNER_DELAY_MS)
 
-  try {
-    const userData = await getCurrentUser()
-    name.value = userData.name
-    surname.value = userData.surname
-    username.value = userData.username
-    email.value = userData.email
-    originalData.value = userData
-  } catch (error: any) {
-    catchApiError(error, 'Profile.fetchUserData')
-  } finally {
-    if (spinnerTimeout) clearTimeout(spinnerTimeout)
-    showSpinner.value = false
-    initialLoading.value = false
-  }
+  await execute(
+      () => getCurrentUser(),
+      'Profile.fetchUserData',
+      (userData) => {
+        name.value = userData.name
+        surname.value = userData.surname
+        username.value = userData.username
+        email.value = userData.email
+        originalData.value = userData
+        initialLoadComplete.value = true
+      }
+  )
+
+  if (spinnerTimeout) clearTimeout(spinnerTimeout)
+  showSpinner.value = false
 }
 
 function toggleEdit() {
@@ -73,29 +74,30 @@ function toggleEdit() {
 }
 
 async function handleSave() {
-  loading.value = true
+  saving.value = true
 
-  try {
-    const updateData: UserUpdateRequest = {}
+  const updateData: UserUpdateRequest = {}
 
-    if (originalData.value) {
-      if (name.value !== originalData.value.name) updateData.name = name.value
-      if (surname.value !== originalData.value.surname) updateData.surname = surname.value
-      if (username.value !== originalData.value.username) updateData.username = username.value
-      if (email.value !== originalData.value.email) updateData.email = email.value
-      if (password.value) updateData.password = password.value
-    }
-
-    await updateCurrentUser(updateData)
-    await fetchUserData()
-    password.value = ''
-    isEditing.value = false
-    show('Profile updated successfully!', 'success')
-  } catch (error: any) {
-    catchApiError(error, 'Profile.handleSave')
-  } finally {
-    loading.value = false
+  if (originalData.value) {
+    if (name.value !== originalData.value.name) updateData.name = name.value
+    if (surname.value !== originalData.value.surname) updateData.surname = surname.value
+    if (username.value !== originalData.value.username) updateData.username = username.value
+    if (email.value !== originalData.value.email) updateData.email = email.value
+    if (password.value) updateData.password = password.value
   }
+
+  await execute(
+      () => updateCurrentUser(updateData),
+      'Profile.handleSave',
+      async () => {
+        await fetchUserData()
+        password.value = ''
+        isEditing.value = false
+        show('Profile updated successfully!', 'success')
+      }
+  )
+
+  saving.value = false
 }
 
 async function handleLogout() {
@@ -110,16 +112,24 @@ function openDeleteModal() {
 
 async function confirmDelete() {
   showDeleteModal.value = false
+  deleting.value = true
 
-  try {
-    await deleteCurrentUser()
-    authStore.clearAuth()
-    show('Account deleted successfully', 'success')
-    await router.push('/login')
-  } catch (error: any) {
-    catchApiError(error, 'Profile.confirmDelete')
-  }
+  await executeDelete(
+      () => deleteCurrentUser(),
+      'Profile.confirmDelete',
+      async () => {
+        authStore.clearAuth()
+        show('Account deleted successfully', 'success')
+        await router.push('/login')
+      }
+  )
+
+  deleting.value = false
 }
+
+onMounted(() => {
+  fetchUserData()
+})
 </script>
 
 <template>
@@ -127,7 +137,7 @@ async function confirmDelete() {
     <span class="loading loading-spinner loading-lg"></span>
   </div>
 
-  <div v-else-if="!initialLoading" class="flex h-screen items-center justify-center overflow-hidden">
+  <div v-else-if="initialLoadComplete" class="flex h-screen items-center justify-center overflow-hidden">
     <div class="card w-full max-w-md bg-base-100 shadow-xl">
       <div class="card-body items-center">
         <h2 class="card-title text-2xl">Profile</h2>
@@ -239,21 +249,20 @@ async function confirmDelete() {
             <button type="button" @click="toggleEdit" class="btn btn-ghost flex-1">
               Cancel
             </button>
-            <button type="submit" class="btn btn-neutral flex-1" :disabled="loading">
-              {{ loading ? 'Saving...' : 'Save' }}
+            <button type="submit" class="btn btn-neutral flex-1" :disabled="saving">
+              {{ saving ? 'Saving...' : 'Save' }}
             </button>
           </div>
         </form>
 
         <div class="divider"></div>
 
-        <button @click="openDeleteModal" class="btn btn-error btn-outline w-full">
-          Delete Account
+        <button @click="openDeleteModal" class="btn btn-error btn-outline w-full" :disabled="deleting">
+          {{ deleting ? 'Deleting...' : 'Delete Account' }}
         </button>
       </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
     <input type="checkbox" class="modal-toggle" v-model="showDeleteModal" />
     <div class="modal" role="dialog">
       <div class="modal-box">
@@ -261,7 +270,9 @@ async function confirmDelete() {
         <p class="py-4">Are you sure you want to delete your account? This action cannot be undone.</p>
         <div class="modal-action">
           <button @click="showDeleteModal = false" class="btn">Cancel</button>
-          <button @click="confirmDelete" class="btn btn-error">Delete</button>
+          <button @click="confirmDelete" class="btn btn-error" :disabled="deleting">
+            {{ deleting ? 'Deleting...' : 'Delete' }}
+          </button>
         </div>
       </div>
     </div>

@@ -18,9 +18,9 @@ import { getMapboxApiKey } from '@/config/mapbox'
 import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
 import { useToast } from '@/composables/useToast'
+import { useAsyncState } from '@/composables/useAsyncState'
 import { formatDistance, formatDuration, formatSpeed, formatTemperature, formatHumidity, formatWindSpeed } from '@/utils/format'
 import { formatDateTime } from '@/utils/date'
-import { catchApiError } from '@/utils/error'
 import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { TripResponse } from '@/types/trip'
 
@@ -28,13 +28,13 @@ const route = useRoute()
 const router = useRouter()
 const { show } = useToast()
 
-const trip = ref<TripResponse | null>(null)
-const loading = ref(false)
+const { data: trip, execute } = useAsyncState<TripResponse>()
+const { execute: executeDelete } = useAsyncState<void>()
+const deleting = ref(false)
 const mapContainer = ref<HTMLElement | null>(null)
 
 const showDeleteModal = ref(false)
 
-const initialLoading = ref(true)
 const showSpinner = ref(false)
 let spinnerTimeout: number | null = null
 
@@ -54,7 +54,6 @@ async function loadTrip() {
 
   if (stateData && stateData.id === tripId) {
     trip.value = stateData
-    initialLoading.value = false
     return
   }
 
@@ -62,15 +61,13 @@ async function loadTrip() {
     showSpinner.value = true
   }, SPINNER_DELAY_MS)
 
-  try {
-    trip.value = await getTripById(tripId)
-  } catch (error: any) {
-    catchApiError(error, 'TripDetail.loadTrip')
-  } finally {
-    if (spinnerTimeout) clearTimeout(spinnerTimeout)
-    showSpinner.value = false
-    initialLoading.value = false
-  }
+  await execute(
+      () => getTripById(tripId),
+      'TripDetail.loadTrip'
+  )
+
+  if (spinnerTimeout) clearTimeout(spinnerTimeout)
+  showSpinner.value = false
 }
 
 watch([isReady, trip], ([ready, tripData]) => {
@@ -98,18 +95,19 @@ function goBack() {
 async function handleDelete() {
   if (!trip.value) return
 
-  loading.value = true
+  showDeleteModal.value = false
+  deleting.value = true
 
-  try {
-    await deleteTrip(trip.value.id)
-    show('Trip deleted successfully', 'success')
-    await router.push('/trips')
-  } catch (error: any) {
-    catchApiError(error, 'TripDetail.handleDelete')
-  } finally {
-    loading.value = false
-    showDeleteModal.value = false
-  }
+  await executeDelete(
+      () => deleteTrip(trip.value!.id),
+      'TripDetail.handleDelete',
+      async () => {
+        show('Trip deleted successfully', 'success')
+        await router.push('/trips')
+      }
+  )
+
+  deleting.value = false
 }
 
 onMounted(async () => {
@@ -123,13 +121,13 @@ onMounted(async () => {
     <span class="loading loading-spinner loading-lg"></span>
   </div>
 
-  <div v-else-if="!initialLoading" class="p-6 overflow-x-hidden">
-    <div v-if="!trip" class="text-center py-12">
-      <p class="text-gray-500">Trip not found</p>
-      <button @click="goBack" class="btn btn-neutral mt-4">Go Back</button>
-    </div>
+  <div v-else-if="!trip" class="p-6 text-center py-12">
+    <p class="text-gray-500">Trip not found</p>
+    <button @click="goBack" class="btn btn-neutral mt-4">Go Back</button>
+  </div>
 
-    <div v-else class="space-y-6">
+  <div v-else class="p-6 overflow-x-hidden">
+    <div class="space-y-6">
       <div class="space-y-4">
         <div class="flex items-start gap-4">
           <button @click="goBack" class="btn btn-ghost btn-circle shrink-0">
@@ -260,8 +258,8 @@ onMounted(async () => {
         <p class="mb-6">Are you sure you want to delete this trip? This action cannot be undone.</p>
         <div class="flex gap-2 justify-end">
           <button @click="showDeleteModal = false" class="btn btn-ghost">Cancel</button>
-          <button @click="handleDelete" class="btn btn-error" :disabled="loading">
-            {{ loading ? 'Deleting...' : 'Delete' }}
+          <button @click="handleDelete" class="btn btn-error" :disabled="deleting">
+            {{ deleting ? 'Deleting...' : 'Delete' }}
           </button>
         </div>
       </div>

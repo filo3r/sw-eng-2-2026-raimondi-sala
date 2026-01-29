@@ -6,6 +6,7 @@ import { getUserTrips, searchTrips } from '@/services/trip'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { generateStaticMapUrl } from '@/utils/mapStatic'
 import { useToast } from '@/composables/useToast'
+import { useAsyncState } from '@/composables/useAsyncState'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { formatDistance, formatDuration } from '@/utils/format'
 import { formatDateRange } from '@/utils/date'
@@ -13,48 +14,39 @@ import { catchApiError } from '@/utils/error'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
 import { TRIP_PAGE_SIZE, SORT_DESC } from '@/constants/pagination'
 import { SPINNER_DELAY_MS } from '@/constants/ui'
-import type { TripResponse } from '@/types/trip'
+import type { TripResponse, PagedTripResponse } from '@/types/trip'
 
 const router = useRouter()
 const { show } = useToast()
 
-// Autocomplete
+const { isLoading, execute } = useAsyncState<PagedTripResponse>()
+const trips = ref<TripResponse[]>([])
+const loadingMore = ref(false)
+const currentPage = ref(0)
+const hasMore = ref(false)
+
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
 const activeField = ref<'origin' | 'destination' | null>(null)
 
-const trips = ref<TripResponse[]>([])
-const loading = ref(false)
-const currentPage = ref(0)
-const hasMore = ref(false)
-
 const isFilterModalOpen = ref(false)
 const originFilter = ref('')
 const destinationFilter = ref('')
-
-// Date/Time separati per i filtri
 const startDateFromStr = ref('')
 const startTimeFromStr = ref('')
 const startDateToStr = ref('')
 const startTimeToStr = ref('')
-
 const hasActiveFilters = ref(false)
 
-const initialLoading = ref(true)
 const showSpinner = ref(false)
+const initialLoadComplete = ref(false)
 let spinnerTimeout: number | null = null
 
-/**
- * Normalizza il formato time aggiungendo i secondi se mancano
- */
 function normalizeTime(t: string): string {
   if (!t) return ''
   return t.length === 5 ? `${t}:00` : t
 }
 
-/**
- * Converte dateStr + timeStr in oggetto Date
- */
 function toDate(dateStr: string, timeStr: string): Date | null {
   if (!dateStr || !timeStr) return null
   const d = new Date(`${dateStr}T${normalizeTime(timeStr)}`)
@@ -67,13 +59,11 @@ function setActiveField(field: 'origin' | 'destination') {
 
 function selectSuggestion(suggestion: any, field: 'origin' | 'destination') {
   const address = suggestion.full_address || ''
-
   if (field === 'origin') {
     originFilter.value = address
   } else {
     destinationFilter.value = address
   }
-
   showSuggestions.value = false
   activeField.value = null
 }
@@ -83,24 +73,25 @@ async function loadTrips() {
     showSpinner.value = true
   }, SPINNER_DELAY_MS)
 
-  try {
-    const response = await getUserTrips(currentPage.value, TRIP_PAGE_SIZE, 'startTime', SORT_DESC)
-    trips.value = response.content
-    hasMore.value = response.hasNext
-  } catch (error: any) {
-    catchApiError(error, 'Trips.loadTrips')
-  } finally {
-    if (spinnerTimeout) clearTimeout(spinnerTimeout)
-    showSpinner.value = false
-    initialLoading.value = false
-  }
+  await execute(
+      () => getUserTrips(currentPage.value, TRIP_PAGE_SIZE, 'startTime', SORT_DESC),
+      'Trips.loadTrips',
+      (response) => {
+        trips.value = response.content
+        hasMore.value = response.hasNext
+        initialLoadComplete.value = true
+      }
+  )
+
+  if (spinnerTimeout) clearTimeout(spinnerTimeout)
+  showSpinner.value = false
 }
 
 async function loadMore() {
   currentPage.value++
 
   let loadMoreSpinnerTimeout = window.setTimeout(() => {
-    loading.value = true
+    loadingMore.value = true
   }, SPINNER_DELAY_MS)
 
   try {
@@ -121,11 +112,11 @@ async function loadMore() {
 
     trips.value.push(...response.content)
     hasMore.value = response.hasNext
-  } catch (error: any) {
+  } catch (error) {
     catchApiError(error, 'Trips.loadMore')
   } finally {
     clearTimeout(loadMoreSpinnerTimeout)
-    loading.value = false
+    loadingMore.value = false
   }
 }
 
@@ -147,7 +138,6 @@ function clearFilters() {
 }
 
 async function applyFilters() {
-  loading.value = true
   currentPage.value = 0
 
   const startTimeFrom = toDate(startDateFromStr.value, startTimeFromStr.value)
@@ -155,30 +145,30 @@ async function applyFilters() {
 
   hasActiveFilters.value = !!(originFilter.value || destinationFilter.value || startTimeFrom || startTimeTo)
 
-  try {
-    const response = await searchTrips(
-        {
-          origin: originFilter.value || undefined,
-          destination: destinationFilter.value || undefined,
-          startTimeFrom: startTimeFrom ? startTimeFrom.toISOString() : undefined,
-          startTimeTo: startTimeTo ? startTimeTo.toISOString() : undefined
-        },
-        0,
-        TRIP_PAGE_SIZE,
-        'startTime',
-        SORT_DESC
-    )
-
-    trips.value = response.content
-    hasMore.value = response.hasNext
-    show(`Found ${response.totalElements} trips`, 'success')
-  } catch (error: any) {
-    catchApiError(error, 'Trips.applyFilters')
-    trips.value = []
-    hasMore.value = false
-  } finally {
-    loading.value = false
-  }
+  await execute(
+      () => searchTrips(
+          {
+            origin: originFilter.value || undefined,
+            destination: destinationFilter.value || undefined,
+            startTimeFrom: startTimeFrom?.toISOString(),
+            startTimeTo: startTimeTo?.toISOString()
+          },
+          0,
+          TRIP_PAGE_SIZE,
+          'startTime',
+          SORT_DESC
+      ),
+      'Trips.applyFilters',
+      (response) => {
+        trips.value = response.content
+        hasMore.value = response.hasNext
+        show(`Found ${response.totalElements} trips`, 'success')
+      },
+      () => {
+        trips.value = []
+        hasMore.value = false
+      }
+  )
 
   closeFilterModal()
 }
@@ -189,7 +179,6 @@ function goToCreateTrip() {
 
 function viewTripDetail(id: number) {
   const selectedTrip = trips.value.find(t => t.id === id)
-
   router.push({
     name: 'TripDetail',
     params: { id },
@@ -210,7 +199,7 @@ onMounted(() => {
     <span class="loading loading-spinner loading-lg"></span>
   </div>
 
-  <div v-else-if="!initialLoading" class="p-6 overflow-x-hidden">
+  <div v-else-if="initialLoadComplete" class="p-6 overflow-x-hidden">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-3xl font-bold">Trips</h1>
       <div class="flex gap-2">
@@ -251,7 +240,6 @@ onMounted(() => {
                   @blur="onAutocompleteBlur"
               />
 
-              <!-- Suggestions dropdown -->
               <div
                   v-if="showSuggestions && activeField === 'origin' && suggestions.length > 0"
                   class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
@@ -285,7 +273,6 @@ onMounted(() => {
                   @blur="onAutocompleteBlur"
               />
 
-              <!-- Suggestions dropdown -->
               <div
                   v-if="showSuggestions && activeField === 'destination' && suggestions.length > 0"
                   class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
@@ -308,17 +295,8 @@ onMounted(() => {
               <span class="label-text">Start Time From</span>
             </label>
             <div class="grid grid-cols-2 gap-2">
-              <input
-                  v-model="startDateFromStr"
-                  type="date"
-                  class="input input-bordered w-full"
-              />
-              <input
-                  v-model="startTimeFromStr"
-                  type="time"
-                  step="1"
-                  class="input input-bordered w-full"
-              />
+              <input v-model="startDateFromStr" type="date" class="input input-bordered w-full" />
+              <input v-model="startTimeFromStr" type="time" step="1" class="input input-bordered w-full" />
             </div>
           </div>
 
@@ -327,17 +305,8 @@ onMounted(() => {
               <span class="label-text">Start Time To</span>
             </label>
             <div class="grid grid-cols-2 gap-2">
-              <input
-                  v-model="startDateToStr"
-                  type="date"
-                  class="input input-bordered w-full"
-              />
-              <input
-                  v-model="startTimeToStr"
-                  type="time"
-                  step="1"
-                  class="input input-bordered w-full"
-              />
+              <input v-model="startDateToStr" type="date" class="input input-bordered w-full" />
+              <input v-model="startTimeToStr" type="time" step="1" class="input input-bordered w-full" />
             </div>
           </div>
 
@@ -346,9 +315,9 @@ onMounted(() => {
               <Eraser :size="16" />
               Clear
             </button>
-            <button type="submit" class="btn btn-neutral flex-1">
+            <button type="submit" class="btn btn-neutral flex-1" :disabled="isLoading">
               <Search :size="16" />
-              Apply Filters
+              {{ isLoading ? 'Searching...' : 'Apply Filters' }}
             </button>
           </div>
         </form>
@@ -414,12 +383,8 @@ onMounted(() => {
       </div>
 
       <div v-if="hasMore" class="flex justify-center mt-8">
-        <button
-            @click="loadMore"
-            class="btn btn-neutral"
-            :disabled="loading"
-        >
-          {{ loading ? 'Loading...' : 'Load More' }}
+        <button @click="loadMore" class="btn btn-neutral" :disabled="loadingMore">
+          {{ loadingMore ? 'Loading...' : 'Load More' }}
         </button>
       </div>
     </div>

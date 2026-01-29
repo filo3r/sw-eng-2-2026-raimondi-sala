@@ -22,9 +22,9 @@ import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
 import { useMapObstacles } from '@/composables/useMapObstacles'
 import { useToast } from '@/composables/useToast'
+import { useAsyncState } from '@/composables/useAsyncState'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDateTime } from '@/utils/date'
-import { catchApiError } from '@/utils/error'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
 import { BIKE_PATH_STATUS_OPTIONS } from '@/constants/bikePath'
 import { OBSTACLE_SEVERITY_COLORS } from '@/constants/map'
@@ -37,9 +37,10 @@ const route = useRoute()
 const router = useRouter()
 const { show } = useToast()
 
-const bikePath = ref<BikePathResponse | null>(null)
-const loading = ref(false)
+const { data: bikePath, execute } = useAsyncState<BikePathResponse>()
+const { execute: executeDelete } = useAsyncState<void>()
 const saving = ref(false)
+const deleting = ref(false)
 const mapContainer = ref<HTMLElement | null>(null)
 
 const isEditing = ref(false)
@@ -57,7 +58,6 @@ const obstacleEditData = ref<{
 
 const showDeleteBikePathModal = ref(false)
 
-const initialLoading = ref(true)
 const showSpinner = ref(false)
 let spinnerTimeout: number | null = null
 
@@ -79,7 +79,6 @@ async function loadBikePath() {
   if (stateData && stateData.id === bikePathId) {
     bikePath.value = stateData
     originalVersion.value = stateData.version
-    initialLoading.value = false
     await nextTick()
     return
   }
@@ -88,16 +87,17 @@ async function loadBikePath() {
     showSpinner.value = true
   }, SPINNER_DELAY_MS)
 
-  try {
-    bikePath.value = await getBikePathById(bikePathId)
-    originalVersion.value = bikePath.value.version
-  } catch (error: any) {
-    catchApiError(error, 'BikePathDetail.loadBikePath')
-  } finally {
-    if (spinnerTimeout) clearTimeout(spinnerTimeout)
-    showSpinner.value = false
-    initialLoading.value = false
+  const result = await execute(
+      () => getBikePathById(bikePathId),
+      'BikePathDetail.loadBikePath'
+  )
+
+  if (result) {
+    originalVersion.value = result.version
   }
+
+  if (spinnerTimeout) clearTimeout(spinnerTimeout)
+  showSpinner.value = false
 }
 
 watch([isReady, bikePath], ([ready, path]) => {
@@ -172,46 +172,47 @@ async function handleSave() {
 
   saving.value = true
 
-  try {
-    const updateRequest: BikePathUpdateRequest = {
-      version: originalVersion.value,
-      description: editDescription.value || undefined,
-      status: editStatus.value !== bikePath.value.status ? editStatus.value : undefined,
-      published: editPublished.value !== bikePath.value.published ? editPublished.value : undefined
-    }
+  await execute(
+      async () => {
+        const updateRequest: BikePathUpdateRequest = {
+          version: originalVersion.value,
+          description: editDescription.value || undefined,
+          status: editStatus.value !== bikePath.value!.status ? editStatus.value : undefined,
+          published: editPublished.value !== bikePath.value!.published ? editPublished.value : undefined
+        }
+        return await updateBikePath(bikePath.value!.id, updateRequest)
+      },
+      'BikePathDetail.handleSave',
+      (updated) => {
+        bikePath.value = updated
+        originalVersion.value = updated.version
+        isEditing.value = false
+        editingObstacleId.value = null
+        clearObstacles()
+        addObstacles(updated.obstacles)
+        show('Bike path updated successfully', 'success')
+      }
+  )
 
-    const updated = await updateBikePath(bikePath.value.id, updateRequest)
-    bikePath.value = updated
-    originalVersion.value = updated.version
-    isEditing.value = false
-    editingObstacleId.value = null
-
-    clearObstacles()
-    addObstacles(updated.obstacles)
-
-    show('Bike path updated successfully', 'success')
-  } catch (error: any) {
-    catchApiError(error, 'BikePathDetail.handleSave')
-  } finally {
-    saving.value = false
-  }
+  saving.value = false
 }
 
 async function handleDelete() {
   if (!bikePath.value) return
 
-  loading.value = true
+  showDeleteBikePathModal.value = false
+  deleting.value = true
 
-  try {
-    await deleteBikePath(bikePath.value.id)
-    show('Bike path deleted successfully', 'success')
-    await router.push('/bike-paths')
-  } catch (error: any) {
-    catchApiError(error, 'BikePathDetail.handleDelete')
-  } finally {
-    loading.value = false
-    showDeleteBikePathModal.value = false
-  }
+  await executeDelete(
+      () => deleteBikePath(bikePath.value!.id),
+      'BikePathDetail.handleDelete',
+      async () => {
+        show('Bike path deleted successfully', 'success')
+        await router.push('/bike-paths')
+      }
+  )
+
+  deleting.value = false
 }
 
 function startEditObstacle(obstacleId: number) {
@@ -237,33 +238,33 @@ async function saveObstacle(obstacleId: number) {
 
   saving.value = true
 
-  try {
-    const updateRequest: BikePathUpdateRequest = {
-      version: originalVersion.value,
-      obstaclesToUpdate: [
-        {
-          id: obstacleId,
-          type: obstacleEditData.value.type,
-          severity: obstacleEditData.value.severity,
-          active: obstacleEditData.value.active
+  await execute(
+      async () => {
+        const updateRequest: BikePathUpdateRequest = {
+          version: originalVersion.value,
+          obstaclesToUpdate: [
+            {
+              id: obstacleId,
+              type: obstacleEditData.value.type,
+              severity: obstacleEditData.value.severity,
+              active: obstacleEditData.value.active
+            }
+          ]
         }
-      ]
-    }
+        return await updateBikePath(bikePath.value!.id, updateRequest)
+      },
+      'BikePathDetail.saveObstacle',
+      (updated) => {
+        bikePath.value = updated
+        originalVersion.value = updated.version
+        editingObstacleId.value = null
+        clearObstacles()
+        addObstacles(updated.obstacles)
+        show('Obstacle updated successfully', 'success')
+      }
+  )
 
-    const updated = await updateBikePath(bikePath.value.id, updateRequest)
-    bikePath.value = updated
-    originalVersion.value = updated.version
-    editingObstacleId.value = null
-
-    clearObstacles()
-    addObstacles(updated.obstacles)
-
-    show('Obstacle updated successfully', 'success')
-  } catch (error: any) {
-    catchApiError(error, 'BikePathDetail.saveObstacle')
-  } finally {
-    saving.value = false
-  }
+  saving.value = false
 }
 
 onMounted(async () => {
@@ -285,13 +286,13 @@ onUnmounted(() => {
     <span class="loading loading-spinner loading-lg"></span>
   </div>
 
-  <div v-else-if="!initialLoading" class="p-6 overflow-x-hidden overflow-y-auto min-h-screen">
-    <div v-if="!bikePath" class="text-center py-12">
-      <p class="text-gray-500">Bike path not found</p>
-      <button @click="goBack" class="btn btn-neutral mt-4">Go Back</button>
-    </div>
+  <div v-else-if="!bikePath" class="p-6 text-center py-12">
+    <p class="text-gray-500">Bike path not found</p>
+    <button @click="goBack" class="btn btn-neutral mt-4">Go Back</button>
+  </div>
 
-    <div v-else class="space-y-6">
+  <div v-else class="p-6 overflow-x-hidden overflow-y-auto min-h-screen">
+    <div class="space-y-6">
       <div class="space-y-4">
         <div class="flex items-start gap-4">
           <button @click="goBack" class="btn btn-ghost btn-circle shrink-0">
@@ -604,8 +605,8 @@ onUnmounted(() => {
         <p class="mb-6">Are you sure you want to delete this bike path? This action cannot be undone.</p>
         <div class="flex gap-2 justify-end">
           <button @click="showDeleteBikePathModal = false" class="btn btn-ghost">Cancel</button>
-          <button @click="handleDelete" class="btn btn-error" :disabled="loading">
-            {{ loading ? 'Deleting...' : 'Delete' }}
+          <button @click="handleDelete" class="btn btn-error" :disabled="deleting">
+            {{ deleting ? 'Deleting...' : 'Delete' }}
           </button>
         </div>
       </div>

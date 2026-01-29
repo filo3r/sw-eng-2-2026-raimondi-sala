@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { Search, X, Eraser, Star, Bike, ArrowRight, ChevronDown } from 'lucide-vue-next'
 import { useToast } from '@/composables/useToast'
+import { useAsyncState } from '@/composables/useAsyncState'
 import { useNoScroll } from '@/composables/useNoScroll.ts'
 import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
@@ -17,16 +18,17 @@ import { RADIUS_OPTIONS, DEFAULT_RADIUS_KM } from '@/constants/bikePath'
 import { BIKE_PATH_FINDER_PAGE_SIZE } from '@/constants/pagination'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
 import { SPINNER_DELAY_MS } from '@/constants/ui'
-import type { BikePathResponse } from '@/types/bikePath'
+import type { BikePathResponse, PagedBikePathResponse } from '@/types/bikePath'
 
 const router = useRouter()
 const { show } = useToast()
 const store = useBikePathFinderStore()
 useNoScroll()
 
+const { isLoading, execute } = useAsyncState<PagedBikePathResponse>()
+
 const mapContainer = ref<HTMLDivElement | null>(null)
 
-// Map composables
 const { map, isReady, initMap } = useMap({
   container: mapContainer,
   accessToken: getMapboxApiKey(),
@@ -36,18 +38,16 @@ const { map, isReady, initMap } = useMap({
 const { drawRoute, addMarkers, clearRoute } = useMapRoute(map)
 const { addObstacles, clearObstacles } = useMapObstacles(map)
 
-// Autocomplete
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
 const activeField = ref<'origin' | 'destination' | null>(null)
 
-// Search state
 const isSidebarOpen = ref(false)
 const originAddress = ref('')
 const originRadius = ref(DEFAULT_RADIUS_KM)
 const destinationAddress = ref('')
 const destinationRadius = ref(DEFAULT_RADIUS_KM)
-const loading = ref(false)
+const loadingMore = ref(false)
 const searchResults = ref<BikePathResponse[]>([])
 const selectedBikePathId = ref<number | null>(null)
 const currentPage = ref(0)
@@ -91,36 +91,38 @@ async function handleSearch() {
     showSpinner.value = true
   }, SPINNER_DELAY_MS)
 
-  try {
-    const response = await findBikePaths(
-        {
-          originAddress: originAddress.value,
-          destinationAddress: destinationAddress.value,
-          originRadiusKm: originRadius.value,
-          destinationRadiusKm: destinationRadius.value
-        },
-        0,
-        BIKE_PATH_FINDER_PAGE_SIZE
-    )
+  await execute(
+      () => findBikePaths(
+          {
+            originAddress: originAddress.value,
+            destinationAddress: destinationAddress.value,
+            originRadiusKm: originRadius.value,
+            destinationRadiusKm: destinationRadius.value
+          },
+          0,
+          BIKE_PATH_FINDER_PAGE_SIZE
+      ),
+      'BikePathFinder.handleSearch',
+      (response) => {
+        searchResults.value = response.content
+        hasMore.value = response.hasNext
+        show(`Found ${response.totalElements} bike paths`, 'success')
+      },
+      () => {
+        searchResults.value = []
+        hasMore.value = false
+      }
+  )
 
-    searchResults.value = response.content
-    hasMore.value = response.hasNext
-    show(`Found ${response.totalElements} bike paths`, 'success')
-  } catch (error: any) {
-    catchApiError(error, 'BikePathFinder.handleSearch')
-    searchResults.value = []
-    hasMore.value = false
-  } finally {
-    if (spinnerTimeout) clearTimeout(spinnerTimeout)
-    showSpinner.value = false
-  }
+  if (spinnerTimeout) clearTimeout(spinnerTimeout)
+  showSpinner.value = false
 }
 
 async function loadMore() {
   currentPage.value++
 
   let loadMoreSpinnerTimeout = window.setTimeout(() => {
-    loading.value = true
+    loadingMore.value = true
   }, SPINNER_DELAY_MS)
 
   try {
@@ -137,11 +139,11 @@ async function loadMore() {
 
     searchResults.value.push(...response.content)
     hasMore.value = response.hasNext
-  } catch (error: any) {
+  } catch (error) {
     catchApiError(error, 'BikePathFinder.loadMore')
   } finally {
     clearTimeout(loadMoreSpinnerTimeout)
-    loading.value = false
+    loadingMore.value = false
   }
 }
 
@@ -158,7 +160,6 @@ function clearSearch() {
   clearRoute()
   clearObstacles()
 
-  // Clear store state
   store.clearSearchState()
 }
 
@@ -168,14 +169,11 @@ function selectBikePath(bikePathId: number) {
   const selectedPath = searchResults.value.find(bp => bp.id === bikePathId)
   if (!selectedPath || !isReady.value) return
 
-  // Clear previous route and obstacles
   clearRoute()
   clearObstacles()
 
-  // Draw route
   drawRoute(selectedPath.bikePathPoints)
 
-  // Add origin and destination markers
   addMarkers(
       {
         address: selectedPath.origin,
@@ -189,7 +187,6 @@ function selectBikePath(bikePathId: number) {
       }
   )
 
-  // Add obstacle markers
   if (selectedPath.obstacles && selectedPath.obstacles.length > 0) {
     addObstacles(selectedPath.obstacles)
   }
@@ -198,7 +195,6 @@ function selectBikePath(bikePathId: number) {
 function viewDetails(bikePathId: number) {
   const selectedBikePath = searchResults.value.find(bp => bp.id === bikePathId)
 
-  // Convert reactive arrays/objects to plain JavaScript before saving
   store.saveSearchState({
     originAddress: originAddress.value,
     destinationAddress: destinationAddress.value,
@@ -221,50 +217,39 @@ function viewDetails(bikePathId: number) {
   })
 }
 
-/**
- * Restore search state from store
- */
 function restoreSearchState() {
   if (!store.hasSearchState) {
-    console.log('âŠ˜ No saved search state to restore')
+    console.log('⊘ No saved search state to restore')
     return
   }
 
-  console.log('â†» Restoring search state from store...')
+  console.log('↻ Restoring search state from store...')
 
-  // Restore search parameters
   originAddress.value = store.originAddress
   destinationAddress.value = store.destinationAddress
   originRadius.value = store.originRadius
   destinationRadius.value = store.destinationRadius
 
-  // Restore results and pagination
   searchResults.value = store.searchResults
   currentPage.value = store.currentPage
   hasMore.value = store.hasMore
 
-  // Restore UI state
   selectedBikePathId.value = store.selectedBikePathId
   isSidebarOpen.value = store.isSidebarOpen
 
-  console.log(`âœ“ Restored ${searchResults.value.length} search results`)
+  console.log(`✓ Restored ${searchResults.value.length} search results`)
 }
 
-/**
- * Redraw map when ready and state is restored
- */
 function restoreMapState() {
   if (!isReady.value || !store.selectedBikePathId) return
 
   const selectedPath = searchResults.value.find(bp => bp.id === store.selectedBikePathId)
   if (!selectedPath) return
 
-  console.log('â†» Restoring map state...')
+  console.log('↻ Restoring map state...')
 
-  // Draw route
   drawRoute(selectedPath.bikePathPoints)
 
-  // Add markers
   addMarkers(
       {
         address: selectedPath.origin,
@@ -278,15 +263,13 @@ function restoreMapState() {
       }
   )
 
-  // Add obstacles
   if (selectedPath.obstacles && selectedPath.obstacles.length > 0) {
     addObstacles(selectedPath.obstacles)
   }
 
-  console.log('âœ“ Map state restored')
+  console.log('✓ Map state restored')
 }
 
-// Watch for map ready to restore map state
 watch(isReady, (ready) => {
   if (ready && store.hasSearchState) {
     restoreMapState()
@@ -296,13 +279,9 @@ watch(isReady, (ready) => {
 onMounted(() => {
   document.body.style.overflow = 'hidden'
 
-  // Restore search state first
   restoreSearchState()
-
-  // Initialize map
   initMap()
 
-  // Close sidebar when clicking on map
   if (map.value) {
     (map.value as any).on('click', () => {
       if (isSidebarOpen.value) {
@@ -317,7 +296,6 @@ onMounted(() => {
   <div class="h-full w-full overflow-hidden relative">
     <div ref="mapContainer" class="h-full w-full"></div>
 
-    <!-- Search Button (only when sidebar is closed) -->
     <button
         v-if="!isSidebarOpen"
         @click="isSidebarOpen = true"
@@ -326,7 +304,6 @@ onMounted(() => {
       <Search :size="20" />
     </button>
 
-    <!-- Sidebar -->
     <div
         :class="[
         'absolute top-0 left-0 h-full bg-base-100 shadow-2xl z-20 transition-transform duration-300',
@@ -335,7 +312,6 @@ onMounted(() => {
       ]"
     >
       <div class="p-6">
-        <!-- Header with title and X -->
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-2xl font-bold">Search Bike Paths</h2>
           <button @click="isSidebarOpen = false" class="btn btn-circle btn-ghost">
@@ -343,9 +319,7 @@ onMounted(() => {
           </button>
         </div>
 
-        <!-- Search Form -->
         <form @submit.prevent="handleSearch" class="space-y-4">
-          <!-- Origin -->
           <div>
             <label class="label">
               <span class="label-text">Origin</span>
@@ -363,7 +337,6 @@ onMounted(() => {
                   required
               />
 
-              <!-- Suggestions dropdown -->
               <div
                   v-if="showSuggestions && activeField === 'origin' && suggestions.length > 0"
                   class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
@@ -402,7 +375,6 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Destination -->
           <div>
             <label class="label">
               <span class="label-text">Destination</span>
@@ -420,7 +392,6 @@ onMounted(() => {
                   required
               />
 
-              <!-- Suggestions dropdown -->
               <div
                   v-if="showSuggestions && activeField === 'destination' && suggestions.length > 0"
                   class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
@@ -459,22 +430,20 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Action Buttons -->
           <div class="flex gap-2">
             <button type="button" @click="clearSearch" class="btn btn-ghost flex-1">
               <Eraser :size="16" />
               Clear
             </button>
-            <button type="submit" class="btn btn-neutral flex-1" :disabled="showSpinner">
+            <button type="submit" class="btn btn-neutral flex-1" :disabled="isLoading">
               <Search :size="16" />
-              {{ showSpinner ? 'Searching...' : 'Search' }}
+              {{ isLoading ? 'Searching...' : 'Search' }}
             </button>
           </div>
         </form>
 
         <div class="divider"></div>
 
-        <!-- Results Section -->
         <div v-if="showSpinner && searchResults.length === 0" class="text-center text-gray-500">
           <span class="loading loading-spinner loading-md"></span>
           <p class="mt-2">Searching...</p>
@@ -485,7 +454,6 @@ onMounted(() => {
         </div>
 
         <div v-else class="space-y-3">
-          <!-- Result Cards -->
           <div
               v-for="bikePath in searchResults"
               :key="bikePath.id"
@@ -497,19 +465,16 @@ onMounted(() => {
                 : 'border-base-300 hover:bg-base-200'
             ]"
           >
-            <!-- Origin -->
             <div class="flex items-center gap-2 mb-1">
               <span class="text-xs text-gray-500">From:</span>
               <p class="truncate flex-1 font-medium">{{ bikePath.origin }}</p>
             </div>
 
-            <!-- Destination -->
             <div class="flex items-center gap-2 mb-3">
               <span class="text-xs text-gray-500">To:</span>
               <p class="truncate flex-1 font-medium">{{ bikePath.destination }}</p>
             </div>
 
-            <!-- Score, Distance, Status -->
             <div class="flex items-center gap-4 text-sm mb-3">
               <div class="flex items-center gap-1">
                 <Star :size="16" class="text-warning fill-warning" />
@@ -522,26 +487,23 @@ onMounted(() => {
               <span class="text-gray-600">{{ bikePath.statusDescription }}</span>
             </div>
 
-            <!-- Description (if present) -->
             <p v-if="bikePath.description" class="text-sm text-gray-600 line-clamp-2 mb-3">
               {{ bikePath.description }}
             </p>
 
-            <!-- View Details Button -->
             <button @click.stop="viewDetails(bikePath.id)" class="btn btn-sm btn-neutral w-full">
               View Details
               <ArrowRight :size="16" />
             </button>
           </div>
 
-          <!-- Load More Button -->
           <button
               v-if="hasMore"
               @click="loadMore"
               class="btn btn-neutral w-full"
-              :disabled="loading"
+              :disabled="loadingMore"
           >
-            {{ loading ? 'Loading...' : 'Load More' }}
+            {{ loadingMore ? 'Loading...' : 'Load More' }}
           </button>
         </div>
       </div>

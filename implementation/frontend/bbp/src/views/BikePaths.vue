@@ -6,6 +6,7 @@ import { getUserBikePaths, searchBikePaths } from '@/services/bikePath'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { generateStaticMapUrl } from '@/utils/mapStatic'
 import { useToast } from '@/composables/useToast'
+import { useAsyncState } from '@/composables/useAsyncState'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDate } from '@/utils/date'
@@ -13,35 +14,32 @@ import { catchApiError } from '@/utils/error'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
 import { BIKE_PATH_PAGE_SIZE, SORT_DESC } from '@/constants/pagination'
 import { SPINNER_DELAY_MS } from '@/constants/ui'
-import type { BikePathResponse } from '@/types/bikePath'
+import type { BikePathResponse, PagedBikePathResponse } from '@/types/bikePath'
 
 const router = useRouter()
 const { show } = useToast()
 
-// Autocomplete
+const { isLoading, execute } = useAsyncState<PagedBikePathResponse>()
+const bikePaths = ref<BikePathResponse[]>([])
+const loadingMore = ref(false)
+const currentPage = ref(0)
+const hasMore = ref(false)
+
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
 const activeField = ref<'origin' | 'destination' | null>(null)
 
-const bikePaths = ref<BikePathResponse[]>([])
-const loading = ref(false)
-const currentPage = ref(0)
-const hasMore = ref(false)
-
 const isFilterModalOpen = ref(false)
 const originFilter = ref('')
 const destinationFilter = ref('')
-
-// Date/Time separati per i filtri
 const createdDateFromStr = ref('')
 const createdTimeFromStr = ref('')
 const createdDateToStr = ref('')
 const createdTimeToStr = ref('')
-
 const hasActiveFilters = ref(false)
 
-const initialLoading = ref(true)
 const showSpinner = ref(false)
+const initialLoadComplete = ref(false)
 let spinnerTimeout: number | null = null
 
 function normalizeTime(t: string): string {
@@ -61,13 +59,11 @@ function setActiveField(field: 'origin' | 'destination') {
 
 function selectSuggestion(suggestion: any, field: 'origin' | 'destination') {
   const address = suggestion.full_address || ''
-
   if (field === 'origin') {
     originFilter.value = address
   } else {
     destinationFilter.value = address
   }
-
   showSuggestions.value = false
   activeField.value = null
 }
@@ -77,24 +73,25 @@ async function loadBikePaths() {
     showSpinner.value = true
   }, SPINNER_DELAY_MS)
 
-  try {
-    const response = await getUserBikePaths(currentPage.value, BIKE_PATH_PAGE_SIZE, 'createdAt', SORT_DESC)
-    bikePaths.value = response.content
-    hasMore.value = response.hasNext
-  } catch (error: any) {
-    catchApiError(error, 'BikePaths.loadBikePaths')
-  } finally {
-    if (spinnerTimeout) clearTimeout(spinnerTimeout)
-    showSpinner.value = false
-    initialLoading.value = false
-  }
+  await execute(
+      () => getUserBikePaths(currentPage.value, BIKE_PATH_PAGE_SIZE, 'createdAt', SORT_DESC),
+      'BikePaths.loadBikePaths',
+      (response) => {
+        bikePaths.value = response.content
+        hasMore.value = response.hasNext
+        initialLoadComplete.value = true
+      }
+  )
+
+  if (spinnerTimeout) clearTimeout(spinnerTimeout)
+  showSpinner.value = false
 }
 
 async function loadMore() {
   currentPage.value++
 
   let loadMoreSpinnerTimeout = window.setTimeout(() => {
-    loading.value = true
+    loadingMore.value = true
   }, SPINNER_DELAY_MS)
 
   try {
@@ -115,11 +112,11 @@ async function loadMore() {
 
     bikePaths.value.push(...response.content)
     hasMore.value = response.hasNext
-  } catch (error: any) {
+  } catch (error) {
     catchApiError(error, 'BikePaths.loadMore')
   } finally {
     clearTimeout(loadMoreSpinnerTimeout)
-    loading.value = false
+    loadingMore.value = false
   }
 }
 
@@ -141,7 +138,6 @@ function clearFilters() {
 }
 
 async function applyFilters() {
-  loading.value = true
   currentPage.value = 0
 
   const createdAtFrom = toDate(createdDateFromStr.value, createdTimeFromStr.value)
@@ -149,30 +145,30 @@ async function applyFilters() {
 
   hasActiveFilters.value = !!(originFilter.value || destinationFilter.value || createdAtFrom || createdAtTo)
 
-  try {
-    const response = await searchBikePaths(
-        {
-          origin: originFilter.value || undefined,
-          destination: destinationFilter.value || undefined,
-          createdAtFrom: createdAtFrom ? createdAtFrom.toISOString() : undefined,
-          createdAtTo: createdAtTo ? createdAtTo.toISOString() : undefined
-        },
-        0,
-        BIKE_PATH_PAGE_SIZE,
-        'createdAt',
-        SORT_DESC
-    )
-
-    bikePaths.value = response.content
-    hasMore.value = response.hasNext
-    show(`Found ${response.totalElements} bike paths`, 'success')
-  } catch (error: any) {
-    catchApiError(error, 'BikePaths.applyFilters')
-    bikePaths.value = []
-    hasMore.value = false
-  } finally {
-    loading.value = false
-  }
+  await execute(
+      () => searchBikePaths(
+          {
+            origin: originFilter.value || undefined,
+            destination: destinationFilter.value || undefined,
+            createdAtFrom: createdAtFrom?.toISOString(),
+            createdAtTo: createdAtTo?.toISOString()
+          },
+          0,
+          BIKE_PATH_PAGE_SIZE,
+          'createdAt',
+          SORT_DESC
+      ),
+      'BikePaths.applyFilters',
+      (response) => {
+        bikePaths.value = response.content
+        hasMore.value = response.hasNext
+        show(`Found ${response.totalElements} bike paths`, 'success')
+      },
+      () => {
+        bikePaths.value = []
+        hasMore.value = false
+      }
+  )
 
   closeFilterModal()
 }
@@ -183,7 +179,6 @@ function goToCreateBikePath() {
 
 function viewBikePathDetail(id: number) {
   const selectedBikePath = bikePaths.value.find(bp => bp.id === id)
-
   router.push({
     name: 'BikePathDetail',
     params: { id },
@@ -204,7 +199,7 @@ onMounted(() => {
     <span class="loading loading-spinner loading-lg"></span>
   </div>
 
-  <div v-else-if="!initialLoading" class="p-6 overflow-x-hidden">
+  <div v-else-if="initialLoadComplete" class="p-6 overflow-x-hidden">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-3xl font-bold">Bike Paths</h1>
       <div class="flex gap-2">
@@ -300,17 +295,8 @@ onMounted(() => {
               <span class="label-text">Created From</span>
             </label>
             <div class="grid grid-cols-2 gap-2">
-              <input
-                  v-model="createdDateFromStr"
-                  type="date"
-                  class="input input-bordered w-full"
-              />
-              <input
-                  v-model="createdTimeFromStr"
-                  type="time"
-                  step="1"
-                  class="input input-bordered w-full"
-              />
+              <input v-model="createdDateFromStr" type="date" class="input input-bordered w-full" />
+              <input v-model="createdTimeFromStr" type="time" step="1" class="input input-bordered w-full" />
             </div>
           </div>
 
@@ -319,17 +305,8 @@ onMounted(() => {
               <span class="label-text">Created To</span>
             </label>
             <div class="grid grid-cols-2 gap-2">
-              <input
-                  v-model="createdDateToStr"
-                  type="date"
-                  class="input input-bordered w-full"
-              />
-              <input
-                  v-model="createdTimeToStr"
-                  type="time"
-                  step="1"
-                  class="input input-bordered w-full"
-              />
+              <input v-model="createdDateToStr" type="date" class="input input-bordered w-full" />
+              <input v-model="createdTimeToStr" type="time" step="1" class="input input-bordered w-full" />
             </div>
           </div>
 
@@ -338,9 +315,9 @@ onMounted(() => {
               <Eraser :size="16" />
               Clear
             </button>
-            <button type="submit" class="btn btn-neutral flex-1">
+            <button type="submit" class="btn btn-neutral flex-1" :disabled="isLoading">
               <Search :size="16" />
-              Apply Filters
+              {{ isLoading ? 'Searching...' : 'Apply Filters' }}
             </button>
           </div>
         </form>
@@ -412,12 +389,8 @@ onMounted(() => {
       </div>
 
       <div v-if="hasMore" class="flex justify-center mt-8">
-        <button
-            @click="loadMore"
-            class="btn btn-neutral"
-            :disabled="loading"
-        >
-          {{ loading ? 'Loading...' : 'Load More' }}
+        <button @click="loadMore" class="btn btn-neutral" :disabled="loadingMore">
+          {{ loadingMore ? 'Loading...' : 'Load More' }}
         </button>
       </div>
     </div>
