@@ -2,6 +2,7 @@
  * Mapbox API service for geocoding and routing.
  */
 import api from '@/api/axios'
+import { validateCoordinates } from '@/utils/validation'
 import type {
     ForwardGeocodeRequest,
     ReverseGeocodeRequest,
@@ -13,7 +14,6 @@ import type {
 /**
  * Gets Mapbox access token for client-side usage.
  * Public endpoint - no authentication required.
- * @returns Object containing the Mapbox access token
  */
 export async function getMapboxAccessToken(): Promise<{ mapboxAccessToken: string }> {
     const response = await api.get<{ mapboxAccessToken: string }>('/api/mapbox/access-token')
@@ -22,8 +22,6 @@ export async function getMapboxAccessToken(): Promise<{ mapboxAccessToken: strin
 
 /**
  * Converts an address to geographic coordinates (forward geocoding).
- * @param request - Address to geocode
- * @returns Geocode response with formatted address and coordinates
  */
 export async function forwardGeocode(request: ForwardGeocodeRequest): Promise<GeocodeResponse> {
     const response = await api.post<GeocodeResponse>('/api/mapbox/geocode/forward', request)
@@ -32,20 +30,18 @@ export async function forwardGeocode(request: ForwardGeocodeRequest): Promise<Ge
 
 /**
  * Converts geographic coordinates to address (reverse geocoding).
- * @param request - Coordinates to convert
- * @returns Geocode response with formatted address and coordinates
  */
 export async function reverseGeocode(request: ReverseGeocodeRequest): Promise<GeocodeResponse> {
+    validateCoordinates(request.coordinate)
     const response = await api.post<GeocodeResponse>('/api/mapbox/geocode/reverse', request)
     return response.data
 }
 
 /**
  * Calculates cycling route through multiple waypoints.
- * @param request - Waypoints for the route
- * @returns Route response with ordered points
  */
 export async function calculateCyclingRoute(request: CyclingRouteRequest): Promise<CyclingRouteResponse> {
+    request.waypoints.forEach(validateCoordinates)
     const response = await api.post<CyclingRouteResponse>('/api/mapbox/cycling-route', request)
     return response.data
 }

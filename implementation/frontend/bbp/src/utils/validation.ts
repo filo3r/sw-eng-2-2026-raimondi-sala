@@ -178,3 +178,34 @@ export function isValidDateRange(
     const end = new Date(endDate)
     return end >= start
 }
+
+/**
+ * Coordinate input interface for validation.
+ */
+export interface CoordinateInput {
+    latitude: number
+    longitude: number
+}
+
+/**
+ * Validates coordinate object, throws if invalid.
+ * @param coords - Coordinate object to validate
+ * @throws {Error} If coordinates are invalid
+ */
+export function validateCoordinates(coords: CoordinateInput): asserts coords is CoordinateInput {
+    if (!isValidLatitude(coords.latitude)) {
+        throw new Error(`Invalid latitude: ${coords.latitude}. Must be between ${LATITUDE_MIN} and ${LATITUDE_MAX}`)
+    }
+    if (!isValidLongitude(coords.longitude)) {
+        throw new Error(`Invalid longitude: ${coords.longitude}. Must be between ${LONGITUDE_MIN} and ${LONGITUDE_MAX}`)
+    }
+}
+
+/**
+ * Checks if coordinate object is valid (non-throwing).
+ * @param coords - Coordinate object to validate
+ * @returns True if valid, false otherwise
+ */
+export function isValidCoordinates(coords: CoordinateInput): boolean {
+    return isValidLatitude(coords.latitude) && isValidLongitude(coords.longitude)
+}
