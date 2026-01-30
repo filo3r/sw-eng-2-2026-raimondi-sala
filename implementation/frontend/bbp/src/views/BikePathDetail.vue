@@ -23,6 +23,7 @@ import { useMapRoute } from '@/composables/useMapRoute'
 import { useMapObstacles } from '@/composables/useMapObstacles'
 import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
+import { useFieldError } from '@/composables/useFieldError'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDateTime } from '@/utils/date'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
@@ -36,6 +37,7 @@ import type { ObstacleType, ObstacleSeverity } from '@/types/obstacle'
 const route = useRoute()
 const router = useRouter()
 const { show } = useToast()
+const { hasError, setError } = useFieldError()
 
 const { data: bikePath, execute } = useAsyncState<BikePathResponse>()
 const { execute: executeDelete } = useAsyncState<void>()
@@ -191,7 +193,9 @@ async function handleSave() {
         clearObstacles()
         addObstacles(updated.obstacles)
         show('Bike path updated successfully', 'success')
-      }
+      },
+      undefined,
+      setError
   )
 
   saving.value = false
@@ -261,7 +265,9 @@ async function saveObstacle(obstacleId: number) {
         clearObstacles()
         addObstacles(updated.obstacles)
         show('Obstacle updated successfully', 'success')
-      }
+      },
+      undefined,
+      setError
   )
 
   saving.value = false
@@ -389,6 +395,7 @@ onUnmounted(() => {
                       tabindex="0"
                       role="button"
                       class="btn btn-sm btn-bordered w-full justify-between font-normal"
+                      :class="{'input-error': hasError('status')}"
                   >
                     {{ BIKE_PATH_STATUS_OPTIONS.find(o => o.value === editStatus)?.label }}
                     <ChevronDown :size="16" />
@@ -414,6 +421,7 @@ onUnmounted(() => {
                         type="checkbox"
                         v-model="editPublished"
                         class="checkbox checkbox-sm checkbox-primary"
+                        :class="{'input-error': hasError('published')}"
                     />
                     <span class="label-text">Public</span>
                   </label>
@@ -429,6 +437,7 @@ onUnmounted(() => {
                 v-if="isEditing"
                 v-model="editDescription"
                 class="textarea textarea-bordered w-full"
+                :class="{'input-error': hasError('description')}"
                 rows="3"
                 :maxlength="DESCRIPTION_MAX_LENGTH"
                 placeholder="Add a description..."
@@ -512,6 +521,7 @@ onUnmounted(() => {
                             tabindex="0"
                             role="button"
                             class="btn btn-bordered w-full justify-between font-normal"
+                            :class="{'input-error': hasError('type')}"
                         >
                           {{ OBSTACLE_TYPE_OPTIONS.find(o => o.value === obstacleEditData.type)?.label }}
                           <ChevronDown :size="16" />
@@ -535,6 +545,7 @@ onUnmounted(() => {
                             tabindex="0"
                             role="button"
                             class="btn btn-bordered w-full justify-between font-normal"
+                            :class="{'input-error': hasError('severity')}"
                         >
                           {{ OBSTACLE_SEVERITY_OPTIONS.find(o => o.value === obstacleEditData.severity)?.label }}
                           <ChevronDown :size="16" />
@@ -558,6 +569,7 @@ onUnmounted(() => {
                             tabindex="0"
                             role="button"
                             class="btn btn-bordered w-full justify-between font-normal"
+                            :class="{'input-error': hasError('active')}"
                         >
                           {{ obstacleEditData.active ? 'Active' : 'Inactive' }}
                           <ChevronDown :size="16" />

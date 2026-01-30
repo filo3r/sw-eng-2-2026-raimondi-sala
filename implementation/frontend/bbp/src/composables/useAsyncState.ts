@@ -16,13 +16,15 @@ export function useAsyncState<T>() {
      * @param context - Context for error logging
      * @param onSuccess - Optional callback on success
      * @param onError - Optional callback on error
+     * @param setFieldError
      * @returns Promise with result
      */
     async function execute(
         asyncFn: () => Promise<T>,
         context: string,
         onSuccess?: (data: T) => void,
-        onError?: (error: string) => void
+        onError?: (error: string) => void,
+        setFieldError?: (field: string) => void
     ): Promise<T | null> {
         isLoading.value = true
         error.value = null
@@ -33,7 +35,7 @@ export function useAsyncState<T>() {
             onSuccess?.(result)
             return result
         } catch (e) {
-            const errorMsg = catchApiError(e, context)
+            const errorMsg = catchApiError(e, context, setFieldError)
             error.value = errorMsg
             onError?.(errorMsg)
             return null

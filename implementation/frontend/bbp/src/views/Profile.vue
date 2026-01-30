@@ -5,6 +5,7 @@ import { User, Mail, Lock, UserCircle } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
+import { useFieldError } from '@/composables/useFieldError'
 import { getCurrentUser, updateCurrentUser, deleteCurrentUser } from '@/services/user'
 import type { UserUpdateRequest, UserResponse } from '@/types/user'
 import {
@@ -19,6 +20,7 @@ import { SPINNER_DELAY_MS } from '@/constants/ui'
 const router = useRouter()
 const authStore = useAuthStore()
 const { show } = useToast()
+const { hasError, setError } = useFieldError()
 
 const { execute } = useAsyncState<UserResponse>()
 const { execute: executeDelete } = useAsyncState<void>()
@@ -94,7 +96,9 @@ async function handleSave() {
         password.value = ''
         isEditing.value = false
         show('Profile updated successfully!', 'success')
-      }
+      },
+      undefined,
+      setError
   )
 
   saving.value = false
@@ -186,7 +190,8 @@ onMounted(() => {
         </div>
 
         <form v-else @submit.prevent="handleSave" class="space-y-4 w-full self-stretch">
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('name')}">
             <User :size="16" />
             <input
                 type="text"
@@ -198,7 +203,8 @@ onMounted(() => {
             />
           </label>
 
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('surname')}">
             <User :size="16" />
             <input
                 type="text"
@@ -210,7 +216,8 @@ onMounted(() => {
             />
           </label>
 
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('username')}">
             <UserCircle :size="16" />
             <input
                 type="text"
@@ -222,7 +229,8 @@ onMounted(() => {
             />
           </label>
 
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('email')}">
             <Mail :size="16" />
             <input
                 type="email"
@@ -234,7 +242,8 @@ onMounted(() => {
             />
           </label>
 
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('password')}">
             <Lock :size="16" />
             <input
                 type="password"

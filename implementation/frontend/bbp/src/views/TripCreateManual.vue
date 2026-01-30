@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Trash2, GripVertical, AlertCircle } from 'lucide-vue-n
 import { createTripManually } from '@/services/trip'
 import { forwardGeocode, reverseGeocode, calculateCyclingRoute } from '@/services/mapbox'
 import { useToast } from '@/composables/useToast'
+import { useFieldError } from '@/composables/useFieldError'
 import { useMap } from '@/composables/useMap'
 import { useInteractiveMarkers } from '@/composables/useInteractiveMarkers'
 import { useMapboxAutocomplete, type AutocompleteSuggestion } from '@/composables/useMapboxAutocomplete'
@@ -27,6 +28,7 @@ import type { MarkerConfig } from '@/composables/useInteractiveMarkers'
 
 const router = useRouter()
 const { show } = useToast()
+const { hasError, setError } = useFieldError()
 
 const mapContainer = ref<HTMLElement | null>(null)
 const { initMap, map } = useMap({
@@ -358,7 +360,7 @@ async function handleSubmit() {
     show('Trip recorded successfully', 'success')
     await router.push('/trips/')
   } catch (error: any) {
-    catchApiError(error, 'TripCreateManual.handleSubmit')
+    catchApiError(error, 'TripCreateManual.handleSubmit', setError)
   } finally {
     loading.value = false
   }
@@ -509,6 +511,7 @@ onMounted(() => {
                 v-model="description"
                 placeholder="Add notes or description"
                 class="textarea textarea-bordered w-full"
+                :class="{'input-error': hasError('description')}"
                 rows="3"
                 :maxlength="DESCRIPTION_MAX_LENGTH"
             ></textarea>
@@ -518,8 +521,21 @@ onMounted(() => {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="space-y-2">
               <label class="label"><span class="label-text">Start</span></label>
-              <input v-model="startDateStr" type="date" class="input input-bordered w-full" required />
-              <input v-model="startTimeStr" type="time" step="1" class="input input-bordered w-full" required />
+              <input
+                  v-model="startDateStr"
+                  type="date"
+                  class="input input-bordered w-full"
+                  :class="{'input-error': hasError('startTime')}"
+                  required
+              />
+              <input
+                  v-model="startTimeStr"
+                  type="time"
+                  step="1"
+                  class="input input-bordered w-full"
+                  :class="{'input-error': hasError('startTime')}"
+                  required
+              />
             </div>
 
             <div class="space-y-2">
@@ -528,6 +544,7 @@ onMounted(() => {
                   v-model="endDateStr"
                   type="date"
                   class="input input-bordered w-full"
+                  :class="{'input-error': hasError('endTime')}"
                   :min="minEndDate"
                   required
               />
@@ -536,6 +553,7 @@ onMounted(() => {
                   type="time"
                   step="1"
                   class="input input-bordered w-full"
+                  :class="{'input-error': hasError('endTime')}"
                   :min="minEndTime"
                   required
               />
@@ -559,6 +577,7 @@ onMounted(() => {
                 type="number"
                 placeholder="Enter maximum speed in km/h"
                 class="input input-bordered w-full"
+                :class="{'input-error': hasError('maxSpeed')}"
                 step="0.01"
                 min="0.01"
                 max="999.99"

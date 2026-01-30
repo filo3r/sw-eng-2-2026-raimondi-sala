@@ -7,6 +7,7 @@ import { getMapboxApiKey } from '@/config/mapbox'
 import { generateStaticMapUrl } from '@/utils/mapStatic'
 import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
+import { useFieldError } from '@/composables/useFieldError'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDate } from '@/utils/date'
@@ -18,6 +19,7 @@ import type { BikePathResponse, PagedBikePathResponse } from '@/types/bikePath'
 
 const router = useRouter()
 const { show } = useToast()
+const { hasError, setError } = useFieldError()
 
 const { isLoading, execute } = useAsyncState<PagedBikePathResponse>()
 const bikePaths = ref<BikePathResponse[]>([])
@@ -167,7 +169,8 @@ async function applyFilters() {
       () => {
         bikePaths.value = []
         hasMore.value = false
-      }
+      },
+      setError
   )
 
   closeFilterModal()
@@ -234,6 +237,7 @@ onMounted(() => {
                   v-model="originFilter"
                   placeholder="Search by origin location"
                   class="input input-bordered w-full"
+                  :class="{'input-error': hasError('origin')}"
                   :maxlength="ADDRESS_MAX_LENGTH"
                   @focus="setActiveField('origin')"
                   @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -267,6 +271,7 @@ onMounted(() => {
                   v-model="destinationFilter"
                   placeholder="Search by destination location"
                   class="input input-bordered w-full"
+                  :class="{'input-error': hasError('destination')}"
                   :maxlength="ADDRESS_MAX_LENGTH"
                   @focus="setActiveField('destination')"
                   @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -295,8 +300,19 @@ onMounted(() => {
               <span class="label-text">Created From</span>
             </label>
             <div class="grid grid-cols-2 gap-2">
-              <input v-model="createdDateFromStr" type="date" class="input input-bordered w-full" />
-              <input v-model="createdTimeFromStr" type="time" step="1" class="input input-bordered w-full" />
+              <input
+                  v-model="createdDateFromStr"
+                  type="date"
+                  class="input input-bordered w-full"
+                  :class="{'input-error': hasError('createdAtFrom')}"
+              />
+              <input
+                  v-model="createdTimeFromStr"
+                  type="time"
+                  step="1"
+                  class="input input-bordered w-full"
+                  :class="{'input-error': hasError('createdAtFrom')}"
+              />
             </div>
           </div>
 
@@ -305,8 +321,19 @@ onMounted(() => {
               <span class="label-text">Created To</span>
             </label>
             <div class="grid grid-cols-2 gap-2">
-              <input v-model="createdDateToStr" type="date" class="input input-bordered w-full" />
-              <input v-model="createdTimeToStr" type="time" step="1" class="input input-bordered w-full" />
+              <input
+                  v-model="createdDateToStr"
+                  type="date"
+                  class="input input-bordered w-full"
+                  :class="{'input-error': hasError('createdAtTo')}"
+              />
+              <input
+                  v-model="createdTimeToStr"
+                  type="time"
+                  step="1"
+                  class="input input-bordered w-full"
+                  :class="{'input-error': hasError('createdAtTo')}"
+              />
             </div>
           </div>
 

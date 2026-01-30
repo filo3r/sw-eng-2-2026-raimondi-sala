@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { Mail, Lock } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { useFieldError } from '@/composables/useFieldError'
 import { login } from '@/services/auth'
 import type { UserLoginRequest } from '@/types/user'
 import { catchApiError } from '@/utils/error'
@@ -12,6 +13,7 @@ import { EMAIL_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/constants/validation'
 const router = useRouter()
 const authStore = useAuthStore()
 const { show } = useToast()
+const { hasError, setError } = useFieldError()
 
 const email = ref('')
 const password = ref('')
@@ -31,7 +33,7 @@ async function handleLogin() {
     show('Login successful!', 'success')
     await router.push('/')
   } catch (error: any) {
-    catchApiError(error, 'Login.handleLogin')
+    catchApiError(error, 'Login.handleLogin', setError)
   } finally {
     loading.value = false
   }
@@ -45,7 +47,8 @@ async function handleLogin() {
         <h2 class="card-title text-2xl">Login</h2>
 
         <form @submit.prevent="handleLogin" class="space-y-4 w-full self-stretch">
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('email')}">
             <Mail :size="16" />
             <input
                 type="email"
@@ -57,7 +60,8 @@ async function handleLogin() {
             />
           </label>
 
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('password')}">
             <Lock :size="16" />
             <input
                 type="password"

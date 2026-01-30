@@ -7,6 +7,7 @@ import { getMapboxApiKey } from '@/config/mapbox'
 import { generateStaticMapUrl } from '@/utils/mapStatic'
 import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
+import { useFieldError } from '@/composables/useFieldError'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { formatDistance, formatDuration } from '@/utils/format'
 import { formatDateRange } from '@/utils/date'
@@ -18,6 +19,7 @@ import type { TripResponse, PagedTripResponse } from '@/types/trip'
 
 const router = useRouter()
 const { show } = useToast()
+const { hasError, setError } = useFieldError()
 
 const { isLoading, execute } = useAsyncState<PagedTripResponse>()
 const trips = ref<TripResponse[]>([])
@@ -167,7 +169,8 @@ async function applyFilters() {
       () => {
         trips.value = []
         hasMore.value = false
-      }
+      },
+      setError
   )
 
   closeFilterModal()
@@ -234,6 +237,7 @@ onMounted(() => {
                   v-model="originFilter"
                   placeholder="Search by origin location"
                   class="input input-bordered w-full"
+                  :class="{'input-error': hasError('origin')}"
                   :maxlength="ADDRESS_MAX_LENGTH"
                   @focus="setActiveField('origin')"
                   @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -267,6 +271,7 @@ onMounted(() => {
                   v-model="destinationFilter"
                   placeholder="Search by destination location"
                   class="input input-bordered w-full"
+                  :class="{'input-error': hasError('destination')}"
                   :maxlength="ADDRESS_MAX_LENGTH"
                   @focus="setActiveField('destination')"
                   @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -295,8 +300,19 @@ onMounted(() => {
               <span class="label-text">Start Time From</span>
             </label>
             <div class="grid grid-cols-2 gap-2">
-              <input v-model="startDateFromStr" type="date" class="input input-bordered w-full" />
-              <input v-model="startTimeFromStr" type="time" step="1" class="input input-bordered w-full" />
+              <input
+                  v-model="startDateFromStr"
+                  type="date"
+                  class="input input-bordered w-full"
+                  :class="{'input-error': hasError('startTimeFrom')}"
+              />
+              <input
+                  v-model="startTimeFromStr"
+                  type="time"
+                  step="1"
+                  class="input input-bordered w-full"
+                  :class="{'input-error': hasError('startTimeFrom')}"
+              />
             </div>
           </div>
 
@@ -305,8 +321,19 @@ onMounted(() => {
               <span class="label-text">Start Time To</span>
             </label>
             <div class="grid grid-cols-2 gap-2">
-              <input v-model="startDateToStr" type="date" class="input input-bordered w-full" />
-              <input v-model="startTimeToStr" type="time" step="1" class="input input-bordered w-full" />
+              <input
+                  v-model="startDateToStr"
+                  type="date"
+                  class="input input-bordered w-full"
+                  :class="{'input-error': hasError('startTimeTo')}"
+              />
+              <input
+                  v-model="startTimeToStr"
+                  type="time"
+                  step="1"
+                  class="input input-bordered w-full"
+                  :class="{'input-error': hasError('startTimeTo')}"
+              />
             </div>
           </div>
 

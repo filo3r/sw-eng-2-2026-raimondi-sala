@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { User, Mail, Lock, UserCircle } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { useFieldError } from '@/composables/useFieldError'
 import { register } from '@/services/auth'
 import type { UserRegisterRequest } from '@/types/user'
 import { catchApiError } from '@/utils/error'
@@ -18,6 +19,7 @@ import {
 const router = useRouter()
 const authStore = useAuthStore()
 const { show } = useToast()
+const { hasError, setError } = useFieldError()
 
 const name = ref('')
 const surname = ref('')
@@ -43,7 +45,7 @@ async function handleRegister() {
     show('Registration successful!', 'success')
     await router.push('/')
   } catch (error: any) {
-    catchApiError(error, 'Register.handleRegister')
+    catchApiError(error, 'Register.handleRegister', setError)
   } finally {
     loading.value = false
   }
@@ -57,7 +59,8 @@ async function handleRegister() {
         <h2 class="card-title text-2xl">Register</h2>
 
         <form @submit.prevent="handleRegister" class="space-y-4 w-full self-stretch">
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('name')}">
             <User :size="16" />
             <input
                 type="text"
@@ -69,7 +72,8 @@ async function handleRegister() {
             />
           </label>
 
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('surname')}">
             <User :size="16" />
             <input
                 type="text"
@@ -81,7 +85,8 @@ async function handleRegister() {
             />
           </label>
 
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('username')}">
             <UserCircle :size="16" />
             <input
                 type="text"
@@ -93,7 +98,8 @@ async function handleRegister() {
             />
           </label>
 
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('email')}">
             <Mail :size="16" />
             <input
                 type="email"
@@ -105,7 +111,8 @@ async function handleRegister() {
             />
           </label>
 
-          <label class="input input-bordered flex items-center gap-2 w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full"
+                 :class="{'input-error': hasError('password')}">
             <Lock :size="16" />
             <input
                 type="password"

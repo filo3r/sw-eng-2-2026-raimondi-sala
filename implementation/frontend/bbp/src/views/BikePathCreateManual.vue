@@ -5,6 +5,7 @@ import { ArrowLeft, Plus, Trash2, ChevronDown, GripVertical } from 'lucide-vue-n
 import { createBikePathManually } from '@/services/bikePath'
 import { forwardGeocode, reverseGeocode, calculateCyclingRoute } from '@/services/mapbox'
 import { useToast } from '@/composables/useToast'
+import { useFieldError } from '@/composables/useFieldError'
 import { useMap } from '@/composables/useMap'
 import { useInteractiveMarkers } from '@/composables/useInteractiveMarkers'
 import { useMapboxAutocomplete, type AutocompleteSuggestion } from '@/composables/useMapboxAutocomplete'
@@ -32,6 +33,7 @@ import type { MarkerConfig } from '@/composables/useInteractiveMarkers'
 
 const router = useRouter()
 const { show } = useToast()
+const { hasError, setError } = useFieldError()
 
 const mapContainer = ref<HTMLElement | null>(null)
 const { initMap, map } = useMap({
@@ -406,7 +408,7 @@ async function handleSubmit() {
     show('Bike path created successfully', 'success')
     await router.push('/bike-paths/')
   } catch (error: any) {
-    catchApiError(error, 'BikePathCreateManual.handleSubmit')
+    catchApiError(error, 'BikePathCreateManual.handleSubmit', setError)
   } finally {
     loading.value = false
   }
@@ -560,6 +562,7 @@ onMounted(() => {
                 v-model="description"
                 placeholder="Add notes..."
                 class="textarea textarea-bordered w-full"
+                :class="{'input-error': hasError('description')}"
                 rows="3"
                 :maxlength="DESCRIPTION_MAX_LENGTH"
             ></textarea>
@@ -569,7 +572,12 @@ onMounted(() => {
           <div>
             <label class="label"><span class="label-text">Status</span></label>
             <div class="dropdown w-full">
-              <div tabindex="0" role="button" class="btn btn-bordered w-full justify-between font-normal">
+              <div
+                  tabindex="0"
+                  role="button"
+                  class="btn btn-bordered w-full justify-between font-normal"
+                  :class="{'input-error': hasError('status')}"
+              >
                 {{ BIKE_PATH_STATUS_OPTIONS.find(o => o.value === status)?.label || 'Select status' }}
                 <ChevronDown :size="16" />
               </div>
@@ -586,7 +594,12 @@ onMounted(() => {
 
           <div class="form-control">
             <label class="label cursor-pointer justify-start gap-4">
-              <input v-model="published" type="checkbox" class="checkbox" />
+              <input
+                  v-model="published"
+                  type="checkbox"
+                  class="checkbox"
+                  :class="{'input-error': hasError('published')}"
+              />
               <span class="block">
                 <span class="label-text font-medium block">Public</span>
                 <span class="text-sm text-gray-500 block">Visible to everyone</span>
@@ -636,7 +649,8 @@ onMounted(() => {
                       class="input input-bordered w-full transition-colors"
                       :class="{
                       'input-primary border-2':
-                        activeField?.type === 'obstacle' && activeField?.index === index
+                        activeField?.type === 'obstacle' && activeField?.index === index,
+                      'input-error': hasError(`obstacles[${index}].address`)
                     }"
                       @focus="setActiveField('obstacle', index)"
                       @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -670,7 +684,12 @@ onMounted(() => {
                 <div>
                   <label class="label"><span class="label-text">Type</span></label>
                   <div class="dropdown w-full">
-                    <div tabindex="0" role="button" class="btn btn-bordered w-full justify-between font-normal">
+                    <div
+                        tabindex="0"
+                        role="button"
+                        class="btn btn-bordered w-full justify-between font-normal"
+                        :class="{'input-error': hasError(`obstacles[${index}].type`)}"
+                    >
                       {{ OBSTACLE_TYPE_OPTIONS.find(o => o.value === obstacle.type)?.label }}
                       <ChevronDown :size="16" />
                     </div>
@@ -685,7 +704,12 @@ onMounted(() => {
                 <div>
                   <label class="label"><span class="label-text">Severity</span></label>
                   <div class="dropdown w-full">
-                    <div tabindex="0" role="button" class="btn btn-bordered w-full justify-between font-normal">
+                    <div
+                        tabindex="0"
+                        role="button"
+                        class="btn btn-bordered w-full justify-between font-normal"
+                        :class="{'input-error': hasError(`obstacles[${index}].severity`)}"
+                    >
                       {{ OBSTACLE_SEVERITY_OPTIONS.find(o => o.value === obstacle.severity)?.label }}
                       <ChevronDown :size="16" />
                     </div>

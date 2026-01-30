@@ -5,6 +5,7 @@ import { getMapboxApiKey } from '@/config/mapbox'
 import { Search, X, Eraser, Star, Bike, ArrowRight, ChevronDown } from 'lucide-vue-next'
 import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
+import { useFieldError } from '@/composables/useFieldError'
 import { useNoScroll } from '@/composables/useNoScroll.ts'
 import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
@@ -22,6 +23,7 @@ import type { BikePathResponse, PagedBikePathResponse } from '@/types/bikePath'
 
 const router = useRouter()
 const { show } = useToast()
+const { hasError, setError } = useFieldError()
 const store = useBikePathFinderStore()
 useNoScroll()
 
@@ -111,7 +113,8 @@ async function handleSearch() {
       () => {
         searchResults.value = []
         hasMore.value = false
-      }
+      },
+      setError
   )
 
   if (spinnerTimeout) clearTimeout(spinnerTimeout)
@@ -330,6 +333,7 @@ onMounted(() => {
                   v-model.trim="originAddress"
                   placeholder="Enter origin address"
                   class="input input-bordered w-full"
+                  :class="{'input-error': hasError('originAddress')}"
                   :maxlength="ADDRESS_MAX_LENGTH"
                   @focus="setActiveField('origin')"
                   @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -360,6 +364,7 @@ onMounted(() => {
                   tabindex="0"
                   role="button"
                   class="btn btn-bordered w-full justify-between font-normal"
+                  :class="{'input-error': hasError('originRadiusKm')}"
               >
                 {{ RADIUS_OPTIONS.find(o => o.value === originRadius)?.label }}
                 <ChevronDown :size="16" />
@@ -385,6 +390,7 @@ onMounted(() => {
                   v-model.trim="destinationAddress"
                   placeholder="Enter destination address"
                   class="input input-bordered w-full"
+                  :class="{'input-error': hasError('destinationAddress')}"
                   :maxlength="ADDRESS_MAX_LENGTH"
                   @focus="setActiveField('destination')"
                   @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -415,6 +421,7 @@ onMounted(() => {
                   tabindex="0"
                   role="button"
                   class="btn btn-bordered w-full justify-between font-normal"
+                  :class="{'input-error': hasError('destinationRadiusKm')}"
               >
                 {{ RADIUS_OPTIONS.find(o => o.value === destinationRadius)?.label }}
                 <ChevronDown :size="16" />

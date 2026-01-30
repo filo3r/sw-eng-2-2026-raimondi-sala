@@ -107,15 +107,24 @@ export function handleError(error: any, context: string): string {
 }
 
 /**
- * Parses, logs error, and shows toast notification.
- * Convenience function for common error handling pattern.
+ * Parses, logs error, shows toast, and optionally highlights error field.
  * @param error - Axios error object
  * @param context - Context identifier
+ * @param setFieldError - Optional callback to highlight field with error
  * @returns Parsed error message
  */
-export function catchApiError(error: any, context: string): string {
+export function catchApiError(
+    error: any,
+    context: string,
+    setFieldError?: (field: string) => void
+): string {
     const message = handleError(error, context)
     const { show } = useToast()
     show(message, 'error')
+    // Highlight first field with validation error (if backend provides field info)
+    if (setFieldError && error?.response?.data?.errors) {
+        const firstField = Object.keys(error.response.data.errors)[0]
+        if (firstField) setFieldError(firstField)
+    }
     return message
 }
