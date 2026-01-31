@@ -17,6 +17,7 @@ import { getRouteMarkerConfig } from '@/composables/useRouteMarkerConfig'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { catchApiError } from '@/utils/error'
 import { getAddressFromCoordinates } from '@/utils/geocoding'
+import { normalizeTime } from '@/utils/time'
 import {
   validateAddresses,
   validateOptionalDescription,
@@ -89,12 +90,6 @@ const endTimeStr = ref('')
 
 const maxSpeed = ref<number | ''>('')
 const loading = ref(false)
-
-function normalizeTime(t: string): string {
-  // Alcuni browser possono dare "HH:mm" anche con step; normalizziamo a "HH:mm:ss"
-  if (!t) return ''
-  return t.length === 5 ? `${t}:00` : t
-}
 
 function toDate(dateStr: string, timeStr: string): Date | null {
   if (!dateStr || !timeStr) return null

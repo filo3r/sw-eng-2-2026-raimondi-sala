@@ -13,6 +13,7 @@ import { usePagination } from '@/composables/usePagination'
 import { validateDateRange, validateAndShow } from '@/utils/validation'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDate } from '@/utils/date'
+import { normalizeTime } from '@/utils/time'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
 import { BIKE_PATH_PAGE_SIZE, SORT_DESC } from '@/constants/pagination'
 import type { BikePathResponse, PagedBikePathResponse } from '@/types/bikePath'
@@ -45,11 +46,6 @@ const createdTimeToStr = ref('')
 const hasActiveFilters = ref(false)
 
 const initialLoadComplete = ref(false)
-
-function normalizeTime(t: string): string {
-  if (!t) return ''
-  return t.length === 5 ? `${t}:00` : t
-}
 
 function toDate(dateStr: string, timeStr: string): Date | null {
   if (!dateStr || !timeStr) return null
