@@ -9,13 +9,12 @@ import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
 import { useFieldError } from '@/composables/useFieldError'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
+import { usePagination } from '@/composables/usePagination'
 import { validateDateRange, validateAndShow } from '@/utils/validation'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDate } from '@/utils/date'
-import { catchApiError } from '@/utils/error'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
 import { BIKE_PATH_PAGE_SIZE, SORT_DESC } from '@/constants/pagination'
-import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { BikePathResponse, PagedBikePathResponse } from '@/types/bikePath'
 
 const router = useRouter()
@@ -23,10 +22,14 @@ const { show } = useToast()
 const { hasError, setError } = useFieldError()
 
 const { isLoading, execute } = useAsyncState<PagedBikePathResponse>()
-const bikePaths = ref<BikePathResponse[]>([])
-const loadingMore = ref(false)
-const currentPage = ref(0)
-const hasMore = ref(false)
+const {
+  items: bikePaths,
+  hasMore,
+  isLoading: showSpinner,
+  isLoadingMore: loadingMore,
+  loadInitial,
+  loadMore: loadMorePagination
+} = usePagination<BikePathResponse>(BIKE_PATH_PAGE_SIZE)
 
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
@@ -41,9 +44,7 @@ const createdDateToStr = ref('')
 const createdTimeToStr = ref('')
 const hasActiveFilters = ref(false)
 
-const showSpinner = ref(false)
 const initialLoadComplete = ref(false)
-let spinnerTimeout: number | null = null
 
 function normalizeTime(t: string): string {
   if (!t) return ''
@@ -80,55 +81,29 @@ function selectSuggestion(suggestion: any, field: 'origin' | 'destination') {
 }
 
 async function loadBikePaths() {
-  spinnerTimeout = window.setTimeout(() => {
-    showSpinner.value = true
-  }, SPINNER_DELAY_MS)
-
-  await execute(
-      () => getUserBikePaths(currentPage.value, BIKE_PATH_PAGE_SIZE, 'createdAt', SORT_DESC),
-      'BikePaths.loadBikePaths',
-      (response) => {
-        bikePaths.value = response.content
-        hasMore.value = response.hasNext
-        initialLoadComplete.value = true
-      }
+  await loadInitial((page, size) =>
+      getUserBikePaths(page, size, 'createdAt', SORT_DESC)
   )
-
-  if (spinnerTimeout) clearTimeout(spinnerTimeout)
-  showSpinner.value = false
+  initialLoadComplete.value = true
 }
 
-async function loadMore() {
-  currentPage.value++
-
-  let loadMoreSpinnerTimeout = window.setTimeout(() => {
-    loadingMore.value = true
-  }, SPINNER_DELAY_MS)
-
-  try {
-    const response = hasActiveFilters.value
-        ? await searchBikePaths(
-            {
-              origin: originFilter.value || undefined,
-              destination: destinationFilter.value || undefined,
-              createdAtFrom: toDate(createdDateFromStr.value, createdTimeFromStr.value)?.toISOString(),
-              createdAtTo: toDate(createdDateToStr.value, createdTimeToStr.value)?.toISOString()
-            },
-            currentPage.value,
-            BIKE_PATH_PAGE_SIZE,
-            'createdAt',
-            SORT_DESC
-        )
-        : await getUserBikePaths(currentPage.value, BIKE_PATH_PAGE_SIZE, 'createdAt', SORT_DESC)
-
-    bikePaths.value.push(...response.content)
-    hasMore.value = response.hasNext
-  } catch (error) {
-    catchApiError(error, 'BikePaths.loadMore')
-  } finally {
-    clearTimeout(loadMoreSpinnerTimeout)
-    loadingMore.value = false
-  }
+async function handleLoadMore() {
+  await loadMorePagination((page, size) =>
+      hasActiveFilters.value
+          ? searchBikePaths(
+              {
+                origin: originFilter.value || undefined,
+                destination: destinationFilter.value || undefined,
+                createdAtFrom: toDate(createdDateFromStr.value, createdTimeFromStr.value)?.toISOString(),
+                createdAtTo: toDate(createdDateToStr.value, createdTimeToStr.value)?.toISOString()
+              },
+              page,
+              size,
+              'createdAt',
+              SORT_DESC
+          )
+          : getUserBikePaths(page, size, 'createdAt', SORT_DESC)
+  )
 }
 
 function openFilterModal() {
@@ -155,7 +130,6 @@ async function applyFilters() {
   // Frontend validation
   if (!validateAndShow(validateDateRange(createdAtFrom, createdAtTo, 'Created at'), 'createdAtTo', setError, show)) return
 
-  currentPage.value = 0
   hasActiveFilters.value = !!(originFilter.value || destinationFilter.value || createdAtFrom || createdAtTo)
 
   await execute(
@@ -199,7 +173,7 @@ function viewBikePathDetail(id: number) {
     state: {
       bikePath: selectedBikePath ? toRaw(selectedBikePath) : undefined,
       from: 'BikePaths'
-    }
+    } as Record<string, any>
   })
 }
 
@@ -429,7 +403,7 @@ onMounted(() => {
       </div>
 
       <div v-if="hasMore" class="flex justify-center mt-8">
-        <button @click="loadMore" class="btn btn-neutral" :disabled="loadingMore">
+        <button @click="handleLoadMore" class="btn btn-neutral" :disabled="loadingMore">
           {{ loadingMore ? 'Loading...' : 'Load More' }}
         </button>
       </div>

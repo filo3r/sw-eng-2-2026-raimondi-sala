@@ -4,23 +4,21 @@ import { useRouter } from 'vue-router'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { Search, X, Eraser, Star, Bike, ArrowRight, ChevronDown } from 'lucide-vue-next'
 import { useToast } from '@/composables/useToast'
-import { useAsyncState } from '@/composables/useAsyncState'
 import { useFieldError } from '@/composables/useFieldError'
 import { useNoScroll } from '@/composables/useNoScroll.ts'
 import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
 import { useMapObstacles } from '@/composables/useMapObstacles'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
+import { usePagination } from '@/composables/usePagination'
 import { useBikePathFinderStore } from '@/stores/bikePathFinder'
 import { findBikePaths } from '@/services/bikePathFinder'
 import { validateRequired, validateAndShow } from '@/utils/validation'
-import { catchApiError } from '@/utils/error'
 import { formatDistance, formatScore } from '@/utils/format'
 import { RADIUS_OPTIONS, DEFAULT_RADIUS_KM } from '@/constants/bikePath'
 import { BIKE_PATH_FINDER_PAGE_SIZE } from '@/constants/pagination'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
-import { SPINNER_DELAY_MS } from '@/constants/ui'
-import type { BikePathResponse, PagedBikePathResponse } from '@/types/bikePath'
+import type { BikePathResponse } from '@/types/bikePath'
 
 const router = useRouter()
 const { show } = useToast()
@@ -28,7 +26,15 @@ const { hasError, setError } = useFieldError()
 const store = useBikePathFinderStore()
 useNoScroll()
 
-const { isLoading, execute } = useAsyncState<PagedBikePathResponse>()
+const {
+  items: searchResults,
+  hasMore,
+  isLoading: showSpinner,
+  isLoadingMore: loadingMore,
+  loadInitial,
+  loadMore: loadMorePagination,
+  reset
+} = usePagination<BikePathResponse>(BIKE_PATH_FINDER_PAGE_SIZE)
 
 const mapContainer = ref<HTMLDivElement | null>(null)
 
@@ -50,14 +56,7 @@ const originAddress = ref('')
 const originRadius = ref(DEFAULT_RADIUS_KM)
 const destinationAddress = ref('')
 const destinationRadius = ref(DEFAULT_RADIUS_KM)
-const loadingMore = ref(false)
-const searchResults = ref<BikePathResponse[]>([])
 const selectedBikePathId = ref<number | null>(null)
-const currentPage = ref(0)
-const hasMore = ref(false)
-
-const showSpinner = ref(false)
-let spinnerTimeout: number | null = null
 
 function selectOriginRadius(value: number) {
   originRadius.value = value
@@ -91,68 +90,39 @@ async function handleSearch() {
   if (!validateAndShow(validateRequired(originAddress.value, 'Origin'), 'originAddress', setError, show)) return
   if (!validateAndShow(validateRequired(destinationAddress.value, 'Destination'), 'destinationAddress', setError, show)) return
 
-  currentPage.value = 0
   selectedBikePathId.value = null
 
-  spinnerTimeout = window.setTimeout(() => {
-    showSpinner.value = true
-  }, SPINNER_DELAY_MS)
-
-  await execute(
-      () => findBikePaths(
+  await loadInitial((page, size) =>
+      findBikePaths(
           {
             originAddress: originAddress.value,
             destinationAddress: destinationAddress.value,
             originRadiusKm: originRadius.value,
             destinationRadiusKm: destinationRadius.value
           },
-          0,
-          BIKE_PATH_FINDER_PAGE_SIZE
-      ),
-      'BikePathFinder.handleSearch',
-      (response) => {
-        searchResults.value = response.content
-        hasMore.value = response.hasNext
-        show(`Found ${response.totalElements} bike paths`, 'success')
-      },
-      () => {
-        searchResults.value = []
-        hasMore.value = false
-      },
-      setError
+          page,
+          size
+      )
   )
 
-  if (spinnerTimeout) clearTimeout(spinnerTimeout)
-  showSpinner.value = false
+  if (searchResults.value.length > 0) {
+    show(`Found ${searchResults.value.length} bike paths`, 'success')
+  }
 }
 
-async function loadMore() {
-  currentPage.value++
-
-  let loadMoreSpinnerTimeout = window.setTimeout(() => {
-    loadingMore.value = true
-  }, SPINNER_DELAY_MS)
-
-  try {
-    const response = await findBikePaths(
-        {
-          originAddress: originAddress.value,
-          destinationAddress: destinationAddress.value,
-          originRadiusKm: originRadius.value,
-          destinationRadiusKm: destinationRadius.value
-        },
-        currentPage.value,
-        BIKE_PATH_FINDER_PAGE_SIZE
-    )
-
-    searchResults.value.push(...response.content)
-    hasMore.value = response.hasNext
-  } catch (error) {
-    catchApiError(error, 'BikePathFinder.loadMore')
-  } finally {
-    clearTimeout(loadMoreSpinnerTimeout)
-    loadingMore.value = false
-  }
+async function handleLoadMore() {
+  await loadMorePagination((page, size) =>
+      findBikePaths(
+          {
+            originAddress: originAddress.value,
+            destinationAddress: destinationAddress.value,
+            originRadiusKm: originRadius.value,
+            destinationRadiusKm: destinationRadius.value
+          },
+          page,
+          size
+      )
+  )
 }
 
 function clearSearch() {
@@ -160,14 +130,11 @@ function clearSearch() {
   originRadius.value = DEFAULT_RADIUS_KM
   destinationAddress.value = ''
   destinationRadius.value = DEFAULT_RADIUS_KM
-  searchResults.value = []
   selectedBikePathId.value = null
-  currentPage.value = 0
-  hasMore.value = false
 
+  reset()
   clearRoute()
   clearObstacles()
-
   store.clearSearchState()
 }
 
@@ -209,7 +176,7 @@ function viewDetails(bikePathId: number) {
     originRadius: originRadius.value,
     destinationRadius: destinationRadius.value,
     searchResults: toRaw(searchResults.value),
-    currentPage: currentPage.value,
+    currentPage: 0, // currentPage is now internal to composable
     hasMore: hasMore.value,
     selectedBikePathId: selectedBikePathId.value,
     isSidebarOpen: isSidebarOpen.value
@@ -221,7 +188,7 @@ function viewDetails(bikePathId: number) {
     state: {
       bikePath: selectedBikePath ? toRaw(selectedBikePath) : undefined,
       from: 'BikePathFinder'
-    }
+    } as Record<string, any>
   })
 }
 
@@ -239,7 +206,6 @@ function restoreSearchState() {
   destinationRadius.value = store.destinationRadius
 
   searchResults.value = store.searchResults
-  currentPage.value = store.currentPage
   hasMore.value = store.hasMore
 
   selectedBikePathId.value = store.selectedBikePathId
@@ -447,9 +413,9 @@ onMounted(() => {
               <Eraser :size="16" />
               Clear
             </button>
-            <button type="submit" class="btn btn-neutral flex-1" :disabled="isLoading">
+            <button type="submit" class="btn btn-neutral flex-1" :disabled="showSpinner">
               <Search :size="16" />
-              {{ isLoading ? 'Searching...' : 'Search' }}
+              {{ showSpinner ? 'Searching...' : 'Search' }}
             </button>
           </div>
         </form>
@@ -511,7 +477,7 @@ onMounted(() => {
 
           <button
               v-if="hasMore"
-              @click="loadMore"
+              @click="handleLoadMore"
               class="btn btn-neutral w-full"
               :disabled="loadingMore"
           >

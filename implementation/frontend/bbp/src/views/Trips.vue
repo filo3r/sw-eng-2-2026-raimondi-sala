@@ -9,13 +9,12 @@ import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
 import { useFieldError } from '@/composables/useFieldError'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
+import { usePagination } from '@/composables/usePagination'
 import { validateDateRange, validateAndShow } from '@/utils/validation'
 import { formatDistance, formatDuration } from '@/utils/format'
 import { formatDateRange } from '@/utils/date'
-import { catchApiError } from '@/utils/error'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
 import { TRIP_PAGE_SIZE, SORT_DESC } from '@/constants/pagination'
-import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { TripResponse, PagedTripResponse } from '@/types/trip'
 
 const router = useRouter()
@@ -23,10 +22,14 @@ const { show } = useToast()
 const { hasError, setError } = useFieldError()
 
 const { isLoading, execute } = useAsyncState<PagedTripResponse>()
-const trips = ref<TripResponse[]>([])
-const loadingMore = ref(false)
-const currentPage = ref(0)
-const hasMore = ref(false)
+const {
+  items: trips,
+  hasMore,
+  isLoading: showSpinner,
+  isLoadingMore: loadingMore,
+  loadInitial,
+  loadMore: loadMorePagination
+} = usePagination<TripResponse>(TRIP_PAGE_SIZE)
 
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
@@ -41,9 +44,7 @@ const startDateToStr = ref('')
 const startTimeToStr = ref('')
 const hasActiveFilters = ref(false)
 
-const showSpinner = ref(false)
 const initialLoadComplete = ref(false)
-let spinnerTimeout: number | null = null
 
 function normalizeTime(t: string): string {
   if (!t) return ''
@@ -80,55 +81,29 @@ function selectSuggestion(suggestion: any, field: 'origin' | 'destination') {
 }
 
 async function loadTrips() {
-  spinnerTimeout = window.setTimeout(() => {
-    showSpinner.value = true
-  }, SPINNER_DELAY_MS)
-
-  await execute(
-      () => getUserTrips(currentPage.value, TRIP_PAGE_SIZE, 'startTime', SORT_DESC),
-      'Trips.loadTrips',
-      (response) => {
-        trips.value = response.content
-        hasMore.value = response.hasNext
-        initialLoadComplete.value = true
-      }
+  await loadInitial((page, size) =>
+      getUserTrips(page, size, 'startTime', SORT_DESC)
   )
-
-  if (spinnerTimeout) clearTimeout(spinnerTimeout)
-  showSpinner.value = false
+  initialLoadComplete.value = true
 }
 
-async function loadMore() {
-  currentPage.value++
-
-  let loadMoreSpinnerTimeout = window.setTimeout(() => {
-    loadingMore.value = true
-  }, SPINNER_DELAY_MS)
-
-  try {
-    const response = hasActiveFilters.value
-        ? await searchTrips(
-            {
-              origin: originFilter.value || undefined,
-              destination: destinationFilter.value || undefined,
-              startTimeFrom: toDate(startDateFromStr.value, startTimeFromStr.value)?.toISOString(),
-              startTimeTo: toDate(startDateToStr.value, startTimeToStr.value)?.toISOString()
-            },
-            currentPage.value,
-            TRIP_PAGE_SIZE,
-            'startTime',
-            SORT_DESC
-        )
-        : await getUserTrips(currentPage.value, TRIP_PAGE_SIZE, 'startTime', SORT_DESC)
-
-    trips.value.push(...response.content)
-    hasMore.value = response.hasNext
-  } catch (error) {
-    catchApiError(error, 'Trips.loadMore')
-  } finally {
-    clearTimeout(loadMoreSpinnerTimeout)
-    loadingMore.value = false
-  }
+async function handleLoadMore() {
+  await loadMorePagination((page, size) =>
+      hasActiveFilters.value
+          ? searchTrips(
+              {
+                origin: originFilter.value || undefined,
+                destination: destinationFilter.value || undefined,
+                startTimeFrom: toDate(startDateFromStr.value, startTimeFromStr.value)?.toISOString(),
+                startTimeTo: toDate(startDateToStr.value, startTimeToStr.value)?.toISOString()
+              },
+              page,
+              size,
+              'startTime',
+              SORT_DESC
+          )
+          : getUserTrips(page, size, 'startTime', SORT_DESC)
+  )
 }
 
 function openFilterModal() {
@@ -155,7 +130,6 @@ async function applyFilters() {
   // Frontend validation
   if (!validateAndShow(validateDateRange(startTimeFrom, startTimeTo, 'Start time'), 'startTimeTo', setError, show)) return
 
-  currentPage.value = 0
   hasActiveFilters.value = !!(originFilter.value || destinationFilter.value || startTimeFrom || startTimeTo)
 
   await execute(
@@ -199,7 +173,7 @@ function viewTripDetail(id: number) {
     state: {
       trip: selectedTrip ? toRaw(selectedTrip) : undefined,
       from: 'Trips'
-    }
+    } as Record<string, any>
   })
 }
 
@@ -423,7 +397,7 @@ onMounted(() => {
       </div>
 
       <div v-if="hasMore" class="flex justify-center mt-8">
-        <button @click="loadMore" class="btn btn-neutral" :disabled="loadingMore">
+        <button @click="handleLoadMore" class="btn btn-neutral" :disabled="loadingMore">
           {{ loadingMore ? 'Loading...' : 'Load More' }}
         </button>
       </div>
