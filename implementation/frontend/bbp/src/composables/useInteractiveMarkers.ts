@@ -2,7 +2,7 @@
  * Composable for managing interactive draggable markers on Mapbox maps.
  * Provides reusable marker creation with custom styling and drag behavior.
  */
-import { type Ref } from 'vue'
+import { type Ref, onUnmounted } from 'vue'
 import mapboxgl from 'mapbox-gl'
 import { createCustomMarkerElement } from '@/utils/mapMarkers'
 import { useMarkerManager } from './useMarkerManager'
@@ -64,6 +64,11 @@ export function useInteractiveMarkers(map: Ref<mapboxgl.Map | null>) {
         setMarker(marker, index)
         return marker
     }
+
+    // Cleanup on unmount
+    onUnmounted(() => {
+        clearAll()
+    })
 
     return {
         createMarker,

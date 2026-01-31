@@ -2,7 +2,7 @@
  * Composable for managing obstacle markers on Mapbox map.
  * Handles rendering and cleanup of active obstacle markers with severity-based styling.
  */
-import { type Ref } from 'vue'
+import { type Ref, onUnmounted } from 'vue'
 import mapboxgl from 'mapbox-gl'
 import { createCustomMarkerElement } from '@/utils/mapMarkers'
 import { createObstaclePopupHTML } from '@/utils/mapPopups'
@@ -72,6 +72,11 @@ export function useMapObstacles(map: Ref<mapboxgl.Map | null>) {
     function clearObstacles() {
         clearAll()
     }
+
+    // Cleanup on unmount
+    onUnmounted(() => {
+        clearObstacles()
+    })
 
     return {
         addObstacles,

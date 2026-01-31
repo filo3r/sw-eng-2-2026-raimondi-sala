@@ -2,7 +2,7 @@
  * Composable for drawing bike path or trip routes on Mapbox map.
  * Handles route rendering, markers, and map bounds fitting.
  */
-import { type Ref } from 'vue'
+import { type Ref, onUnmounted } from 'vue'
 import mapboxgl from 'mapbox-gl'
 import { createCustomMarkerElement } from '@/utils/mapMarkers'
 import { createOriginPopupHTML, createDestinationPopupHTML } from '@/utils/mapPopups'
@@ -173,6 +173,11 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
         // Remove all markers
         clearAll()
     }
+
+    // Cleanup on unmount
+    onUnmounted(() => {
+        clearRoute()
+    })
 
     return {
         drawRoute,
