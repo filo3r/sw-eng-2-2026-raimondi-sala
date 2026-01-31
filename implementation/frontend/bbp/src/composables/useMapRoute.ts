@@ -17,7 +17,9 @@ import {
     FIT_BOUNDS_DURATION,
     FIT_BOUNDS_PADDING,
     POPUP_OFFSET,
-    ROUTE_POPUP_CLASS
+    ROUTE_POPUP_CLASS,
+    ROUTE_SOURCE_ID,
+    ROUTE_LAYER_ID
 } from '@/constants/map'
 import type { BikePathPointResponse } from '@/types/bikePath'
 import type { TripPointResponse } from '@/types/trip'
@@ -47,7 +49,7 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
         const coordinates = sortedPoints.map(point => [point.longitude, point.latitude])
 
         // Add route as GeoJSON LineString
-        mapInstance.addSource('route', {
+        mapInstance.addSource(ROUTE_SOURCE_ID, {
             type: 'geojson',
             data: {
                 type: 'Feature',
@@ -61,9 +63,9 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
 
         // Style the route line
         mapInstance.addLayer({
-            id: 'route',
+            id: ROUTE_LAYER_ID,
             type: 'line',
-            source: 'route',
+            source: ROUTE_SOURCE_ID,
             layout: {
                 'line-join': ROUTE_LINE_JOIN,
                 'line-cap': ROUTE_LINE_CAP
@@ -163,11 +165,11 @@ export function useMapRoute(map: Ref<mapboxgl.Map | null>) {
         const mapInstance = map.value
 
         // Remove route layer and source
-        if (mapInstance.getLayer('route')) {
-            mapInstance.removeLayer('route')
+        if (mapInstance.getLayer(ROUTE_LAYER_ID)) {
+            mapInstance.removeLayer(ROUTE_LAYER_ID)
         }
-        if (mapInstance.getSource('route')) {
-            mapInstance.removeSource('route')
+        if (mapInstance.getSource(ROUTE_SOURCE_ID)) {
+            mapInstance.removeSource(ROUTE_SOURCE_ID)
         }
 
         // Remove all markers

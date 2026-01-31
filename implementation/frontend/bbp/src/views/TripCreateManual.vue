@@ -27,7 +27,9 @@ import {
 import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
 import {
   MAP_CURSOR_CROSSHAIR,
-  ROUTE_UPDATE_DEBOUNCE_MS
+  ROUTE_UPDATE_DEBOUNCE_MS,
+  TRIP_ROUTE_SOURCE_ID,
+  TRIP_ROUTE_LAYER_ID
 } from '@/constants/map'
 import type { MarkerConfig } from '@/composables/useInteractiveMarkers'
 
@@ -50,8 +52,8 @@ const {
 } = useInteractiveMarkers(map)
 
 const { updateRoute, attachMapClickHandler } = useRouteDrawing(map, {
-  sourceId: 'trip-route',
-  layerId: 'trip-route'
+  sourceId: TRIP_ROUTE_SOURCE_ID,
+  layerId: TRIP_ROUTE_LAYER_ID
 })
 
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =

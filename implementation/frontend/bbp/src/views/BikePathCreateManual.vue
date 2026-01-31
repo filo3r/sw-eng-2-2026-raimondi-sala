@@ -29,7 +29,9 @@ import {
   MAP_CURSOR_CROSSHAIR,
   OBSTACLE_SEVERITY_COLORS,
   DEFAULT_OBSTACLE_COLOR,
-  ROUTE_UPDATE_DEBOUNCE_MS
+  ROUTE_UPDATE_DEBOUNCE_MS,
+  ROUTE_SOURCE_ID,
+  ROUTE_LAYER_ID
 } from '@/constants/map'
 import type { BikePathStatus } from '@/types/bikePath'
 import type { ObstacleType, ObstacleSeverity } from '@/types/obstacle'
@@ -61,8 +63,8 @@ const {
 } = useInteractiveMarkers(map)
 
 const { updateRoute, attachMapClickHandler } = useRouteDrawing(map, {
-  sourceId: 'route',
-  layerId: 'route'
+  sourceId: ROUTE_SOURCE_ID,
+  layerId: ROUTE_LAYER_ID
 })
 
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =

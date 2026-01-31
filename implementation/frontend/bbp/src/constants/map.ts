@@ -86,6 +86,9 @@ export const AUTOCOMPLETE_MIN_CHARS = 3
 export const AUTOCOMPLETE_LIMIT = 5
 export const AUTOCOMPLETE_BLUR_DELAY_MS = 200
 
+// Route update configuration
+export const ROUTE_UPDATE_DEBOUNCE_MS = 300
+
 // Interactive marker colors
 export const ROUTE_MARKER_COLOR = '#3b82f6'
 
@@ -93,4 +96,8 @@ export const ROUTE_MARKER_COLOR = '#3b82f6'
 export const MAP_CURSOR_CROSSHAIR = 'crosshair'
 export const MAP_CURSOR_DEFAULT = 'default'
 
-export const ROUTE_UPDATE_DEBOUNCE_MS = 300
+// Source and layer IDs
+export const ROUTE_SOURCE_ID = 'route'
+export const ROUTE_LAYER_ID = 'route'
+export const TRIP_ROUTE_SOURCE_ID = 'trip-route'
+export const TRIP_ROUTE_LAYER_ID = 'trip-route'
