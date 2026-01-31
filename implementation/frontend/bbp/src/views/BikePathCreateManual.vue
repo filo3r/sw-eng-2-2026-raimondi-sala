@@ -3,7 +3,7 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Trash2, ChevronDown, GripVertical } from 'lucide-vue-next'
 import { createBikePathManually } from '@/services/bikePath'
-import { forwardGeocode, reverseGeocode, calculateCyclingRoute } from '@/services/mapbox'
+import { forwardGeocode, calculateCyclingRoute } from '@/services/mapbox'
 import { useToast } from '@/composables/useToast'
 import { useFieldError } from '@/composables/useFieldError'
 import { useMap } from '@/composables/useMap'
@@ -14,6 +14,7 @@ import { useMapClickHandler } from '@/composables/useMapClickHandler'
 import { getRouteMarkerConfig } from '@/composables/useRouteMarkerConfig'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { catchApiError } from '@/utils/error'
+import { getAddressFromCoordinates } from '@/utils/geocoding'
 import {
   validateAddresses,
   validateOptionalDescription,
@@ -168,7 +169,7 @@ function getMarkerConfig(type: 'route' | 'obstacle', index: number): MarkerConfi
       draggable: true,
       onDragEnd: async (lng, lat) => {
         if (obstacles.value[index]) {
-          obstacles.value[index].address = await getAddressFromCoordinates(lng, lat)
+          obstacles.value[index].address = await getAddressFromCoordinates(lng, lat, 'BikePathCreateManual')
         }
       }
     }
@@ -181,7 +182,7 @@ function getMarkerConfig(type: 'route' | 'obstacle', index: number): MarkerConfi
     label,
     draggable: true,
     onDragEnd: async (lng, lat) => {
-      addresses.value[index] = await getAddressFromCoordinates(lng, lat)
+      addresses.value[index] = await getAddressFromCoordinates(lng, lat, 'BikePathCreateManual')
       await updateRoute()
     }
   }
@@ -198,32 +199,20 @@ function setMarker(type: 'route' | 'obstacle', index: number, lng: number, lat: 
   }
 }
 
-async function getAddressFromCoordinates(lng: number, lat: number): Promise<string> {
-  try {
-    const result = await reverseGeocode({
-      coordinate: { latitude: lat, longitude: lng }
-    })
-    return result.address
-  } catch (e) {
-    catchApiError(e, 'BikePathCreateManual.getAddressFromCoordinates')
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-  }
-}
-
 function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
   const { lng, lat } = e.lngLat
 
   handleMapClickBase(lng, lat, {
     getCurrentAddresses: () => addresses.value,
     onRouteClick: async (index, lng, lat) => {
-      addresses.value[index] = await getAddressFromCoordinates(lng, lat)
+      addresses.value[index] = await getAddressFromCoordinates(lng, lat, 'BikePathCreateManual')
 
       // Sincronizza routeMarkers: inserisci slot se necessario
       while (routeMarkers.value.length <= index) {
         routeMarkers.value.push(null)
       }
 
-      // Se l'indice è nel mezzo (waypoint inserito), aggiungi slot alla posizione corretta
+      // Se l'indice Ã¨ nel mezzo (waypoint inserito), aggiungi slot alla posizione corretta
       if (routeMarkers.value.length === addresses.value.length - 1 && index < routeMarkers.value.length) {
         routeMarkers.value.splice(index, 0, null)
       }
@@ -233,12 +222,12 @@ function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
     },
     onObstacleClick: async (index, lng, lat) => {
       if (obstacles.value[index]) {
-        obstacles.value[index].address = await getAddressFromCoordinates(lng, lat)
+        obstacles.value[index].address = await getAddressFromCoordinates(lng, lat, 'BikePathCreateManual')
         setMarker('obstacle', index, lng, lat)
       }
     },
     onAddWaypoint: async (beforeIndex, lng, lat) => {
-      addresses.value.splice(beforeIndex, 0, await getAddressFromCoordinates(lng, lat))
+      addresses.value.splice(beforeIndex, 0, await getAddressFromCoordinates(lng, lat, 'BikePathCreateManual'))
       routeMarkers.value.splice(beforeIndex, 0, null)
       setMarker('route', beforeIndex, lng, lat)
       redrawRouteMarkers()
