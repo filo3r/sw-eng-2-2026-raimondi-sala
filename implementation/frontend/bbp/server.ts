@@ -1,6 +1,6 @@
 /**
- * Production server for serving the compiled Vue frontend.
- * Injects runtime configuration (Mapbox API key, backend URL) into HTML.
+ * Production server that serves the compiled Vue frontend from `./dist`.
+ * Injects runtime config (Mapbox API key, backend URL) into served HTML.
  */
 import { serve } from "bun";
 import { parseArgs } from "util";
@@ -32,7 +32,9 @@ if (!mapboxApiKey) {
 }
 
 /**
- * Injects runtime configuration into HTML.
+ * Injects runtime configuration into an HTML document.
+ * @param html - The original HTML content.
+ * @returns The HTML with an injected `<script>` block before `</head>`.
  */
 function injectConfig(html: string): string {
     const configScript = `
@@ -47,8 +49,15 @@ console.log("Starting frontend server...");
 
 serve({
     port: frontendPort,
+    /**
+     * Request handler:
+     * - Serves static files from `./dist` when they exist.
+     * - Injects config only for HTML responses.
+     * - Falls back to `index.html` for SPA routes (no file extension).
+     */
     async fetch(req) {
         const url = new URL(req.url);
+        // Default document
         let filePath = url.pathname === "/" ? "/index.html" : url.pathname;
         const file = Bun.file(`${distPath}${filePath}`);
         // Serve existing files

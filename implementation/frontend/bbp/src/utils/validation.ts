@@ -1,8 +1,7 @@
 /**
- * Validation helper functions for form validation.
- * Returns string (error message) or null (validation passed).
+ * Form validation helpers.
+ * Each validator returns an error message string, or `null` when valid.
  */
-
 import {
     EMAIL_PATTERN,
     EMAIL_MAX_LENGTH,
@@ -20,12 +19,11 @@ import {
     MAX_SPEED_PATTERN
 } from '@/constants/validation'
 
-// ============================================================================
-// HELPER FUNCTIONS (return string | null)
-// ============================================================================
-
 /**
- * Validates required field.
+ * Validates that a required string field is non-empty (after trimming).
+ * @param value - Raw input value.
+ * @param fieldName - Field label used to build the error message.
+ * @returns Error message, or `null` if valid.
  */
 export function validateRequired(value: string, fieldName: string): string | null {
     if (!value || !value.trim()) {
@@ -35,7 +33,9 @@ export function validateRequired(value: string, fieldName: string): string | nul
 }
 
 /**
- * Validates name field.
+ * Validates a "name" field (required, max length).
+ * @param value - Name input.
+ * @returns Error message, or `null` if valid.
  */
 export function validateName(value: string): string | null {
     if (!value.trim()) {
@@ -48,7 +48,9 @@ export function validateName(value: string): string | null {
 }
 
 /**
- * Validates surname field.
+ * Validates a "surname" field (required, max length).
+ * @param value - Surname input.
+ * @returns Error message, or `null` if valid.
  */
 export function validateSurname(value: string): string | null {
     if (!value.trim()) {
@@ -61,7 +63,9 @@ export function validateSurname(value: string): string | null {
 }
 
 /**
- * Validates username field.
+ * Validates a "username" field (required, max length).
+ * @param value - Username input.
+ * @returns Error message, or `null` if valid.
  */
 export function validateUsername(value: string): string | null {
     if (!value.trim()) {
@@ -74,7 +78,9 @@ export function validateUsername(value: string): string | null {
 }
 
 /**
- * Validates email format and length.
+ * Validates an email field (required, max length, pattern).
+ * @param value - Email input.
+ * @returns Error message, or `null` if valid.
  */
 export function validateEmail(value: string): string | null {
     if (!value.trim()) {
@@ -90,7 +96,9 @@ export function validateEmail(value: string): string | null {
 }
 
 /**
- * Validates password minimum and maximum length.
+ * Validates a password field (required, min/max length).
+ * @param value - Password input.
+ * @returns Error message, or `null` if valid.
  */
 export function validatePassword(value: string): string | null {
     if (!value) {
@@ -106,7 +114,9 @@ export function validatePassword(value: string): string | null {
 }
 
 /**
- * Validates optional password (for profile update).
+ * Validates an optional password (empty is allowed; otherwise min/max length apply).
+ * @param value - Password input (may be empty).
+ * @returns Error message, or `null` if valid.
  */
 export function validateOptionalPassword(value: string): string | null {
     if (!value) return null
@@ -120,7 +130,10 @@ export function validateOptionalPassword(value: string): string | null {
 }
 
 /**
- * Validates optional description field.
+ * Validates an optional description (empty is allowed; otherwise max length applies).
+ * @param value - Description input (may be empty).
+ * @param maxLength - Allowed maximum length.
+ * @returns Error message, or `null` if valid.
  */
 export function validateOptionalDescription(value: string, maxLength: number): string | null {
     if (!value) return null
@@ -131,7 +144,11 @@ export function validateOptionalDescription(value: string, maxLength: number): s
 }
 
 /**
- * Validates date range (from/to).
+ * Validates a date range (`toDate` must be >= `fromDate` when both are provided).
+ * @param fromDate - Range start.
+ * @param toDate - Range end.
+ * @param fieldName - Field label used to build the error message.
+ * @returns Error message, or `null` if valid / incomplete.
  */
 export function validateDateRange(
     fromDate: Date | null,
@@ -146,7 +163,9 @@ export function validateDateRange(
 }
 
 /**
- * Validates minimum count for addresses.
+ * Validates a minimum count of non-empty addresses.
+ * @param addresses - Raw address strings.
+ * @returns Error message, or `null` if valid.
  */
 export function validateAddresses(addresses: string[]): string | null {
     const validAddresses = addresses.filter(addr => addr.trim() !== '')
@@ -157,7 +176,10 @@ export function validateAddresses(addresses: string[]): string | null {
 }
 
 /**
- * Validates end time is after start time.
+ * Validates that end time is after start time (both required).
+ * @param startTime - Start timestamp.
+ * @param endTime - End timestamp.
+ * @returns Error message, or `null` if valid.
  */
 export function validateEndAfterStart(
     startTime: Date | null,
@@ -173,7 +195,10 @@ export function validateEndAfterStart(
 }
 
 /**
- * Validates trip duration meets minimum requirement.
+ * Validates that trip duration meets the configured minimum (both times required).
+ * @param startTime - Trip start time.
+ * @param endTime - Trip end time.
+ * @returns Error message, or `null` if valid.
  */
 export function validateTripDuration(
     startTime: Date | null,
@@ -182,9 +207,8 @@ export function validateTripDuration(
     if (!startTime || !endTime) {
         return 'Start and end times are required'
     }
-
+    // Duration in minutes
     const durationMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60)
-
     if (durationMinutes < TRIP_DURATION_MIN_MINUTES) {
         return `Trip must be at least ${TRIP_DURATION_MIN_MINUTES} minute${TRIP_DURATION_MIN_MINUTES > 1 ? 's' : ''} long`
     }
@@ -192,29 +216,30 @@ export function validateTripDuration(
 }
 
 /**
- * Validates optional max speed.
+ * Validates an optional max speed value.
+ * Empty values are considered valid; otherwise it must match the pattern and be > 0.
+ * @param value - Speed input (number, string, or empty).
+ * @returns Error message, or `null` if valid.
  */
 export function validateOptionalMaxSpeed(value: number | string | ''): string | null {
     if (value === '' || value === null || value === undefined) {
         return null
     }
-
     const speedStr = String(value)
     if (!MAX_SPEED_PATTERN.test(speedStr)) {
         return 'Max speed must be a positive number with at most 3 integer digits and 2 decimal digits'
     }
-
     const speedNum = Number(value)
     if (isNaN(speedNum) || speedNum <= 0) {
         return 'Max speed must be greater than 0'
     }
-
     return null
 }
 
 /**
- * Validates coordinate object, throws if invalid.
- * Used in services for sanity checking programmatic values.
+ * Validates a coordinate object and throws if invalid.
+ * @param coords - Coordinates to validate.
+ * @throws Error if latitude/longitude are out of bounds.
  */
 export function validateCoordinates(coords: { latitude: number; longitude: number }): void {
     if (coords.latitude < LATITUDE_MIN || coords.latitude > LATITUDE_MAX) {
@@ -225,13 +250,13 @@ export function validateCoordinates(coords: { latitude: number; longitude: numbe
     }
 }
 
-// ============================================================================
-// COMPACT VALIDATION FUNCTION
-// ============================================================================
-
 /**
- * Validates and shows error in one call.
- * Returns true if validation passed, false otherwise.
+ * Helper to apply a validation result and show an error.
+ * @param error - Validation result (error message or `null`).
+ * @param field - Field identifier to pass to `setError`.
+ * @param setError - Marks a field as invalid (e.g., for UI highlighting).
+ * @param show - Displays a toast/notification.
+ * @returns `true` if valid, `false` otherwise.
  */
 export function validateAndShow(
     error: string | null,

@@ -1,10 +1,12 @@
 /**
  * Global styles and Tailwind/DaisyUI imports.
+ * Entry point for all application styles.
  */
 @import "tailwindcss";
 @plugin "daisyui";
 
+/* Prevent horizontal scroll while allowing vertical scroll globally */
 body {
-    overflow-x: hidden; /* No horizontal scroll anywhere */
-    overflow-y: auto;   /* Vertical scroll everywhere by default */
+    overflow-x: hidden; /* Prevent horizontal scrollbar on all pages */
+    overflow-y: auto;   /* Allow vertical scrolling with default behavior */
 }

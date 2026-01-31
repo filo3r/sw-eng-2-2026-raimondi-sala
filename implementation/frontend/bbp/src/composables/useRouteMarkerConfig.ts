@@ -1,6 +1,7 @@
 /**
- * Composable for calculating route marker configuration.
- * Determines color and label based on position in route.
+ * Composable for calculating route marker visual configuration.
+ * Determines marker color and label based on position in route (origin, destination, or waypoint).
+ * Origin uses green with 'O', destination uses purple with 'D', waypoints use blue with numbers.
  */
 import {
     ROUTE_MARKER_COLOR,
@@ -8,47 +9,41 @@ import {
     DESTINATION_MARKER_COLOR
 } from '@/constants/map'
 
+/**
+ * Route marker visual configuration for map display.
+ */
 export interface RouteMarkerConfig {
+    /** Marker background color (hex format) */
     color: string
+    /** Marker label text ('O' for origin, 'D' for destination, number for waypoints) */
     label: string
 }
 
 /**
- * Calculates marker configuration based on position in route.
- * @param index - Current marker index
- * @param totalAddresses - Total number of addresses in route
- * @returns Marker configuration with color and label
+ * Calculates marker visual configuration based on position in the route.
+ * First marker is origin (green, 'O'), last is destination (purple, 'D'), others are waypoints (blue, numbered).
+ * @param index - Current marker index in route (0-based)
+ * @param totalAddresses - Total number of addresses in the route (minimum 2)
+ * @returns Marker configuration with appropriate color and label
  */
 export function getRouteMarkerConfig(index: number, totalAddresses: number): RouteMarkerConfig {
-    // Origin marker (first)
+    // Origin marker: first address (green with 'O' label)
     if (index === 0) {
         return {
             color: ORIGIN_MARKER_COLOR,
             label: 'O'
         }
     }
-
-    // Destination marker (last)
+    // Destination marker: last address (purple with 'D' label)
     if (index === totalAddresses - 1) {
         return {
             color: DESTINATION_MARKER_COLOR,
             label: 'D'
         }
     }
-
-    // Waypoint markers (numbered)
+    // Waypoint markers: intermediate addresses (blue with numeric label)
     return {
         color: ROUTE_MARKER_COLOR,
         label: String(index)
-    }
-}
-
-/**
- * Creates route marker configuration utilities.
- * @returns Method to get marker config
- */
-export function useRouteMarkerConfig() {
-    return {
-        getRouteMarkerConfig
     }
 }

@@ -7,11 +7,13 @@ export {};
 declare global {
     interface Window {
         /**
-         * Mapbox API key (injected from --mapbox.api.key CLI argument)
+         * Mapbox API access token for map rendering and geocoding services.
+         * Injected from --mapbox.api.key CLI argument in production mode.
          */
         MAPBOX_API_KEY?: string;
         /**
-         * Backend API URL (injected from --backend.port CLI argument)
+         * Backend API base URL for HTTP requests.
+         * Injected from --backend.port CLI argument in production mode.
          */
         BACKEND_URL?: string;
     }

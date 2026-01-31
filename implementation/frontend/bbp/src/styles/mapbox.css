@@ -1,8 +1,9 @@
 /**
- * Custom styles for Mapbox popups and markers
+ * Custom styles for Mapbox popups and markers.
+ * Provides consistent styling for obstacle and route popups across the map.
  */
 
-/* Popup content styling */
+/* Popup content container with rounded corners and shadow */
 .obstacle-popup .mapboxgl-popup-content,
 .route-popup .mapboxgl-popup-content {
     border-radius: 8px;
@@ -10,7 +11,7 @@
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
-/* Popup close button */
+/* Popup close button with centered icon */
 .obstacle-popup .mapboxgl-popup-close-button,
 .route-popup .mapboxgl-popup-close-button {
     font-size: 20px;
@@ -25,7 +26,7 @@
     top: 8px;
 }
 
-/* Popup close button hover */
+/* Popup close button hover state with background highlight */
 .obstacle-popup .mapboxgl-popup-close-button:hover,
 .route-popup .mapboxgl-popup-close-button:hover {
     background-color: #f3f4f6;

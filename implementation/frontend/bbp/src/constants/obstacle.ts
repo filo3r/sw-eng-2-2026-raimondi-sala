@@ -1,23 +1,21 @@
 /**
- * Obstacle related constants.
+ * Obstacle related constants for types, severities, and UI options.
+ * Provides mappings between enum values and human-readable labels for forms and displays.
  */
 
 import type { ObstacleType, ObstacleSeverity } from '@/types/obstacle'
 
 /**
- * Obstacle type option for UI selection.
+ * Obstacle type option for UI selection in forms and dropdowns.
  */
 export interface ObstacleTypeOption {
-    /** Type enum value */
+    /** Obstacle type enum value */
     value: ObstacleType
-    /** Human-readable label */
+    /** Human-readable label for display */
     label: string
 }
 
-/**
- * Available obstacle type options for forms and filters.
- * Ordered alphabetically by label.
- */
+/** Available obstacle type options for forms and filters (ordered alphabetically by label) */
 export const OBSTACLE_TYPE_OPTIONS: readonly ObstacleTypeOption[] = [
     { value: 'ANIMAL', label: 'Animal' },
     { value: 'BARRIER', label: 'Barrier' },
@@ -48,66 +46,21 @@ export const OBSTACLE_TYPE_OPTIONS: readonly ObstacleTypeOption[] = [
 ] as const
 
 /**
- * Map obstacle type to human-readable label.
- */
-export const OBSTACLE_TYPE_LABELS: Record<ObstacleType, string> = {
-    POTHOLE: 'Pothole',
-    CRACK: 'Crack',
-    DAMAGED_SURFACE: 'Damaged Surface',
-    UNEVEN_SURFACE: 'Uneven Surface',
-    ROOT_DAMAGE: 'Root Damage',
-    SPEED_BUMP: 'Speed Bump',
-    MANHOLE_COVER: 'Manhole Cover',
-    MISSING_DRAIN: 'Missing Drain',
-    LOOSE_GRAVEL: 'Loose Gravel',
-    SAND: 'Sand',
-    MUD: 'Mud',
-    GLASS: 'Glass',
-    DEBRIS: 'Debris',
-    PUDDLE: 'Puddle',
-    FLOODING: 'Flooding',
-    ICE: 'Ice',
-    SLIPPERY_SURFACE: 'Slippery Surface',
-    OIL_SPILL: 'Oil Spill',
-    FALLEN_TREE: 'Fallen Tree',
-    BARRIER: 'Barrier',
-    PARKED_VEHICLE: 'Parked Vehicle',
-    OVERGROWN_VEGETATION: 'Overgrown Vegetation',
-    ANIMAL: 'Animal',
-    CONSTRUCTION: 'Construction',
-    NARROW_PATH: 'Narrow Path',
-    OTHER: 'Other'
-}
-
-/**
- * Obstacle severity option for UI selection.
+ * Obstacle severity option for UI selection in forms and dropdowns.
  */
 export interface ObstacleSeverityOption {
     /** Severity enum value */
     value: ObstacleSeverity
-    /** Human-readable label */
+    /** Human-readable label for display */
     label: string
-    /** Numeric severity level (1-4) */
+    /** Numeric severity level for sorting and filtering (1-4, higher is more severe) */
     level: number
 }
 
-/**
- * Available obstacle severity options for forms and filters.
- * Ordered by severity level (lowest to highest).
- */
+/** Available obstacle severity options for forms and filters (ordered by level: lowest to highest) */
 export const OBSTACLE_SEVERITY_OPTIONS: readonly ObstacleSeverityOption[] = [
     { value: 'LOW', label: 'Low', level: 1 },
     { value: 'MEDIUM', label: 'Medium', level: 2 },
     { value: 'HIGH', label: 'High', level: 3 },
     { value: 'CRITICAL', label: 'Critical', level: 4 }
 ] as const
-
-/**
- * Map obstacle severity to human-readable label.
- */
-export const OBSTACLE_SEVERITY_LABELS: Record<ObstacleSeverity, string> = {
-    LOW: 'Low',
-    MEDIUM: 'Medium',
-    HIGH: 'High',
-    CRITICAL: 'Critical'
-}

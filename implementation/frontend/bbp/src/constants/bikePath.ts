@@ -1,21 +1,19 @@
-/*
- * Bike path related constants and enums.
+/**
+ * Bike path related constants for search radius and status options.
+ * Provides mappings between enum values and human-readable labels for forms and displays.
  */
 
 /**
- * Radius option for bike path search.
+ * Radius option for bike path geographic search.
  */
 export interface RadiusOption {
     /** Radius value in kilometers */
     value: number
-    /** Human-readable label */
+    /** Human-readable label with distance unit */
     label: string
 }
 
-/**
- * Available radius options for bike path finder.
- * Used for both origin and destination radius filters.
- */
+/** Available radius options for bike path finder search (both origin and destination) */
 export const RADIUS_OPTIONS: readonly RadiusOption[] = [
     { value: 0.1, label: '100m' },
     { value: 0.25, label: '250m' },
@@ -26,30 +24,24 @@ export const RADIUS_OPTIONS: readonly RadiusOption[] = [
     { value: 10, label: '10 km' }
 ] as const
 
-/**
- * Default radius in kilometers for bike path search.
- */
+/** Default search radius in kilometers for bike path finder */
 export const DEFAULT_RADIUS_KM = 0.1
-
 
 import type { BikePathStatus } from '@/types/bikePath'
 
 /**
- * Bike path status option for UI selection.
+ * Bike path status option for UI selection in forms and dropdowns.
  */
 export interface BikePathStatusOption {
     /** Status enum value */
     value: BikePathStatus
-    /** Human-readable label */
+    /** Human-readable label for display */
     label: string
-    /** Numeric score (null for non-quality statuses) */
+    /** Numeric quality score (1-10 for quality statuses, null for operational statuses) */
     score: number | null
 }
 
-/**
- * Available bike path status options for forms and filters.
- * Ordered by score (highest to lowest), with non-scored statuses at the end.
- */
+/** Available bike path status options for forms and filters (ordered by score: highest to lowest, then non-scored) */
 export const BIKE_PATH_STATUS_OPTIONS: readonly BikePathStatusOption[] = [
     { value: 'EXCELLENT', label: 'Excellent', score: 10 },
     { value: 'VERY_GOOD', label: 'Very Good', score: 9 },
@@ -65,22 +57,3 @@ export const BIKE_PATH_STATUS_OPTIONS: readonly BikePathStatusOption[] = [
     { value: 'TEMPORARILY_CLOSED', label: 'Temporarily Closed', score: null },
     { value: 'PERMANENTLY_CLOSED', label: 'Permanently Closed', score: null }
 ] as const
-
-/**
- * Map bike path status to human-readable label.
- */
-export const BIKE_PATH_STATUS_LABELS: Record<BikePathStatus, string> = {
-    EXCELLENT: 'Excellent',
-    VERY_GOOD: 'Very Good',
-    GOOD: 'Good',
-    FAIR: 'Fair',
-    SUFFICIENT: 'Sufficient',
-    MEDIOCRE: 'Mediocre',
-    POOR: 'Poor',
-    VERY_POOR: 'Very Poor',
-    CRITICAL: 'Critical',
-    IMPASSABLE: 'Impassable',
-    UNDER_MAINTENANCE: 'Under Maintenance',
-    TEMPORARILY_CLOSED: 'Temporarily Closed',
-    PERMANENTLY_CLOSED: 'Permanently Closed'
-}

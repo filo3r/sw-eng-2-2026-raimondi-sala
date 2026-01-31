@@ -17,7 +17,7 @@ import { getRouteMarkerConfig } from '@/composables/useRouteMarkerConfig'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { catchApiError } from '@/utils/error'
 import { getAddressFromCoordinates } from '@/utils/geocoding'
-import { normalizeTime } from '@/utils/time'
+import { normalizeTime } from '@/utils/date'
 import {
   validateAddresses,
   validateOptionalDescription,

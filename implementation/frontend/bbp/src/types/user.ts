@@ -1,113 +1,70 @@
 /**
- * Request for user login.
+ * Request for user login authentication.
  */
 export interface UserLoginRequest {
-    /** User email for authentication */
+    /** User email address for authentication */
     email: string
-
-    /** User password */
+    /** User password for authentication */
     password: string
 }
 
 /**
- * Request for user registration.
+ * Request for new user registration.
  */
 export interface UserRegisterRequest {
-    /**
-     * User's first name.
-     * Maximum 50 characters.
-     */
+    /** User's first name (max 50 characters) */
     name: string
-
-    /**
-     * User's last name.
-     * Maximum 50 characters.
-     */
+    /** User's last name (max 50 characters) */
     surname: string
-
-    /**
-     * Unique username.
-     * Maximum 50 characters.
-     */
+    /** Unique username (max 50 characters) */
     username: string
-
-    /**
-     * User's email address.
-     * Maximum 150 characters.
-     */
+    /** User's email address (max 150 characters) */
     email: string
-
-    /**
-     * User's password.
-     * Minimum 8 characters.
-     */
+    /** User's password (min 8 characters) */
     password: string
 }
 
 /**
- * Request for user update with partial updates.
- * All fields are optional, only non-null fields will be updated.
+ * Request for updating user information with partial updates.
+ * All fields are optional, only provided fields will be updated.
  */
 export interface UserUpdateRequest {
-    /**
-     * User's first name (optional).
-     * Maximum 50 characters.
-     */
+    /** User's first name (max 50 characters, optional) */
     name?: string
-
-    /**
-     * User's last name (optional).
-     * Maximum 50 characters.
-     */
+    /** User's last name (max 50 characters, optional) */
     surname?: string
-
-    /**
-     * Unique username (optional).
-     * Maximum 50 characters.
-     */
+    /** Unique username (max 50 characters, optional) */
     username?: string
-
-    /**
-     * User's email address (optional).
-     * Maximum 150 characters.
-     */
+    /** User's email address (max 150 characters, optional) */
     email?: string
-
-    /**
-     * User's new password (optional).
-     * Minimum 8 characters.
-     */
+    /** User's new password (min 8 characters, optional) */
     password?: string
 }
 
 /**
- * Response for user authentication containing JWT token and user ID.
+ * Response for successful user authentication.
+ * Contains JWT token and user identifier.
  */
 export interface UserAuthResponse {
     /** JWT access token for subsequent authenticated requests */
     token: string
-
-    /** User ID */
+    /** Unique user identifier */
     userId: number
 }
 
 /**
- * Response for user information without sensitive data.
- * Excludes password and other sensitive fields.
+ * Response containing user information without sensitive data.
+ * Password and other sensitive fields are excluded.
  */
 export interface UserResponse {
-    /** User ID */
+    /** Unique user identifier */
     id: number
-
     /** User's first name */
     name: string
-
     /** User's last name */
     surname: string
-
     /** Unique username */
     username: string
-
     /** User's email address */
     email: string
 }

@@ -2,14 +2,17 @@
  * Date and time formatting utilities.
  */
 
+/**
+ * Locale argument type for Intl formatting APIs.
+ * Can be a single locale string, array of locales, or undefined for system default.
+ */
 type LocalesArg = string | string[] | undefined
 
 /**
- * Formats ISO date string to readable date.
+ * Formats ISO date string to readable localized date (year, month, day).
  * @param isoString - ISO 8601 date string
  * @param locale - Locale for formatting (default: browser/runtime default)
- * @returns Formatted date string
- * @example formatDate("2024-12-28T14:30:00Z") // e.g. "Dec 28, 2024" (en-US) or "28 dic 2024" (it-IT)
+ * @returns Formatted date string (e.g., "Dec 28, 2024" for en-US or "28 dic 2024" for it-IT)
  */
 export function formatDate(isoString: string, locale?: LocalesArg): string {
     const date = new Date(isoString)
@@ -21,11 +24,10 @@ export function formatDate(isoString: string, locale?: LocalesArg): string {
 }
 
 /**
- * Formats ISO date string to readable date and time (with seconds).
+ * Formats ISO date string to readable localized date and time with seconds.
  * @param isoString - ISO 8601 date string
  * @param locale - Locale for formatting (default: browser/runtime default)
- * @returns Formatted date and time string
- * @example formatDateTime("2024-12-28T14:30:00Z") // e.g. "Dec 28, 2024, 2:30:00 PM"
+ * @returns Formatted date and time string with seconds
  */
 export function formatDateTime(isoString: string, locale?: LocalesArg): string {
     const date = new Date(isoString)
@@ -40,11 +42,10 @@ export function formatDateTime(isoString: string, locale?: LocalesArg): string {
 }
 
 /**
- * Formats ISO date string to time only (with seconds).
+ * Formats ISO date string to time only with seconds.
  * @param isoString - ISO 8601 date string
  * @param locale - Locale for formatting (default: browser/runtime default)
- * @returns Formatted time string
- * @example formatTime("2024-12-28T14:30:00Z") // e.g. "2:30:00 PM"
+ * @returns Formatted time string with seconds
  */
 export function formatTime(isoString: string, locale?: LocalesArg): string {
     const date = new Date(isoString)
@@ -56,20 +57,31 @@ export function formatTime(isoString: string, locale?: LocalesArg): string {
 }
 
 /**
- * Formats date range from two ISO strings.
+ * Formats date range from two ISO strings with smart formatting.
+ * Shows date once if same day, otherwise shows full date-time for both.
  * @param startIso - Start date ISO string
  * @param endIso - End date ISO string
  * @param locale - Locale for formatting (default: browser/runtime default)
  * @returns Formatted date range string
- * @example formatDateRange("2024-12-28T10:00:00Z", "2024-12-28T14:30:15Z") // "Dec 28, 2024, 10:00:00 AM - 2:30:15 PM"
  */
 export function formatDateRange(startIso: string, endIso: string, locale?: LocalesArg): string {
     const start = new Date(startIso)
     const end = new Date(endIso)
-    // Same day (in the client's time zone)
+    // Same day: show date once with time range
     if (start.toDateString() === end.toDateString()) {
         return `${formatDate(startIso, locale)}, ${formatTime(startIso, locale)} - ${formatTime(endIso, locale)}`
     }
-    // Different days
+    // Different days: show full date-time for both
     return `${formatDateTime(startIso, locale)} - ${formatDateTime(endIso, locale)}`
+}
+
+/**
+ * Normalizes time string to HH:mm:ss format.
+ * Some browsers return "HH:mm" instead of "HH:mm:ss" for time inputs.
+ * @param timeString - Time string in HH:mm or HH:mm:ss format
+ * @returns Normalized time string in HH:mm:ss format
+ */
+export function normalizeTime(timeString: string): string {
+    if (!timeString) return ''
+    return timeString.length === 5 ? `${timeString}:00` : timeString
 }
