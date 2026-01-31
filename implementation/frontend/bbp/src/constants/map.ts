@@ -92,3 +92,5 @@ export const ROUTE_MARKER_COLOR = '#3b82f6'
 // Map cursor styles
 export const MAP_CURSOR_CROSSHAIR = 'crosshair'
 export const MAP_CURSOR_DEFAULT = 'default'
+
+export const ROUTE_UPDATE_DEBOUNCE_MS = 300

@@ -3,11 +3,12 @@ import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Trash2, ChevronDown, GripVertical } from 'lucide-vue-next'
 import { createBikePathManually } from '@/services/bikePath'
-import { forwardGeocode, calculateCyclingRoute } from '@/services/mapbox'
+import { forwardGeocode } from '@/services/mapbox'
 import { useToast } from '@/composables/useToast'
 import { useFieldError } from '@/composables/useFieldError'
 import { useMap } from '@/composables/useMap'
 import { useInteractiveMarkers } from '@/composables/useInteractiveMarkers'
+import { useRouteDrawing } from '@/composables/useRouteDrawing'
 import { useMapboxAutocomplete, type AutocompleteSuggestion } from '@/composables/useMapboxAutocomplete'
 import { useDraggableList } from '@/composables/useDraggableList'
 import { useMapClickHandler } from '@/composables/useMapClickHandler'
@@ -26,16 +27,12 @@ import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/ob
 import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
 import {
   MAP_CURSOR_CROSSHAIR,
-  ROUTE_LINE_COLOR,
-  ROUTE_LINE_WIDTH,
-  ROUTE_LINE_JOIN,
-  ROUTE_LINE_CAP,
   OBSTACLE_SEVERITY_COLORS,
-  DEFAULT_OBSTACLE_COLOR
+  DEFAULT_OBSTACLE_COLOR,
+  ROUTE_UPDATE_DEBOUNCE_MS
 } from '@/constants/map'
 import type { BikePathStatus } from '@/types/bikePath'
 import type { ObstacleType, ObstacleSeverity } from '@/types/obstacle'
-import type { Coordinate } from '@/types/mapbox'
 import type { MarkerConfig } from '@/composables/useInteractiveMarkers'
 
 const router = useRouter()
@@ -62,6 +59,11 @@ const {
   addSlot: addObstacleSlot,
   markers: obstacleMarkers
 } = useInteractiveMarkers(map)
+
+const { updateRoute, attachMapClickHandler } = useRouteDrawing(map, {
+  sourceId: 'route',
+  layerId: 'route'
+})
 
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
@@ -119,47 +121,6 @@ async function geocodeAndSetMarker(address: string, type: 'route' | 'obstacle', 
   }
 }
 
-async function updateRoute() {
-  if (!map.value) return
-
-  const coordinates = routeMarkers.value
-      .filter((m): m is import('mapbox-gl').Marker => m !== null)
-      .map(m => m.getLngLat())
-
-  if (coordinates.length < 2) {
-    const source = map.value.getSource('route') as import('mapbox-gl').GeoJSONSource | undefined
-    if (source) source.setData({ type: 'FeatureCollection', features: [] })
-    return
-  }
-
-  try {
-    const waypoints: Coordinate[] = coordinates.map(c => ({
-      latitude: c.lat,
-      longitude: c.lng
-    }))
-
-    const routeResult = await calculateCyclingRoute({ waypoints })
-
-    const routeCoordinates = routeResult.points
-        .sort((a, b) => a.sequentialPosition - b.sequentialPosition)
-        .map(point => [point.longitude, point.latitude])
-
-    const source = map.value.getSource('route') as import('mapbox-gl').GeoJSONSource | undefined
-    if (source) {
-      source.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: routeCoordinates
-        }
-      })
-    }
-  } catch (e) {
-    catchApiError(e, 'BikePathCreateManual.updateRoute')
-  }
-}
-
 function getMarkerConfig(type: 'route' | 'obstacle', index: number): MarkerConfig {
   if (type === 'obstacle' && obstacles.value[index]) {
     const severity = obstacles.value[index].severity
@@ -183,7 +144,7 @@ function getMarkerConfig(type: 'route' | 'obstacle', index: number): MarkerConfi
     draggable: true,
     onDragEnd: async (lng, lat) => {
       addresses.value[index] = await getAddressFromCoordinates(lng, lat, 'BikePathCreateManual')
-      await updateRoute()
+      await updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'BikePathCreateManual')
     }
   }
 }
@@ -193,7 +154,7 @@ function setMarker(type: 'route' | 'obstacle', index: number, lng: number, lat: 
 
   if (type === 'route') {
     createRouteMarker(index, lng, lat, config)
-    void updateRoute()
+    void updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'BikePathCreateManual')
   } else {
     createObstacleMarker(index, lng, lat, config)
   }
@@ -235,36 +196,6 @@ function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
   })
 }
 
-watch(map, newMap => {
-  if (!newMap) return
-
-  newMap.on('load', () => {
-    if (!newMap.getSource('route')) {
-      newMap.addSource('route', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] }
-      })
-
-      newMap.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        layout: {
-          'line-join': ROUTE_LINE_JOIN,
-          'line-cap': ROUTE_LINE_CAP
-        },
-        paint: {
-          'line-color': ROUTE_LINE_COLOR,
-          'line-width': ROUTE_LINE_WIDTH
-        }
-      })
-    }
-  })
-
-  newMap.on('click', handleMapClick)
-  newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
-})
-
 async function addAddress() {
   // Inserisci il nuovo waypoint prima della destinazione
   const insertIndex = addresses.value.length - 1
@@ -296,7 +227,7 @@ function removeAddress(index: number) {
     }
 
     redrawRouteMarkers()
-    void updateRoute()
+    void updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'BikePathCreateManual')
   }
 }
 
@@ -308,7 +239,7 @@ function reorderAddresses(fromIndex: number, toIndex: number) {
   routeMarkers.value.splice(toIndex, 0, movedMarker)
 
   redrawRouteMarkers()
-  void updateRoute()
+  void updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'BikePathCreateManual')
 }
 
 function redrawRouteMarkers() {
@@ -417,6 +348,13 @@ function goBack() {
 
 onMounted(() => {
   initMap()
+
+  watch(map, (newMap) => {
+    if (newMap) {
+      attachMapClickHandler(handleMapClick)
+      newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
+    }
+  }, { immediate: true })
 })
 </script>
 

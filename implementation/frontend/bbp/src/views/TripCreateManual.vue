@@ -3,11 +3,12 @@ import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-vue-next'
 import { createTripManually } from '@/services/trip'
-import { forwardGeocode, calculateCyclingRoute } from '@/services/mapbox'
+import { forwardGeocode } from '@/services/mapbox'
 import { useToast } from '@/composables/useToast'
 import { useFieldError } from '@/composables/useFieldError'
 import { useMap } from '@/composables/useMap'
 import { useInteractiveMarkers } from '@/composables/useInteractiveMarkers'
+import { useRouteDrawing } from '@/composables/useRouteDrawing'
 import { useMapboxAutocomplete, type AutocompleteSuggestion } from '@/composables/useMapboxAutocomplete'
 import { useDraggableList } from '@/composables/useDraggableList'
 import { useMapClickHandler } from '@/composables/useMapClickHandler'
@@ -26,12 +27,8 @@ import {
 import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
 import {
   MAP_CURSOR_CROSSHAIR,
-  ROUTE_LINE_COLOR,
-  ROUTE_LINE_WIDTH,
-  ROUTE_LINE_JOIN,
-  ROUTE_LINE_CAP
+  ROUTE_UPDATE_DEBOUNCE_MS
 } from '@/constants/map'
-import type { Coordinate } from '@/types/mapbox'
 import type { MarkerConfig } from '@/composables/useInteractiveMarkers'
 
 const router = useRouter()
@@ -51,6 +48,11 @@ const {
   removeMarker: removeRouteMarker,
   markers: routeMarkers
 } = useInteractiveMarkers(map)
+
+const { updateRoute, attachMapClickHandler } = useRouteDrawing(map, {
+  sourceId: 'trip-route',
+  layerId: 'trip-route'
+})
 
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
@@ -120,47 +122,6 @@ async function geocodeAndSetMarker(address: string, index: number) {
   }
 }
 
-async function updateRoute() {
-  if (!map.value) return
-
-  const coordinates = routeMarkers.value
-      .filter((m): m is import('mapbox-gl').Marker => m !== null)
-      .map(m => m.getLngLat())
-
-  if (coordinates.length < 2) {
-    const source = map.value.getSource('trip-route') as import('mapbox-gl').GeoJSONSource | undefined
-    if (source) source.setData({ type: 'FeatureCollection', features: [] })
-    return
-  }
-
-  try {
-    const waypoints: Coordinate[] = coordinates.map(c => ({
-      latitude: c.lat,
-      longitude: c.lng
-    }))
-
-    const routeResult = await calculateCyclingRoute({ waypoints })
-
-    const routeCoordinates = routeResult.points
-        .sort((a, b) => a.sequentialPosition - b.sequentialPosition)
-        .map(point => [point.longitude, point.latitude])
-
-    const source = map.value.getSource('trip-route') as import('mapbox-gl').GeoJSONSource | undefined
-    if (source) {
-      source.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates: routeCoordinates
-        }
-      })
-    }
-  } catch (e) {
-    catchApiError(e, 'TripCreateManual.updateRoute')
-  }
-}
-
 function getMarkerConfig(index: number): MarkerConfig {
   const { color, label } = getRouteMarkerConfig(index, addresses.value.length)
 
@@ -170,7 +131,7 @@ function getMarkerConfig(index: number): MarkerConfig {
     draggable: true,
     onDragEnd: async (lng, lat) => {
       addresses.value[index] = await getAddressFromCoordinates(lng, lat, 'TripCreateManual')
-      await updateRoute()
+      await updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'TripCreateManual')
     }
   }
 }
@@ -178,7 +139,7 @@ function getMarkerConfig(index: number): MarkerConfig {
 function setMarker(index: number, lng: number, lat: number) {
   const config = getMarkerConfig(index)
   createRouteMarker(index, lng, lat, config)
-  void updateRoute()
+  void updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'TripCreateManual')
 }
 
 function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
@@ -212,36 +173,6 @@ function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
   })
 }
 
-watch(map, newMap => {
-  if (!newMap) return
-
-  newMap.on('load', () => {
-    if (!newMap.getSource('trip-route')) {
-      newMap.addSource('trip-route', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] }
-      })
-
-      newMap.addLayer({
-        id: 'trip-route',
-        type: 'line',
-        source: 'trip-route',
-        layout: {
-          'line-join': ROUTE_LINE_JOIN,
-          'line-cap': ROUTE_LINE_CAP
-        },
-        paint: {
-          'line-color': ROUTE_LINE_COLOR,
-          'line-width': ROUTE_LINE_WIDTH
-        }
-      })
-    }
-  })
-
-  newMap.on('click', handleMapClick)
-  newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
-})
-
 async function addAddress() {
   // Inserisci il nuovo waypoint prima della destinazione
   const insertIndex = addresses.value.length - 1
@@ -273,7 +204,7 @@ function removeAddress(index: number) {
     }
 
     redrawRouteMarkers()
-    void updateRoute()
+    void updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'TripCreateManual')
   }
 }
 
@@ -285,7 +216,7 @@ function reorderAddresses(fromIndex: number, toIndex: number) {
   routeMarkers.value.splice(toIndex, 0, movedMarker)
 
   redrawRouteMarkers()
-  void updateRoute()
+  void updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'TripCreateManual')
 }
 
 function redrawRouteMarkers() {
@@ -333,6 +264,13 @@ function goBack() {
 
 onMounted(() => {
   initMap()
+
+  watch(map, (newMap) => {
+    if (newMap) {
+      attachMapClickHandler(handleMapClick)
+      newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
+    }
+  }, { immediate: true })
 })
 </script>
 
