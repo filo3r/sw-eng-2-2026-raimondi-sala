@@ -78,7 +78,13 @@ const { activeField, setActiveField, handleMapClick: handleMapClickBase } = useM
 
 const addresses = ref<string[]>(['', ''])
 
-const { addAddress, removeAddress, reorderAddresses, redrawRouteMarkers } = useAddressManager({
+const {
+  addAddress,
+  removeAddress,
+  reorderAddresses,
+  handleRoutePointClick,
+  handleWaypointInsert
+} = useAddressManager({
   addresses,
   routeMarkers,
   activeField,
@@ -181,34 +187,14 @@ function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
 
   handleMapClickBase(lng, lat, {
     getCurrentAddresses: () => addresses.value,
-    onRouteClick: async (index, lng, lat) => {
-      addresses.value[index] = await getAddressFromCoordinates(lng, lat, 'BikePathCreateManual')
-
-      // Sincronizza routeMarkers: inserisci slot se necessario
-      while (routeMarkers.value.length <= index) {
-        routeMarkers.value.push(null)
-      }
-
-      // Se l'indice Ã¨ nel mezzo (waypoint inserito), aggiungi slot alla posizione corretta
-      if (routeMarkers.value.length === addresses.value.length - 1 && index < routeMarkers.value.length) {
-        routeMarkers.value.splice(index, 0, null)
-      }
-
-      setMarker('route', index, lng, lat)
-      redrawRouteMarkers()
-    },
+    onRouteClick: (index, lng, lat) => handleRoutePointClick(index, lng, lat),
     onObstacleClick: async (index, lng, lat) => {
       if (obstacles.value[index]) {
         obstacles.value[index].address = await getAddressFromCoordinates(lng, lat, 'BikePathCreateManual')
         setMarker('obstacle', index, lng, lat)
       }
     },
-    onAddWaypoint: async (beforeIndex, lng, lat) => {
-      addresses.value.splice(beforeIndex, 0, await getAddressFromCoordinates(lng, lat, 'BikePathCreateManual'))
-      routeMarkers.value.splice(beforeIndex, 0, null)
-      setMarker('route', beforeIndex, lng, lat)
-      redrawRouteMarkers()
-    }
+    onAddWaypoint: (beforeIndex, lng, lat) => handleWaypointInsert(beforeIndex, lng, lat)
   })
 }
 

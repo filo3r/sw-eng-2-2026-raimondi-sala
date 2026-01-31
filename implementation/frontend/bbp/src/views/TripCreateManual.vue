@@ -68,7 +68,13 @@ const { activeField, setActiveField, handleMapClick: handleMapClickBase } = useM
 
 const addresses = ref<string[]>(['', ''])
 
-const { addAddress, removeAddress, reorderAddresses, redrawRouteMarkers } = useAddressManager({
+const {
+  addAddress,
+  removeAddress,
+  reorderAddresses,
+  handleRoutePointClick,
+  handleWaypointInsert
+} = useAddressManager({
   addresses,
   routeMarkers,
   activeField,
@@ -158,29 +164,9 @@ function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
 
   handleMapClickBase(lng, lat, {
     getCurrentAddresses: () => addresses.value,
-    onRouteClick: async (index, lng, lat) => {
-      addresses.value[index] = await getAddressFromCoordinates(lng, lat, 'TripCreateManual')
-
-      // Sincronizza routeMarkers: inserisci slot se necessario
-      while (routeMarkers.value.length <= index) {
-        routeMarkers.value.push(null)
-      }
-
-      // Se l'indice Ã¨ nel mezzo (waypoint inserito), aggiungi slot alla posizione corretta
-      if (routeMarkers.value.length === addresses.value.length - 1 && index < routeMarkers.value.length) {
-        routeMarkers.value.splice(index, 0, null)
-      }
-
-      setMarker(index, lng, lat)
-      redrawRouteMarkers()
-    },
+    onRouteClick: (index, lng, lat) => handleRoutePointClick(index, lng, lat),
     onObstacleClick: () => {},
-    onAddWaypoint: async (beforeIndex, lng, lat) => {
-      addresses.value.splice(beforeIndex, 0, await getAddressFromCoordinates(lng, lat, 'TripCreateManual'))
-      routeMarkers.value.splice(beforeIndex, 0, null)
-      setMarker(beforeIndex, lng, lat)
-      redrawRouteMarkers()
-    }
+    onAddWaypoint: (beforeIndex, lng, lat) => handleWaypointInsert(beforeIndex, lng, lat)
   })
 }
 

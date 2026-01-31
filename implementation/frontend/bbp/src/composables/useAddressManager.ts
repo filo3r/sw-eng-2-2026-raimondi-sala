@@ -4,6 +4,7 @@
  */
 import { type Ref, nextTick } from 'vue'
 import type * as mapboxgl from 'mapbox-gl'
+import { getAddressFromCoordinates } from '@/utils/geocoding'
 
 export interface UseAddressManagerOptions {
     addresses: Ref<string[]>
@@ -38,6 +39,51 @@ export function useAddressManager(options: UseAddressManagerOptions) {
         debounceMs,
         context
     } = options
+
+    /**
+     * Ensures marker slots exist up to the specified index.
+     * Handles both extending the array and inserting slots for waypoints.
+     * @param index - Target index that needs a marker slot
+     */
+    function ensureMarkerSlot(index: number) {
+        // Add missing slots up to index
+        while (routeMarkers.value.length <= index) {
+            routeMarkers.value.push(null)
+        }
+
+        // If inserting a waypoint in the middle, create space
+        if (routeMarkers.value.length === addresses.value.length - 1 &&
+            index < routeMarkers.value.length) {
+            routeMarkers.value.splice(index, 0, null)
+        }
+    }
+
+    /**
+     * Handles click on a route point (origin, destination, or waypoint).
+     * Updates address, syncs markers, and redraws.
+     * @param index - Index of the route point
+     * @param lng - Longitude
+     * @param lat - Latitude
+     */
+    async function handleRoutePointClick(index: number, lng: number, lat: number) {
+        addresses.value[index] = await getAddressFromCoordinates(lng, lat, context)
+        ensureMarkerSlot(index)
+        setMarker(index, lng, lat)
+        redrawRouteMarkers()
+    }
+
+    /**
+     * Handles insertion of a new waypoint at a specific position.
+     * @param beforeIndex - Insert before this index
+     * @param lng - Longitude
+     * @param lat - Latitude
+     */
+    async function handleWaypointInsert(beforeIndex: number, lng: number, lat: number) {
+        addresses.value.splice(beforeIndex, 0, await getAddressFromCoordinates(lng, lat, context))
+        routeMarkers.value.splice(beforeIndex, 0, null)
+        setMarker(beforeIndex, lng, lat)
+        redrawRouteMarkers()
+    }
 
     /**
      * Adds a new waypoint before the destination.
@@ -113,6 +159,9 @@ export function useAddressManager(options: UseAddressManagerOptions) {
         addAddress,
         removeAddress,
         reorderAddresses,
-        redrawRouteMarkers
+        redrawRouteMarkers,
+        ensureMarkerSlot,
+        handleRoutePointClick,
+        handleWaypointInsert
     }
 }
