@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Plus, Trash2, GripVertical, AlertCircle } from 'lucide-vue-next'
+import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-vue-next'
 import { createTripManually } from '@/services/trip'
 import { forwardGeocode, reverseGeocode, calculateCyclingRoute } from '@/services/mapbox'
 import { useToast } from '@/composables/useToast'
@@ -14,7 +14,14 @@ import { useMapClickHandler } from '@/composables/useMapClickHandler'
 import { getRouteMarkerConfig } from '@/composables/useRouteMarkerConfig'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { catchApiError } from '@/utils/error'
-import { isEndTimeAfterStartTime, isValidTripDuration, isValidMaxSpeed } from '@/utils/validation'
+import {
+  validateAddresses,
+  validateOptionalDescription,
+  validateEndAfterStart,
+  validateTripDuration,
+  validateOptionalMaxSpeed,
+  validateAndShow
+} from '@/utils/validation'
 import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
 import {
   MAP_CURSOR_CROSSHAIR,
@@ -86,18 +93,6 @@ const minEndTime = computed(() => {
   if (startDateStr.value !== endDateStr.value) return undefined
   const t = normalizeTime(startTimeStr.value)
   return t || undefined
-})
-
-// Validazioni
-const isStartValid = computed(() => !!startTime.value)
-const isEndValid = computed(() => !!endTime.value)
-const isEndAfterStart = computed(() => {
-  if (!startTime.value || !endTime.value) return true
-  return isEndTimeAfterStartTime(startTime.value, endTime.value)
-})
-const isDurationValid = computed(() => {
-  if (!startTime.value || !endTime.value) return true
-  return isValidTripDuration(startTime.value, endTime.value)
 })
 
 async function selectSuggestion(suggestion: AutocompleteSuggestion, index: number) {
@@ -314,37 +309,14 @@ function redrawRouteMarkers() {
 }
 
 async function handleSubmit() {
+  // Frontend validation
+  if (!validateAndShow(validateAddresses(addresses.value), 'addresses', setError, show)) return
+  if (!validateAndShow(validateOptionalDescription(description.value, DESCRIPTION_MAX_LENGTH), 'description', setError, show)) return
+  if (!validateAndShow(validateEndAfterStart(startTime.value, endTime.value), 'endTime', setError, show)) return
+  if (!validateAndShow(validateTripDuration(startTime.value, endTime.value), 'endTime', setError, show)) return
+  if (!validateAndShow(validateOptionalMaxSpeed(maxSpeed.value), 'maxSpeed', setError, show)) return
+
   const validAddresses = addresses.value.filter(addr => addr.trim() !== '')
-
-  if (validAddresses.length < 2) {
-    show('At least 2 addresses are required', 'error')
-    return
-  }
-
-  if (!startTime.value) {
-    show('Start time is required', 'error')
-    return
-  }
-
-  if (!endTime.value) {
-    show('End time is required', 'error')
-    return
-  }
-
-  if (!isEndAfterStart.value) {
-    show('End time must be after start time', 'error')
-    return
-  }
-
-  if (!isDurationValid.value) {
-    show('Trip must be at least 1 minute long', 'error')
-    return
-  }
-
-  if (maxSpeed.value !== '' && !isValidMaxSpeed(maxSpeed.value)) {
-    show('Max speed must be a positive number with at most 3 integer digits and 2 decimal digits', 'error')
-    return
-  }
 
   loading.value = true
 
@@ -352,8 +324,8 @@ async function handleSubmit() {
     await createTripManually({
       addresses: validAddresses,
       description: description.value.trim() || undefined,
-      startTime: startTime.value.toISOString(),
-      endTime: endTime.value.toISOString(),
+      startTime: startTime.value!.toISOString(),
+      endTime: endTime.value!.toISOString(),
       maxSpeed: maxSpeed.value !== '' ? Number(maxSpeed.value) : undefined
     })
 
@@ -558,16 +530,6 @@ onMounted(() => {
                   required
               />
             </div>
-          </div>
-
-          <div v-if="isStartValid && isEndValid && !isEndAfterStart" class="alert alert-error text-sm">
-            <AlertCircle :size="20" />
-            <span>End time must be after start time</span>
-          </div>
-
-          <div v-if="isStartValid && isEndValid && isEndAfterStart && !isDurationValid" class="alert alert-error text-sm">
-            <AlertCircle :size="20" />
-            <span>Trip must be at least 1 minute long</span>
           </div>
 
           <div>

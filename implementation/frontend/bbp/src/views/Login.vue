@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useFieldError } from '@/composables/useFieldError'
 import { login } from '@/services/auth'
+import { validateEmail, validatePassword, validateAndShow } from '@/utils/validation'
 import type { UserLoginRequest } from '@/types/user'
 import { catchApiError } from '@/utils/error'
 import { EMAIL_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/constants/validation'
@@ -20,6 +21,10 @@ const password = ref('')
 const loading = ref(false)
 
 async function handleLogin() {
+  // Frontend validation
+  if (!validateAndShow(validateEmail(email.value), 'email', setError, show)) return
+  if (!validateAndShow(validatePassword(password.value), 'password', setError, show)) return
+
   loading.value = true
 
   try {

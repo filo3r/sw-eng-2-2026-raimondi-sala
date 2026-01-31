@@ -13,6 +13,7 @@ import { useMapObstacles } from '@/composables/useMapObstacles'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { useBikePathFinderStore } from '@/stores/bikePathFinder'
 import { findBikePaths } from '@/services/bikePathFinder'
+import { validateRequired, validateAndShow } from '@/utils/validation'
 import { catchApiError } from '@/utils/error'
 import { formatDistance, formatScore } from '@/utils/format'
 import { RADIUS_OPTIONS, DEFAULT_RADIUS_KM } from '@/constants/bikePath'
@@ -86,6 +87,10 @@ function selectSuggestion(suggestion: any, field: 'origin' | 'destination') {
 }
 
 async function handleSearch() {
+  // Frontend validation
+  if (!validateAndShow(validateRequired(originAddress.value, 'Origin'), 'originAddress', setError, show)) return
+  if (!validateAndShow(validateRequired(destinationAddress.value, 'Destination'), 'destinationAddress', setError, show)) return
+
   currentPage.value = 0
   selectedBikePathId.value = null
 

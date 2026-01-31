@@ -14,6 +14,12 @@ import { useMapClickHandler } from '@/composables/useMapClickHandler'
 import { getRouteMarkerConfig } from '@/composables/useRouteMarkerConfig'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { catchApiError } from '@/utils/error'
+import {
+  validateAddresses,
+  validateOptionalDescription,
+  validateRequired,
+  validateAndShow
+} from '@/utils/validation'
 import { BIKE_PATH_STATUS_OPTIONS } from '@/constants/bikePath'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
 import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
@@ -376,19 +382,21 @@ function selectObstacleSeverity(index: number, value: ObstacleSeverity) {
 }
 
 async function handleSubmit() {
-  const validAddresses = addresses.value.filter(addr => addr.trim() !== '')
+  // Frontend validation
+  if (!validateAndShow(validateAddresses(addresses.value), 'addresses', setError, show)) return
+  if (!validateAndShow(validateOptionalDescription(description.value, DESCRIPTION_MAX_LENGTH), 'description', setError, show)) return
 
-  if (validAddresses.length < 2) {
-    show('At least 2 addresses are required', 'error')
-    return
-  }
-
+  // Validate obstacle addresses
   for (let i = 0; i < obstacles.value.length; i++) {
-    if (!obstacles.value[i]?.address.trim()) {
-      show(`Obstacle ${i + 1}: Address is required`, 'error')
-      return
-    }
+    if (!validateAndShow(
+        validateRequired(obstacles.value[i]?.address || '', `Obstacle ${i + 1} address`),
+        `obstacles[${i}].address`,
+        setError,
+        show
+    )) return
   }
+
+  const validAddresses = addresses.value.filter(addr => addr.trim() !== '')
 
   loading.value = true
 

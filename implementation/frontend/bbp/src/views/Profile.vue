@@ -7,6 +7,7 @@ import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
 import { useFieldError } from '@/composables/useFieldError'
 import { getCurrentUser, updateCurrentUser, deleteCurrentUser } from '@/services/user'
+import { validateName, validateSurname, validateUsername, validateEmail, validateOptionalPassword, validateAndShow } from '@/utils/validation'
 import type { UserUpdateRequest, UserResponse } from '@/types/user'
 import {
   USER_NAME_MAX_LENGTH,
@@ -76,6 +77,13 @@ function toggleEdit() {
 }
 
 async function handleSave() {
+  // Frontend validation
+  if (!validateAndShow(validateName(name.value), 'name', setError, show)) return
+  if (!validateAndShow(validateSurname(surname.value), 'surname', setError, show)) return
+  if (!validateAndShow(validateUsername(username.value), 'username', setError, show)) return
+  if (!validateAndShow(validateEmail(email.value), 'email', setError, show)) return
+  if (!validateAndShow(validateOptionalPassword(password.value), 'password', setError, show)) return
+
   saving.value = true
 
   const updateData: UserUpdateRequest = {}

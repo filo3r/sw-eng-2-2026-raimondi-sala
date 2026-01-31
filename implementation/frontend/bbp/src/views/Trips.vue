@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, toRaw } from 'vue'
+import { ref, onMounted, toRaw, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Filter, Plus, X, Search, Eraser, MapPin, Clock } from 'lucide-vue-next'
 import { getUserTrips, searchTrips } from '@/services/trip'
@@ -9,6 +9,7 @@ import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
 import { useFieldError } from '@/composables/useFieldError'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
+import { validateDateRange, validateAndShow } from '@/utils/validation'
 import { formatDistance, formatDuration } from '@/utils/format'
 import { formatDateRange } from '@/utils/date'
 import { catchApiError } from '@/utils/error'
@@ -54,6 +55,14 @@ function toDate(dateStr: string, timeStr: string): Date | null {
   const d = new Date(`${dateStr}T${normalizeTime(timeStr)}`)
   return Number.isNaN(d.getTime()) ? null : d
 }
+
+const minStartDateTo = computed(() => (startDateFromStr.value ? startDateFromStr.value : undefined))
+const minStartTimeTo = computed(() => {
+  if (!startDateFromStr.value || !startDateToStr.value) return undefined
+  if (startDateFromStr.value !== startDateToStr.value) return undefined
+  const t = normalizeTime(startTimeFromStr.value)
+  return t || undefined
+})
 
 function setActiveField(field: 'origin' | 'destination') {
   activeField.value = field
@@ -140,11 +149,13 @@ function clearFilters() {
 }
 
 async function applyFilters() {
-  currentPage.value = 0
-
   const startTimeFrom = toDate(startDateFromStr.value, startTimeFromStr.value)
   const startTimeTo = toDate(startDateToStr.value, startTimeToStr.value)
 
+  // Frontend validation
+  if (!validateAndShow(validateDateRange(startTimeFrom, startTimeTo, 'Start time'), 'startTimeTo', setError, show)) return
+
+  currentPage.value = 0
   hasActiveFilters.value = !!(originFilter.value || destinationFilter.value || startTimeFrom || startTimeTo)
 
   await execute(
@@ -326,6 +337,7 @@ onMounted(() => {
                   type="date"
                   class="input input-bordered w-full"
                   :class="{'input-error': hasError('startTimeTo')}"
+                  :min="minStartDateTo"
               />
               <input
                   v-model="startTimeToStr"
@@ -333,6 +345,7 @@ onMounted(() => {
                   step="1"
                   class="input input-bordered w-full"
                   :class="{'input-error': hasError('startTimeTo')}"
+                  :min="minStartTimeTo"
               />
             </div>
           </div>

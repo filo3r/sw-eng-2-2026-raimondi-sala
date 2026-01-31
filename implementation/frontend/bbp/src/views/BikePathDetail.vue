@@ -24,6 +24,7 @@ import { useMapObstacles } from '@/composables/useMapObstacles'
 import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
 import { useFieldError } from '@/composables/useFieldError'
+import { validateOptionalDescription, validateAndShow } from '@/utils/validation'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDateTime } from '@/utils/date'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
@@ -171,6 +172,9 @@ function toggleEdit() {
 
 async function handleSave() {
   if (!bikePath.value) return
+
+  // Frontend validation
+  if (!validateAndShow(validateOptionalDescription(editDescription.value, DESCRIPTION_MAX_LENGTH), 'description', setError, show)) return
 
   saving.value = true
 

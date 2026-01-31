@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useFieldError } from '@/composables/useFieldError'
 import { register } from '@/services/auth'
+import { validateName, validateSurname, validateUsername, validateEmail, validatePassword, validateAndShow } from '@/utils/validation'
 import type { UserRegisterRequest } from '@/types/user'
 import { catchApiError } from '@/utils/error'
 import {
@@ -29,6 +30,13 @@ const password = ref('')
 const loading = ref(false)
 
 async function handleRegister() {
+  // Frontend validation
+  if (!validateAndShow(validateName(name.value), 'name', setError, show)) return
+  if (!validateAndShow(validateSurname(surname.value), 'surname', setError, show)) return
+  if (!validateAndShow(validateUsername(username.value), 'username', setError, show)) return
+  if (!validateAndShow(validateEmail(email.value), 'email', setError, show)) return
+  if (!validateAndShow(validatePassword(password.value), 'password', setError, show)) return
+
   loading.value = true
 
   try {

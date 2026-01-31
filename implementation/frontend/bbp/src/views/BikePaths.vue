@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, toRaw} from 'vue'
+import { ref, onMounted, toRaw, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Filter, Plus, X, Search, Eraser, Star, Bike, UsersRound, User } from 'lucide-vue-next'
 import { getUserBikePaths, searchBikePaths } from '@/services/bikePath'
@@ -9,6 +9,7 @@ import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
 import { useFieldError } from '@/composables/useFieldError'
 import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
+import { validateDateRange, validateAndShow } from '@/utils/validation'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDate } from '@/utils/date'
 import { catchApiError } from '@/utils/error'
@@ -54,6 +55,14 @@ function toDate(dateStr: string, timeStr: string): Date | null {
   const d = new Date(`${dateStr}T${normalizeTime(timeStr)}`)
   return Number.isNaN(d.getTime()) ? null : d
 }
+
+const minCreatedDateTo = computed(() => (createdDateFromStr.value ? createdDateFromStr.value : undefined))
+const minCreatedTimeTo = computed(() => {
+  if (!createdDateFromStr.value || !createdDateToStr.value) return undefined
+  if (createdDateFromStr.value !== createdDateToStr.value) return undefined
+  const t = normalizeTime(createdTimeFromStr.value)
+  return t || undefined
+})
 
 function setActiveField(field: 'origin' | 'destination') {
   activeField.value = field
@@ -140,11 +149,13 @@ function clearFilters() {
 }
 
 async function applyFilters() {
-  currentPage.value = 0
-
   const createdAtFrom = toDate(createdDateFromStr.value, createdTimeFromStr.value)
   const createdAtTo = toDate(createdDateToStr.value, createdTimeToStr.value)
 
+  // Frontend validation
+  if (!validateAndShow(validateDateRange(createdAtFrom, createdAtTo, 'Created at'), 'createdAtTo', setError, show)) return
+
+  currentPage.value = 0
   hasActiveFilters.value = !!(originFilter.value || destinationFilter.value || createdAtFrom || createdAtTo)
 
   await execute(
@@ -326,6 +337,7 @@ onMounted(() => {
                   type="date"
                   class="input input-bordered w-full"
                   :class="{'input-error': hasError('createdAtTo')}"
+                  :min="minCreatedDateTo"
               />
               <input
                   v-model="createdTimeToStr"
@@ -333,6 +345,7 @@ onMounted(() => {
                   step="1"
                   class="input input-bordered w-full"
                   :class="{'input-error': hasError('createdAtTo')}"
+                  :min="minCreatedTimeTo"
               />
             </div>
           </div>
