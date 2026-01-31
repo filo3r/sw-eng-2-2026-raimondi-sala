@@ -9,6 +9,7 @@ import { useFieldError } from '@/composables/useFieldError'
 import { useMap } from '@/composables/useMap'
 import { useInteractiveMarkers } from '@/composables/useInteractiveMarkers'
 import { useRouteDrawing } from '@/composables/useRouteDrawing'
+import { useAddressManager } from '@/composables/useAddressManager'
 import { useMapboxAutocomplete, type AutocompleteSuggestion } from '@/composables/useMapboxAutocomplete'
 import { useDraggableList } from '@/composables/useDraggableList'
 import { useMapClickHandler } from '@/composables/useMapClickHandler'
@@ -76,6 +77,19 @@ const { draggedIndex, dragOverIndex, onDragStart, onDragOver, onDragLeave, onDro
 const { activeField, setActiveField, handleMapClick: handleMapClickBase } = useMapClickHandler()
 
 const addresses = ref<string[]>(['', ''])
+
+const { addAddress, removeAddress, reorderAddresses, redrawRouteMarkers } = useAddressManager({
+  addresses,
+  routeMarkers,
+  activeField,
+  setActiveField: (type: string, index: number) => setActiveField(type as 'route' | 'obstacle', index),
+  removeRouteMarker,
+  setMarker: (index, lng, lat) => setMarker('route', index, lng, lat),
+  updateRoute,
+  debounceMs: ROUTE_UPDATE_DEBOUNCE_MS,
+  context: 'BikePathCreateManual'
+})
+
 const description = ref('')
 const status = ref<BikePathStatus>('GOOD')
 const published = ref(false)
@@ -194,61 +208,6 @@ function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
       routeMarkers.value.splice(beforeIndex, 0, null)
       setMarker('route', beforeIndex, lng, lat)
       redrawRouteMarkers()
-    }
-  })
-}
-
-async function addAddress() {
-  // Inserisci il nuovo waypoint prima della destinazione
-  const insertIndex = addresses.value.length - 1
-  addresses.value.splice(insertIndex, 0, '')
-
-  // Inserisci anche uno slot marker alla stessa posizione
-  routeMarkers.value.splice(insertIndex, 0, null)
-
-  setActiveField('route', insertIndex)
-
-  await nextTick()
-
-  // Focus sull'input del nuovo waypoint
-  const inputs = document.querySelectorAll('input[type="text"]')
-  const input = inputs[insertIndex] as HTMLInputElement
-  input?.focus()
-
-  redrawRouteMarkers()
-}
-
-function removeAddress(index: number) {
-  if (addresses.value.length > 2) {
-    removeRouteMarker(index)
-    addresses.value.splice(index, 1)
-    routeMarkers.value.splice(index, 1)
-
-    if (activeField.value?.type === 'route' && activeField.value.index === index) {
-      activeField.value = null
-    }
-
-    redrawRouteMarkers()
-    void updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'BikePathCreateManual')
-  }
-}
-
-function reorderAddresses(fromIndex: number, toIndex: number) {
-  const [movedAddress = ''] = addresses.value.splice(fromIndex, 1)
-  addresses.value.splice(toIndex, 0, movedAddress)
-
-  const [movedMarker = null] = routeMarkers.value.splice(fromIndex, 1)
-  routeMarkers.value.splice(toIndex, 0, movedMarker)
-
-  redrawRouteMarkers()
-  void updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'BikePathCreateManual')
-}
-
-function redrawRouteMarkers() {
-  routeMarkers.value.forEach((marker, index) => {
-    if (marker) {
-      const { lng, lat } = marker.getLngLat()
-      setMarker('route', index, lng, lat)
     }
   })
 }
