@@ -85,12 +85,7 @@ Execute the frontend with your Mapbox API key:
 ```
 
 #### Access the Application
-
-Open your browser and navigate to:
-
-```
-http://localhost:3000
-```
+Open [http://localhost:3000](http://localhost:3000) in your browser
 > If you specified a custom port with --frontend.port, use that port instead of 3000.
 
 ---
