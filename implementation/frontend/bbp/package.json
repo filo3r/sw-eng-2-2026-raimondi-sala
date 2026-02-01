@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bunx --bun vite",
     "build": "vue-tsc -b && bunx --bun vite build",
-    "build:prod": "bun run build && bun build --compile ./server.ts --outfile bbp-frontend",
+    "build:prod": "bun run build && bun run build-embed.ts && bun build --compile ./server.ts --outfile bbp-frontend",
     "preview": "bunx --bun vite preview"
   },
   "dependencies": {

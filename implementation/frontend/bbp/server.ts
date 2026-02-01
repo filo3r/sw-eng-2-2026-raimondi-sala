@@ -1,11 +1,15 @@
 /**
- * Production server that serves the compiled Vue frontend from `./dist`.
- * Injects runtime config (Mapbox API key, backend URL) into served HTML.
+ * Production server for compiled Vue frontend.
+ * Serves embedded static files and injects runtime configuration into HTML.
  */
 import { serve } from "bun";
 import { parseArgs } from "util";
+import { embeddedFiles } from "./embedded-files";
 
-// Parse CLI arguments
+/**
+ * CLI arguments parsing.
+ * Uses Bun.argv as input and Node's util.parseArgs for typed option parsing. [web:269]
+ */
 const { values } = parseArgs({
     args: Bun.argv,
     options: {
@@ -17,13 +21,22 @@ const { values } = parseArgs({
     allowPositionals: true,
 });
 
+/** Mapbox API key injected into the frontend HTML as a global variable. */
 const mapboxApiKey = values["mapbox.api.key"];
-const frontendPort = parseInt(values["frontend.port"] || "3000");
-const backendPort = values["backend.port"] || "8080";
-const backendUrl = `http://localhost:${backendPort}`;
-const distPath = "./dist";
 
-// Validate required API key
+/** Port where this embedded frontend server will listen. */
+const frontendPort = parseInt(values["frontend.port"] || "3000");
+
+/** Port where the backend is expected to be reachable locally. */
+const backendPort = values["backend.port"] || "8080";
+
+/** Backend base URL injected into the frontend HTML as a global variable. */
+const backendUrl = `http://localhost:${backendPort}`;
+
+/**
+ * Validates required configuration.
+ * Exits with a non-zero status code when missing mandatory flags.
+ */
 if (!mapboxApiKey) {
     console.error("Error: --mapbox.api.key is required");
     console.log("\nUsage:");
@@ -32,9 +45,9 @@ if (!mapboxApiKey) {
 }
 
 /**
- * Injects runtime configuration into an HTML document.
- * @param html - The original HTML content.
- * @returns The HTML with an injected `<script>` block before `</head>`.
+ * Injects runtime configuration into an HTML document by inserting a <script> before </head>.
+ * @param html - Original HTML content.
+ * @returns HTML content with window globals injected.
  */
 function injectConfig(html: string): string {
     const configScript = `
@@ -45,35 +58,63 @@ function injectConfig(html: string): string {
     return html.replace("</head>", `${configScript}</head>`);
 }
 
+/**
+ * Static MIME type map for embedded assets.
+ * Falls back to application/octet-stream for unknown extensions.
+ */
+const mimeTypes: Record<string, string> = {
+    '.html': 'text/html',
+    '.css': 'text/css',
+    '.js': 'application/javascript',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+};
+
+/**
+ * Returns a Content-Type based on the file extension.
+ * @param path - Request path (or embedded file path).
+ * @returns MIME type string.
+ */
+function getMimeType(path: string): string {
+    const ext = path.substring(path.lastIndexOf('.'));
+    return mimeTypes[ext] || 'application/octet-stream';
+}
+
 console.log("Starting frontend server...");
 
+/**
+ * Embedded frontend HTTP server.
+ * - Serves files from `embeddedFiles`.
+ * - Injects runtime config into HTML pages.
+ * - SPA fallback: if the path has no file extension, serves index.html.
+ */
 serve({
     port: frontendPort,
-    /**
-     * Request handler:
-     * - Serves static files from `./dist` when they exist.
-     * - Injects config only for HTML responses.
-     * - Falls back to `index.html` for SPA routes (no file extension).
-     */
     async fetch(req) {
         const url = new URL(req.url);
-        // Default document
-        let filePath = url.pathname === "/" ? "/index.html" : url.pathname;
-        const file = Bun.file(`${distPath}${filePath}`);
-        // Serve existing files
-        if (await file.exists()) {
+        let filePath = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
+        if (filePath in embeddedFiles) {
+            const content = embeddedFiles[filePath];
             if (filePath.endsWith(".html")) {
-                const html = await file.text();
+                const html = content.toString('utf-8');
                 return new Response(injectConfig(html), {
                     headers: { "Content-Type": "text/html" },
                 });
             }
-            return new Response(file);
+            return new Response(content, {
+                headers: { "Content-Type": getMimeType(filePath) }
+            });
         }
-        // SPA fallback: serve index.html for client-side routes
         if (!filePath.includes(".")) {
-            const indexFile = Bun.file(`${distPath}/index.html`);
-            const html = await indexFile.text();
+            const content = embeddedFiles["index.html"];
+            const html = content.toString('utf-8');
             return new Response(injectConfig(html), {
                 headers: { "Content-Type": "text/html" },
             });
@@ -87,7 +128,10 @@ console.log(`Frontend: http://localhost:${frontendPort}`);
 console.log(`Backend:  ${backendUrl}`);
 console.log(`\nPress Ctrl+C to stop\n`);
 
-// Auto-open browser (skip on headless servers)
+/**
+ * Opens the browser automatically on macOS/Windows and on Linux when DISPLAY is available.
+ * Skips auto-open on headless Linux environments.
+ */
 if (process.platform !== "linux" || process.env.DISPLAY) {
     const openCommand =
         process.platform === "darwin" ? "open" :
