@@ -21,7 +21,7 @@ import java.util.Map;
 
 /**
  * REST controller for Mapbox services.
- * Provides access token for client-side usage and geocoding services.
+ * Provides geocoding services.
  */
 @RestController
 @RequestMapping("/api/mapbox")
@@ -47,17 +47,6 @@ public class MapboxController {
      * Mapper for converting route results to response DTOs.
      */
     private final CyclingRouteResponseMapper cyclingRouteResponseMapper;
-
-    /**
-     * Returns the Mapbox access token for client-side usage.
-     * Used by frontend applications to render interactive maps and use Mapbox services.
-     * Public endpoint - no authentication required.
-     * @return map containing the access token
-     */
-    @GetMapping("/access-token")
-    public ResponseEntity<Map<String, String>> getAccessToken() {
-        return ResponseEntity.status(HttpStatus.OK).body(Map.of("mapboxAccessToken", mapboxConfig.getApiKey()));
-    }
 
     /**
      * Converts an address to geographic coordinates (forward geocoding).

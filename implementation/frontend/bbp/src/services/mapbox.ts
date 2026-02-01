@@ -13,17 +13,6 @@ import type {
 } from '@/types/mapbox'
 
 /**
- * Retrieves Mapbox access token for client-side map rendering and APIs.
- * Public endpoint that does not require authentication.
- * @returns Promise resolving to object containing Mapbox access token
- * @throws {Error} If token retrieval fails or server error occurs
- */
-export async function getMapboxAccessToken(): Promise<{ mapboxAccessToken: string }> {
-    const response = await api.get<{ mapboxAccessToken: string }>('/api/mapbox/access-token')
-    return response.data
-}
-
-/**
  * Converts a human-readable address to geographic coordinates (forward geocoding).
  * Uses Mapbox Geocoding API to find latitude and longitude for the given address.
  * @param request - Request containing address string to geocode
