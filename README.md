@@ -1,6 +1,5 @@
 # Best Bike Path
 
-
 ## 🛠 Prerequisites
 
 Before proceeding, ensure the following tools are installed on your machine:
@@ -30,10 +29,8 @@ Build the executable JAR:
 
 Run the compiled application:
 ```bash
-java -jar target/bbp-backend.jar
+java -jar target/bbp-backend.jar --mapbox.api.key=YOUR_KEY
 ```
-
-> **Note**: The backend server will start on port `8080`.
 
 ---
 
@@ -61,7 +58,7 @@ Run the generated binary. You must provide your Mapbox API key:
 
 #### Optional Configuration
 
-You can specify custom ports if they differ from the defaults (Frontend: 3000, Backend: 8080):
+You can specify custom ports if they differ from the defaults:
 ```bash
 ./bbp-frontend --mapbox.api.key=YOUR_KEY --frontend.port=3000 --backend.port=8080
 ```
@@ -79,8 +76,8 @@ http://localhost:3000
 
 To have more in-depth information about this project, you can have a look at the documents that we have drawn up during the development of the project:
 
-- [**Requirement Analysis and Specification Document (RASD)**](https://github.com/m-tteo/sw-eng-2-raimondi-sala/blob/main/DeliveryFolder/RASDv1.pdf)
-- [**Design Document (DD)**](https://github.com/m-tteo/sw-eng-2-raimondi-sala/blob/main/DeliveryFolder/DDv2.pdf)
+- [**Requirement Analysis and Specification Document**](https://github.com/m-tteo/sw-eng-2-raimondi-sala/blob/main/DeliveryFolder/RASDv1.pdf)
+- [**Design Document**](https://github.com/m-tteo/sw-eng-2-raimondi-sala/blob/main/DeliveryFolder/DDv2.pdf)
 - [**Implementation and Test Deliverable**](https://github.com/m-tteo/sw-eng-2-raimondi-sala/blob/main/DeliveryFolder/ITD.pdf)
 ---
 
