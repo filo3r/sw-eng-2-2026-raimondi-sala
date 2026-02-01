@@ -5,7 +5,6 @@ Before proceeding, ensure the following tools are installed on your machine:
 
 - **Java Development Kit**: Version 25 or higher
 - **Bun**: Visit [bun.sh](https://bun.sh) for installation
-- **PostgreSQL**: Visit [postgresql.org](https://www.postgresql.org) for installation
 - **Mapbox API Key**: Visit [mapbox.com](https://www.mapbox.com) to obtain an API key
 
 ## 🚀 Quick Start
