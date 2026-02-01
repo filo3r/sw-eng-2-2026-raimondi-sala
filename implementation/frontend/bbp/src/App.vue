@@ -31,7 +31,7 @@ watch(() => route.path, () => {
     <!-- Main Content Area -->
     <div class="drawer-content flex flex-col h-screen">
       <!-- Top Navigation Bar -->
-      <nav class="navbar w-full bg-base-300 shrink-0">
+      <nav class="navbar w-full bg-base-200 shrink-0">
         <label for="my-drawer-4" class="btn btn-square btn-ghost">
           <PanelRightOpen v-if="!isDrawerOpen" :size="16" />
           <PanelRightClose v-else :size="16" />

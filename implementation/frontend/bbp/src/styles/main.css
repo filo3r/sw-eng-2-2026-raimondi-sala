@@ -1,12 +1,63 @@
 /**
- * Global styles and Tailwind/DaisyUI imports.
- * Entry point for all application styles.
+ * Global styles and Tailwind/DaisyUI entry point.
+ * - Imports Tailwind CSS (v4 CSS-first).
+ * - Enables DaisyUI and registers the "light" theme as default.
  */
 @import "tailwindcss";
-@plugin "daisyui";
 
-/* Prevent horizontal scroll while allowing vertical scroll globally */
-body {
-    overflow-x: hidden; /* Prevent horizontal scrollbar on all pages */
-    overflow-y: auto;   /* Allow vertical scrolling with default behavior */
+@plugin "daisyui" {
+    /* Register available themes; mark "light" as the default theme. */
+    themes: light --default;
+}
+
+@plugin "daisyui/theme" {
+    /* Custom DaisyUI theme definition (light). */
+    name: "light";
+    default: true;
+    prefersdark: false;
+    color-scheme: light;
+
+    /* Base surfaces and text */
+    --color-base-100: oklch(98.5% 0.002 286);
+    --color-base-200: oklch(97.6% 0.002 286);
+    --color-base-300: oklch(96.6% 0.002 286);
+    --color-base-content: oklch(14% 0.005 285.823);
+
+    /* Brand colors */
+    --color-primary: oklch(14% 0.005 285.823);
+    --color-primary-content: oklch(92% 0.004 286.32);
+    --color-secondary: oklch(14% 0.005 285.823);
+    --color-secondary-content: oklch(92% 0.004 286.32);
+    --color-accent: oklch(14% 0.005 285.823);
+    --color-accent-content: oklch(92% 0.004 286.32);
+    --color-neutral: oklch(14% 0.005 285.823);
+    --color-neutral-content: oklch(92% 0.004 286.32);
+
+    /* Semantic colors */
+    --color-info: oklch(78% 0.15 240);
+    --color-info-content: oklch(14% 0.005 285.823);
+    --color-success: oklch(78% 0.15 155);
+    --color-success-content: oklch(14% 0.005 285.823);
+    --color-warning: oklch(80% 0.18 85);
+    --color-warning-content: oklch(14% 0.005 285.823);
+    --color-error: oklch(74% 0.18 25);
+    --color-error-content: oklch(14% 0.005 285.823);
+
+    /* Shape and depth */
+    --radius-selector: 2rem;
+    --radius-field: 2rem;
+    --radius-box: 2rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
+@layer base {
+    /* Prevent horizontal scroll while allowing vertical scroll globally */
+    body {
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
 }
