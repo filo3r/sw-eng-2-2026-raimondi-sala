@@ -1,57 +1,89 @@
 \section{Prerequisites}
 Before proceeding, ensure the following tools are installed on your machine:
-
 \begin{itemize}
-    \item \textbf{Java Development Kit}: Version 25 or higher.
-    \item \textbf{Bun}: Visit \url{https://bun.sh} for installation.
-    \item \textbf{PostgreSQL}: Visit \url{https://www.postgresql.org/} for installation.
-    \item \textbf{Mapbox API Key}: Visit \url{https://www.mapbox.com/} to get an API key.
+    \item \textbf{Java Development Kit}: Version 25 or higher
+    \item \textbf{Bun}: Visit \url{https://bun.sh} for installation
+    \item \textbf{PostgreSQL}: Visit \url{https://www.postgresql.org/} for installation
+    \item \textbf{Mapbox API Key}: Visit \url{https://www.mapbox.com/} to obtain an API key
 \end{itemize}
 
-\section{Backend}
+\section{Backend Setup}
 
-\subsection{Build}
-Go to the backend directory:
-\begin{lstlisting}
+\subsection{Build from Source}
+Navigate to the backend directory:
+\begin{lstlisting}[language=bash]
 cd implementation/backend/bbp
 \end{lstlisting}
 
-\noindent Build the executable JAR:
-\begin{lstlisting}
+\noindent Build the executable JAR file:
+\begin{lstlisting}[language=bash]
 ./mvnw clean package -DskipTests
 \end{lstlisting}
 
-\subsection{Run}
-Run the compiled application:
-\begin{lstlisting}
-java -jar target/bbp-backend.jar
+\subsection{Download Pre-compiled JAR}
+Alternatively, download the pre-compiled JAR file from:
+\begin{center}
+\href{https://github.com/m-tteo/sw-eng-2-raimondi-sala/releases/tag/BestBikePaths-v1.0.0}{BestBikePaths-v1.0.0}
+\end{center}
+
+\subsection{Run the Backend}
+Execute the application with your Mapbox API key:
+\begin{lstlisting}[language=bash]
+java -jar bbp-backend.jar --mapbox.api.key=YOUR_MAPBOX_KEY
 \end{lstlisting}
 
-\noindent The backend server will start on port \texttt{8080}.
+\section{Frontend Setup}
 
-\section{Frontend}
-
-\subsection{Build}
-Go to the frontend directory:
-\begin{lstlisting}
+\subsection{Build from Source}
+Navigate to the frontend directory:
+\begin{lstlisting}[language=bash]
 cd implementation/frontend/bbp
 \end{lstlisting}
 
-\noindent Install dependencies and compile the standalone executable:
-\begin{lstlisting}
+\noindent Install dependencies:
+\begin{lstlisting}[language=bash]
 bun install
+\end{lstlisting}
+
+\noindent Build the production executable:
+\begin{lstlisting}[language=bash]
 bun run build:prod
 \end{lstlisting}
 
-\subsection{Run}
-Run the generated binary. You have to provide your Mapbox API key:
-\begin{lstlisting}
-./bbp-frontend --mapbox.api.key=YOUR_KEY
+\subsection{Download Pre-compiled Executable}
+Alternatively, download the pre-compiled executable from:
+\begin{center}
+\href{https://github.com/m-tteo/sw-eng-2-raimondi-sala/releases/tag/BestBikePaths-v1.0.0}{BestBikePaths-v1.0.0}
+\end{center}
+
+\noindent Make the file executable:
+\begin{lstlisting}[language=bash]
+chmod +x bbp-frontend
 \end{lstlisting}
 
-\noindent You can also specify ports if they differ from the defaults:
-\begin{lstlisting}
-./bbp-frontend --mapbox.api.key=YOUR_KEY --frontend.port=3000 --backend.port=8080
+\subsection{Run the Frontend}
+Execute the frontend with your Mapbox API key:
+\begin{lstlisting}[language=bash]
+./bbp-frontend --mapbox.api.key=YOUR_MAPBOX_KEY
 \end{lstlisting}
 
-\noindent \textbf{The application will be accessible at \url{http://localhost:3000}.}
+\subsection{Access the Application}
+Open your browser and navigate to:
+\begin{center}
+\url{http://localhost:3000}
+\end{center}
+
+\section{Configuration Options}
+
+\subsection{Backend Parameters}
+\begin{itemize}
+    \item \texttt{--mapbox.api.key}: Your Mapbox API key
+    \item \texttt{--server.port}: Backend port (default: 8080)
+\end{itemize}
+
+\subsection{Frontend Parameters}
+\begin{itemize}
+    \item \texttt{--mapbox.api.key}: Your Mapbox API key
+    \item \texttt{--frontend.port}: Frontend port (default: 3000)
+    \item \texttt{--backend.port}: Backend port to connect to (default: 8080)
+\end{itemize}
