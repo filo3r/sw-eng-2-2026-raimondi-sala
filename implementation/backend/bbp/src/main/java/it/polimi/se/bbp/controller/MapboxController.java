@@ -1,6 +1,5 @@
 package it.polimi.se.bbp.controller;
 
-import it.polimi.se.bbp.config.mapbox.MapboxConfig;
 import it.polimi.se.bbp.dto.request.CyclingRouteRequest;
 import it.polimi.se.bbp.dto.request.ForwardGeocodeRequest;
 import it.polimi.se.bbp.dto.request.ReverseGeocodeRequest;
@@ -17,8 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 /**
  * REST controller for Mapbox services.
  * Provides geocoding services.
@@ -27,11 +24,6 @@ import java.util.Map;
 @RequestMapping("/api/mapbox")
 @RequiredArgsConstructor
 public class MapboxController {
-
-    /**
-     * Configuration containing Mapbox API credentials.
-     */
-    private final MapboxConfig mapboxConfig;
 
     /**
      * Service for Mapbox API interactions.
