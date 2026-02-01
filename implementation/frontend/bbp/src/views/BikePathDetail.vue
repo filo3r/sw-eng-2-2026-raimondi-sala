@@ -21,22 +21,26 @@ import {
   Calendar,
   ChevronDown,
   Globe,
-  Shield
+  Shield,
+  Plus
 } from 'lucide-vue-next'
 import { getBikePathById, updateBikePath, deleteBikePath } from '@/services/bikePath'
+import { forwardGeocode } from '@/services/mapbox'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
 import { useMapObstacles } from '@/composables/useMapObstacles'
+import { useInteractiveMarkers } from '@/composables/useInteractiveMarkers'
 import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
 import { useFieldError } from '@/composables/useFieldError'
+import { useMapboxAutocomplete, type AutocompleteSuggestion } from '@/composables/useMapboxAutocomplete'
 import { validateOptionalDescription, validateAndShow } from '@/utils/validation'
 import { formatDistance, formatScore } from '@/utils/format'
 import { formatDateTime } from '@/utils/date'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
 import { BIKE_PATH_STATUS_OPTIONS } from '@/constants/bikePath'
-import { OBSTACLE_SEVERITY_COLORS } from '@/constants/map'
+import { OBSTACLE_SEVERITY_COLORS, DEFAULT_OBSTACLE_COLOR } from '@/constants/map'
 import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
 import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { BikePathResponse, BikePathStatus, BikePathUpdateRequest } from '@/types/bikePath'
@@ -90,6 +94,29 @@ const obstacleEditData = ref<ActiveObstacleEditData>({
   active: true
 })
 
+/** Track locally modified obstacles (to be sent on general save) */
+const modifiedObstacles = ref<Map<number, { type: ObstacleType; severity: ObstacleSeverity; active: boolean }>>(new Map())
+
+/**
+ * Form data for new obstacles to be added.
+ * Contains address, type, and severity for each obstacle.
+ */
+interface NewObstacleForm {
+  address: string
+  type: ObstacleType
+  severity: ObstacleSeverity
+}
+
+/** List of new obstacles being added in edit mode */
+const newObstacles = ref<NewObstacleForm[]>([])
+
+/** Shared Mapbox autocomplete state for obstacle address inputs */
+const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
+    useMapboxAutocomplete()
+
+/** Index of the new obstacle field currently active for autocomplete */
+const activeNewObstacleIndex = ref<number | null>(null)
+
 /**
  * Delete confirmation modal driven by native <dialog>.
  * We open/close it via showModal()/close() for consistent behavior (Esc / backdrop). [page:1]
@@ -124,6 +151,9 @@ const { drawRoute, addMarkers } = useMapRoute(map)
 /** Obstacles drawing utilities bound to the map instance. */
 const { addObstacles, clearObstacles } = useMapObstacles(map)
 
+/** Interactive markers for new obstacles (shown during edit mode before save) */
+const { createMarker: createNewObstacleMarker, removeMarker: removeNewObstacleMarker, markers: newObstacleMarkers } = useInteractiveMarkers(map)
+
 /**
  * Loads bike path details.
  * Optimization: if router history state includes a matching bikePath object, use it and skip the network call.
@@ -131,10 +161,8 @@ const { addObstacles, clearObstacles } = useMapObstacles(map)
  */
 async function loadBikePath(): Promise<void> {
   const bikePathId = Number(route.params.id)
-
   // Router "state" cache (set by list/finder pages when navigating to detail).
   const stateData = history.state?.bikePath as BikePathResponse | undefined
-
   if (stateData && stateData.id === bikePathId) {
     bikePath.value = stateData
     originalVersion.value = stateData.version
@@ -142,15 +170,12 @@ async function loadBikePath(): Promise<void> {
     await nextTick()
     return
   }
-
   // Show spinner only if the request isn't quick.
   spinnerTimeout = window.setTimeout(() => {
     showSpinner.value = true
   }, SPINNER_DELAY_MS)
-
   const result = await execute(() => getBikePathById(bikePathId), 'BikePathDetail.loadBikePath')
   if (result) originalVersion.value = result.version
-
   if (spinnerTimeout) {
     clearTimeout(spinnerTimeout)
     spinnerTimeout = null
@@ -164,7 +189,6 @@ async function loadBikePath(): Promise<void> {
  */
 watch([isReady, bikePath], ([ready, path]) => {
   if (!ready || !path) return
-
   drawRoute(path.bikePathPoints)
   addMarkers(
       {
@@ -178,7 +202,6 @@ watch([isReady, bikePath], ([ready, path]) => {
         longitude: path.destinationLongitude
       }
   )
-
   // Ensure obstacles are in sync with the latest loaded data.
   clearObstacles()
   addObstacles(path.obstacles)
@@ -230,17 +253,22 @@ function selectObstacleActive(value: boolean): void {
 /**
  * Toggles edit mode for bike path metadata.
  * When entering edit mode, initializes draft fields from the current bike path.
- * When leaving edit mode, cancels any obstacle edit in progress.
+ * When leaving edit mode, cancels any obstacle edit in progress and clears new obstacles.
  */
 function toggleEdit(): void {
   if (!bikePath.value) return
-
   if (isEditing.value) {
     isEditing.value = false
     editingObstacleId.value = null
+    newObstacles.value = []
+    activeNewObstacleIndex.value = null
+    modifiedObstacles.value.clear()
+    // Clear all new obstacle markers from map
+    for (let i = newObstacleMarkers.value.length - 1; i >= 0; i--) {
+      removeNewObstacleMarker(i)
+    }
     return
   }
-
   editDescription.value = bikePath.value.description || ''
   editStatus.value = bikePath.value.status
   editPublished.value = bikePath.value.published
@@ -248,12 +276,12 @@ function toggleEdit(): void {
 }
 
 /**
- * Saves the edited bike path metadata.
- * Uses `originalVersion` to support optimistic concurrency; updates local state on success.
+ * Saves bike path metadata, modified obstacles, and new obstacles.
+ * Uses optimistic locking via version field.
+ * Backend geocodes new obstacle addresses.
  */
 async function handleSave(): Promise<void> {
   if (!bikePath.value) return
-
   // Frontend validation (optional description with max length).
   if (
       !validateAndShow(
@@ -265,10 +293,30 @@ async function handleSave(): Promise<void> {
   ) {
     return
   }
-
+  // Validate new obstacles have addresses
+  for (let i = 0; i < newObstacles.value.length; i++) {
+    const obstacle = newObstacles.value[i]
+    if (!obstacle || !obstacle.address.trim()) {
+      setError(`newObstacles[${i}].address`)
+      show('Please fill in all obstacle addresses', 'error')
+      return
+    }
+  }
   saving.value = true
-
   try {
+    // Prepare new obstacles (backend will geocode addresses)
+    const obstaclesToAdd = newObstacles.value.map(obstacle => ({
+      address: obstacle.address,
+      type: obstacle.type,
+      severity: obstacle.severity
+    }))
+    // Prepare modified obstacles
+    const obstaclesToUpdate = Array.from(modifiedObstacles.value.entries()).map(([id, data]) => ({
+      id,
+      type: data.type,
+      severity: data.severity,
+      active: data.active
+    }))
     await execute(
         async () => {
           const updateRequest: BikePathUpdateRequest = {
@@ -276,7 +324,11 @@ async function handleSave(): Promise<void> {
             description: editDescription.value || undefined,
             // Send status/published only when they actually changed.
             status: editStatus.value !== bikePath.value!.status ? editStatus.value : undefined,
-            published: editPublished.value !== bikePath.value!.published ? editPublished.value : undefined
+            published: editPublished.value !== bikePath.value!.published ? editPublished.value : undefined,
+            // Add new obstacles if any
+            ...(obstaclesToAdd.length > 0 && { obstaclesToAdd }),
+            // Add modified obstacles if any
+            ...(obstaclesToUpdate.length > 0 && { obstaclesToUpdate })
           }
           return await updateBikePath(bikePath.value!.id, updateRequest)
         },
@@ -286,11 +338,16 @@ async function handleSave(): Promise<void> {
           originalVersion.value = updated.version
           isEditing.value = false
           editingObstacleId.value = null
-
+          newObstacles.value = []
+          activeNewObstacleIndex.value = null
+          modifiedObstacles.value.clear()
+          // Clear all new obstacle markers from map
+          for (let i = newObstacleMarkers.value.length - 1; i >= 0; i--) {
+            removeNewObstacleMarker(i)
+          }
           // Refresh obstacles layer after update.
           clearObstacles()
           addObstacles(updated.obstacles)
-
           show('Bike path updated successfully', 'success')
         },
         undefined,
@@ -325,10 +382,8 @@ function closeDeleteBikePathModal(): void {
  */
 async function handleDelete(): Promise<void> {
   if (!bikePath.value) return
-
   closeDeleteBikePathModal()
   deleting.value = true
-
   try {
     await executeDelete(
         () => deleteBikePath(bikePath.value!.id),
@@ -349,10 +404,8 @@ async function handleDelete(): Promise<void> {
  */
 function startEditObstacle(obstacleId: number): void {
   if (!bikePath.value) return
-
   const obstacle = bikePath.value.obstacles.find(o => o.id === obstacleId)
   if (!obstacle) return
-
   editingObstacleId.value = obstacleId
   obstacleEditData.value = {
     type: obstacle.type,
@@ -369,48 +422,153 @@ function cancelEditObstacle(): void {
 }
 
 /**
- * Saves a single obstacle update using the bike path update endpoint.
+ * Saves obstacle changes locally without API call.
+ * Changes are sent to backend on general save.
  * @param obstacleId - Obstacle ID being updated
  */
-async function saveObstacle(obstacleId: number): Promise<void> {
+function saveObstacle(obstacleId: number): void {
   if (!bikePath.value) return
+  // Store modifications locally
+  modifiedObstacles.value.set(obstacleId, {
+    type: obstacleEditData.value.type,
+    severity: obstacleEditData.value.severity,
+    active: obstacleEditData.value.active
+  })
+  editingObstacleId.value = null
+}
 
-  saving.value = true
-
-  try {
-    await execute(
-        async () => {
-          const updateRequest: BikePathUpdateRequest = {
-            version: originalVersion.value,
-            obstaclesToUpdate: [
-              {
-                id: obstacleId,
-                type: obstacleEditData.value.type,
-                severity: obstacleEditData.value.severity,
-                active: obstacleEditData.value.active
-              }
-            ]
-          }
-          return await updateBikePath(bikePath.value!.id, updateRequest)
-        },
-        'BikePathDetail.saveObstacle',
-        (updated) => {
-          bikePath.value = updated
-          originalVersion.value = updated.version
-          editingObstacleId.value = null
-
-          // Refresh obstacles layer after update.
-          clearObstacles()
-          addObstacles(updated.obstacles)
-
-          show('Obstacle updated successfully', 'success')
-        },
-        undefined,
-        setError
-    )
-  } finally {
-    saving.value = false
+/**
+ * Gets display values for an obstacle (modified values if changed, original otherwise).
+ * @param obstacleId - Obstacle ID
+ * @returns Display values or null if obstacle not found
+ */
+function getObstacleDisplayValues(obstacleId: number) {
+  const modified = modifiedObstacles.value.get(obstacleId)
+  if (modified) {
+    return {
+      type: modified.type,
+      typeDescription: OBSTACLE_TYPE_OPTIONS.find(o => o.value === modified.type)?.label || modified.type,
+      severity: modified.severity,
+      severityDescription: OBSTACLE_SEVERITY_OPTIONS.find(o => o.value === modified.severity)?.label || modified.severity,
+      active: modified.active
+    }
   }
+  const obstacle = bikePath.value?.obstacles.find(o => o.id === obstacleId)
+  return obstacle ? {
+    type: obstacle.type,
+    typeDescription: obstacle.typeDescription,
+    severity: obstacle.severity,
+    severityDescription: obstacle.severityDescription,
+    active: obstacle.active
+  } : null
+}
+
+/**
+ * Adds a new empty obstacle form to the list.
+ */
+function addNewObstacle(): void {
+  newObstacles.value.push({
+    address: '',
+    type: 'POTHOLE',
+    severity: 'LOW'
+  })
+}
+
+/**
+ * Removes a new obstacle and its marker from the map.
+ * @param index - Index of the obstacle to remove
+ */
+function removeNewObstacle(index: number): void {
+  newObstacles.value.splice(index, 1)
+  removeNewObstacleMarker(index)
+  if (activeNewObstacleIndex.value === index) {
+    activeNewObstacleIndex.value = null
+    showSuggestions.value = false
+  } else if (activeNewObstacleIndex.value !== null && activeNewObstacleIndex.value > index) {
+    activeNewObstacleIndex.value--
+  }
+}
+
+/**
+ * Sets the active new obstacle field for autocomplete.
+ * @param index - Index of the new obstacle
+ */
+function setActiveNewObstacle(index: number): void {
+  activeNewObstacleIndex.value = index
+}
+
+/**
+ * Applies autocomplete suggestion and creates marker on map.
+ * @param suggestion - Autocomplete suggestion from Mapbox
+ * @param index - Index of the new obstacle
+ */
+async function selectSuggestion(suggestion: AutocompleteSuggestion, index: number): Promise<void> {
+  if (newObstacles.value[index]) {
+    newObstacles.value[index].address = suggestion.full_address || ''
+  }
+  showSuggestions.value = false
+  // Get coordinates and create marker
+  const lng = suggestion.coordinates?.longitude
+  const lat = suggestion.coordinates?.latitude
+  if (typeof lng === 'number' && typeof lat === 'number') {
+    createNewObstacleMarker(index, lng, lat, getNewObstacleMarkerConfig(index))
+  } else if (suggestion.full_address) {
+    // Geocode if coordinates not available
+    try {
+      const coords = await forwardGeocode({ address: suggestion.full_address })
+      if (coords) {
+        createNewObstacleMarker(index, coords.longitude, coords.latitude, getNewObstacleMarkerConfig(index))
+      }
+    } catch (error) {
+      console.error('Failed to geocode obstacle address:', error)
+    }
+  }
+}
+
+/**
+ * Builds marker configuration based on obstacle severity.
+ * @param index - Index of the new obstacle
+ * @returns Marker configuration with color and label
+ */
+function getNewObstacleMarkerConfig(index: number) {
+  const obstacle = newObstacles.value[index]
+  if (!obstacle) return { color: DEFAULT_OBSTACLE_COLOR, label: '!' }
+  return {
+    color: OBSTACLE_SEVERITY_COLORS[obstacle.severity] || DEFAULT_OBSTACLE_COLOR,
+    label: '!',
+    draggable: false
+  }
+}
+
+/**
+ * Sets obstacle type for a new obstacle.
+ * @param index - Index of the new obstacle
+ * @param value - Obstacle type value
+ */
+function selectNewObstacleType(index: number, value: ObstacleType): void {
+  if (newObstacles.value[index]) {
+    newObstacles.value[index].type = value
+  }
+  ;(document.activeElement as HTMLElement | null)?.blur()
+}
+
+/**
+ * Sets obstacle severity and updates marker color.
+ * @param index - Index of the new obstacle
+ * @param value - Obstacle severity value
+ */
+function selectNewObstacleSeverity(index: number, value: ObstacleSeverity): void {
+  if (newObstacles.value[index]) {
+    newObstacles.value[index].severity = value
+    // Update marker color if exists
+    const marker = newObstacleMarkers.value[index]
+    if (marker) {
+      const config = getNewObstacleMarkerConfig(index)
+      const element = marker.getElement()
+      element.style.backgroundColor = config.color
+    }
+  }
+  ;(document.activeElement as HTMLElement | null)?.blur()
 }
 
 /**
@@ -424,7 +582,6 @@ onMounted(async () => {
   // Ensure scrolling behaves as expected on this page (map + long content).
   document.body.style.overflow = 'auto'
   document.body.style.height = 'auto'
-
   await loadBikePath()
   initMap()
 })
@@ -435,7 +592,6 @@ onUnmounted(() => {
     clearTimeout(spinnerTimeout)
     spinnerTimeout = null
   }
-
   // Restore body styles to avoid leaking layout changes to other routes.
   document.body.style.overflow = originalBodyOverflow
   document.body.style.height = originalBodyHeight
@@ -656,7 +812,7 @@ onUnmounted(() => {
                 <div v-if="editingObstacleId !== obstacle.id">
                   <div class="flex items-start justify-between mb-2">
                     <div class="flex-1">
-                      <h3 class="font-semibold text-lg">{{ obstacle.typeDescription }}</h3>
+                      <h3 class="font-semibold text-lg">{{ getObstacleDisplayValues(obstacle.id)?.typeDescription || obstacle.typeDescription }}</h3>
                       <p class="text-sm text-gray-600 mt-1">{{ obstacle.address }}</p>
                     </div>
                     <button
@@ -675,14 +831,14 @@ onUnmounted(() => {
                     <span
                         class="badge"
                         :style="{
-                        backgroundColor: getSeverityColor(obstacle.severity),
-                        color: obstacle.severity === 'CRITICAL' ? 'white' : 'black'
+                        backgroundColor: getSeverityColor(getObstacleDisplayValues(obstacle.id)?.severity || obstacle.severity),
+                        color: (getObstacleDisplayValues(obstacle.id)?.severity || obstacle.severity) === 'CRITICAL' ? 'white' : 'black'
                       }"
                     >
-                      {{ obstacle.severityDescription }}
+                      {{ getObstacleDisplayValues(obstacle.id)?.severityDescription || obstacle.severityDescription }}
                     </span>
-                    <span :class="['badge', obstacle.active ? 'badge-warning' : 'badge-neutral']">
-                      {{ obstacle.active ? 'Active' : 'Inactive' }}
+                    <span :class="['badge', (getObstacleDisplayValues(obstacle.id)?.active ?? obstacle.active) ? 'badge-warning' : 'badge-neutral']">
+                      {{ (getObstacleDisplayValues(obstacle.id)?.active ?? obstacle.active) ? 'Active' : 'Inactive' }}
                     </span>
                   </div>
                 </div>
@@ -775,6 +931,108 @@ onUnmounted(() => {
                       <Save :size="14" />
                       {{ saving ? 'Saving...' : 'Save' }}
                     </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- New Obstacles Section (visible in edit mode) -->
+          <div v-if="isEditing" class="mt-6 pt-6 border-t">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-semibold text-lg">Add New Obstacles</h3>
+              <button type="button" @click="addNewObstacle" class="btn btn-sm btn-ghost">
+                <Plus :size="16" /> Add Obstacle
+              </button>
+            </div>
+
+            <div v-if="newObstacles.length === 0" class="text-center text-gray-500 py-4 text-sm">
+              No new obstacles to add
+            </div>
+
+            <div v-else class="space-y-6">
+              <div v-for="(obstacle, index) in newObstacles" :key="index" class="p-4 border rounded-lg space-y-4 bg-base-200">
+                <div class="flex items-center justify-between">
+                  <h4 class="font-medium">New Obstacle {{ index + 1 }}</h4>
+                  <button type="button" @click="removeNewObstacle(index)" class="btn btn-ghost btn-sm text-error">
+                    <Trash2 :size="16" />
+                  </button>
+                </div>
+
+                <div>
+                  <label class="label"><span class="label-text">Address</span></label>
+                  <div class="relative">
+                    <input
+                        v-model="obstacle.address"
+                        type="text"
+                        placeholder="Type address"
+                        class="input input-bordered w-full transition-colors"
+                        :class="{
+                          'input-primary border-2': activeNewObstacleIndex === index,
+                          'input-error': hasError(`newObstacles[${index}].address`)
+                        }"
+                        @focus="setActiveNewObstacle(index)"
+                        @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
+                        @blur="onAutocompleteBlur"
+                        required
+                    />
+
+                    <div
+                        v-if="showSuggestions && activeNewObstacleIndex === index && suggestions.length > 0"
+                        class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto"
+                    >
+                      <div
+                          v-for="(suggestion, i) in suggestions"
+                          :key="i"
+                          @mousedown.prevent="selectSuggestion(suggestion, index)"
+                          class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
+                      >
+                        <div class="font-medium">{{ suggestion.name }}</div>
+                        <div class="text-sm text-gray-500">{{ suggestion.full_address }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="label"><span class="label-text">Type</span></label>
+                    <div class="dropdown w-full">
+                      <div
+                          tabindex="0"
+                          role="button"
+                          class="btn btn-bordered w-full justify-between font-normal"
+                          :class="{ 'input-error': hasError(`newObstacles[${index}].type`) }"
+                      >
+                        {{ OBSTACLE_TYPE_OPTIONS.find(o => o.value === obstacle.type)?.label }}
+                        <ChevronDown :size="16" />
+                      </div>
+                      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-full p-2 shadow">
+                        <li v-for="option in OBSTACLE_TYPE_OPTIONS" :key="option.value">
+                          <a @click="selectNewObstacleType(index, option.value)">{{ option.label }}</a>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="label"><span class="label-text">Severity</span></label>
+                    <div class="dropdown w-full">
+                      <div
+                          tabindex="0"
+                          role="button"
+                          class="btn btn-bordered w-full justify-between font-normal"
+                          :class="{ 'input-error': hasError(`newObstacles[${index}].severity`) }"
+                      >
+                        {{ OBSTACLE_SEVERITY_OPTIONS.find(o => o.value === obstacle.severity)?.label }}
+                        <ChevronDown :size="16" />
+                      </div>
+                      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-1 w-full p-2 shadow">
+                        <li v-for="option in OBSTACLE_SEVERITY_OPTIONS" :key="option.value">
+                          <a @click="selectNewObstacleSeverity(index, option.value)">{{ option.label }}</a>
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
