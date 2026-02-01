@@ -1,27 +1,4 @@
 # Best Bike Path
-
-## 🚀 Quick Start
-
-1. Download both pre-compiled binaries from releases
-2. Start the backend:
-   ```bash
-   java -jar bbp-backend.jar --mapbox.api.key=YOUR_KEY
-   ```
-3. Start the frontend:
-
-   for linux, before launching the executable run
-   ```bash
-   chmod +x bbp-frontend
-   ```
-   ```bash
-   ./bbp-frontend --mapbox.api.key=YOUR_KEY
-   ```
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
-
----
-
-## Installation
-
 ## 🛠 Prerequisites
 
 Before proceeding, ensure the following tools are installed on your machine:
@@ -31,11 +8,32 @@ Before proceeding, ensure the following tools are installed on your machine:
 - **PostgreSQL**: Visit [postgresql.org](https://www.postgresql.org) for installation
 - **Mapbox API Key**: Visit [mapbox.com](https://www.mapbox.com) to obtain an API key
 
+## 🚀 Quick Start
+
+1. Download both pre-compiled binaries from [releases page](https://github.com/m-tteo/sw-eng-2-raimondi-sala/releases/tag/BestBikePaths-v1.0.0).
+2. Start the backend:
+   ```bash
+   java -jar bbp-backend.jar --mapbox.api.key=YOUR_KEY
+   ```
+3. Start the frontend:
+
+   for Linux and macOS only, before launching the executable run
+   ```bash
+   chmod +x bbp-frontend-<platform>
+   ```
+   > Replace <platform> with your specific file suffix (e.g., linux-x64). Windows users can skip this step.
+   ```bash
+   ./bbp-frontend-<platform> --mapbox.api.key=YOUR_KEY
+   ```
+   > Replace <platform> with your specific file suffix (e.g., linux-x64).
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+   > If you specified a custom port with --frontend.port, use that port instead of 3000.
+
 ---
 
-## ⚙️ Backend Setup
+## Build from source
 
-### Build from Source
+### ⚙️ Backend 
 
 Navigate to the backend directory:
 
@@ -48,12 +46,7 @@ Build the executable JAR file:
 ```bash
 ./mvnw clean package -DskipTests
 ```
-
-### Download Pre-compiled JAR
-
-Alternatively, download the pre-compiled JAR file from the [releases page](https://github.com/m-tteo/sw-eng-2-raimondi-sala/releases/tag/BestBikePaths-v1.0.0).
-
-### Run the Backend
+#### Run the Backend
 
 Execute the application with your Mapbox API key:
 
@@ -63,9 +56,7 @@ java -jar target/bbp-backend.jar --mapbox.api.key=YOUR_MAPBOX_KEY
 
 ---
 
-## 💻 Frontend Setup
-
-### Build from Source
+### 💻 Frontend
 
 Navigate to the frontend directory:
 
@@ -85,17 +76,7 @@ Build the production executable:
 bun run build:prod
 ```
 
-### Download Pre-compiled Executable
-
-Alternatively, download the pre-compiled executable from the [releases page](https://github.com/m-tteo/sw-eng-2-raimondi-sala/releases/tag/BestBikePaths-v1.0.0).
-
-Make the file executable:
-
-```bash
-chmod +x bbp-frontend
-```
-
-### Run the Frontend
+#### Run the Frontend
 
 Execute the frontend with your Mapbox API key:
 
@@ -103,13 +84,14 @@ Execute the frontend with your Mapbox API key:
 ./bbp-frontend --mapbox.api.key=YOUR_MAPBOX_KEY
 ```
 
-### Access the Application
+#### Access the Application
 
 Open your browser and navigate to:
 
 ```
 http://localhost:3000
 ```
+> If you specified a custom port with --frontend.port, use that port instead of 3000.
 
 ---
 
@@ -117,14 +99,15 @@ http://localhost:3000
 
 ### Backend Parameters
 
-- `--mapbox.api.key`: Your Mapbox API key
+- `--mapbox.api.key`: Your Mapbox API key (required)
 - `--server.port`: Backend port (default: 8080)
+- `--client.port`: Frontend port for CORS configuration (default: 3000, must match frontend configuration)
 
 ### Frontend Parameters
 
 - `--mapbox.api.key`: Your Mapbox API key
 - `--frontend.port`: Frontend port (default: 3000)
-- `--backend.port`: Backend port to connect to (default: 8080)
+- `--backend.port`: Backend port to connect to (default: 8080, must match backend configuration)
 
 ---
 
