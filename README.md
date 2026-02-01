@@ -114,6 +114,7 @@ http://localhost:3000
    java -jar bbp-backend.jar --mapbox.api.key=YOUR_KEY
    ```
 3. Start the frontend:
+
    for linux, before launching the executable run
    ```bash
    chmod +x bbp-frontend
