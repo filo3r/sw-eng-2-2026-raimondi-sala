@@ -3,8 +3,7 @@ Before proceeding, ensure the following tools are installed on your machine:
 \begin{itemize}
     \item \textbf{Java Development Kit}: Version 25 or higher
     \item \textbf{Bun}: Visit \url{https://bun.sh} for installation
-    \item \textbf{PostgreSQL}: Visit \url{https://www.postgresql.org/} for installation
-    \item \textbf{Mapbox API Key}: Visit \url{https://www.mapbox.com/} to obtain an API key
+    \item \textbf{Mapbox API Key}: Visit \url{https://www.mapbox.com/} to obtain a free API key (default token settings are sufficient)
 \end{itemize}
 
 \section{Backend Setup}
@@ -19,9 +18,11 @@ cd implementation/backend/bbp
 \begin{lstlisting}[language=bash]
 ./mvnw clean package -DskipTests
 \end{lstlisting}
+\noindent Note: The \texttt{-DskipTests} flag skips unit tests. Remove it to run tests during build.
 
 \subsection{Download Pre-compiled JAR}
 Alternatively, download the pre-compiled JAR file from the \href{https://github.com/m-tteo/sw-eng-2-raimondi-sala/releases/tag/BestBikePaths-v1.0.0}{releases page}.
+
 \subsection{Run the Backend}
 Execute the application with your Mapbox API key:
 \begin{lstlisting}[language=bash]
@@ -47,36 +48,40 @@ bun run build:prod
 \end{lstlisting}
 
 \subsection{Download Pre-compiled Executable}
-Alternatively, download the pre-compiled executable from the \href{https://github.com/m-tteo/sw-eng-2-raimondi-sala/releases/tag/BestBikePaths-v1.0.0}{releases page}.
+Alternatively, download the appropriate pre-compiled executable for your platform from the \href{https://github.com/m-tteo/sw-eng-2-raimondi-sala/releases/tag/BestBikePaths-v1.0.0}{releases page}.
 
-\noindent Make the file executable:
+\noindent \textbf{For macOS/Linux only}: Navigate to the directory containing the executable and make it executable:
 \begin{lstlisting}[language=bash]
-chmod +x bbp-frontend
+chmod +x bbp-frontend-<platform>
 \end{lstlisting}
+\noindent Replace \texttt{<platform>} with your specific file suffix (e.g., \texttt{linux-x64}). Windows users can skip this step.
 
 \subsection{Run the Frontend}
 Execute the frontend with your Mapbox API key:
 \begin{lstlisting}[language=bash]
-./bbp-frontend --mapbox.api.key=YOUR_MAPBOX_KEY
+./bbp-frontend-<platform> --mapbox.api.key=YOUR_MAPBOX_KEY
 \end{lstlisting}
+\noindent Replace \texttt{<platform>} with your specific file suffix (e.g., \texttt{linux-x64}, \texttt{macos-arm64}).
 
 \subsection{Access the Application}
 Open your browser and navigate to:
 \begin{center}
 \url{http://localhost:3000}
 \end{center}
+\noindent Note: If you specified a custom port with \texttt{---frontend.port}, use that port instead of 3000.
 
 \section{Configuration Options}
 
 \subsection{Backend Parameters}
 \begin{itemize}
-    \item \texttt{--mapbox.api.key}: Your Mapbox API key
-    \item \texttt{--server.port}: Backend port (default: 8080)
+    \item \texttt{---mapbox.api.key}: Your Mapbox API key (required)
+    \item \texttt{---server.port}: Backend port (default: 8080)
+    \item \texttt{---client.port}: Frontend port for CORS configuration (default: 3000, must match the frontend's actual port)
 \end{itemize}
 
 \subsection{Frontend Parameters}
 \begin{itemize}
-    \item \texttt{--mapbox.api.key}: Your Mapbox API key
-    \item \texttt{--frontend.port}: Frontend port (default: 3000)
-    \item \texttt{--backend.port}: Backend port to connect to (default: 8080)
+    \item \texttt{---mapbox.api.key}: Your Mapbox API key (required)
+    \item \texttt{---frontend.port}: Frontend port (default: 3000)
+    \item \texttt{---backend.port}: Backend port to connect to (default: 8080, must match the backend's actual port)
 \end{itemize}

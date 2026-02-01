@@ -1,36 +1,33 @@
 \subsection{Implemented functions}
-
-\subsubsection*{F1. User authentication}
+\subsubsection*{F1. User Management}
 This function is fundamental as it allows a user to register and gain access to the system.
 After submitting the registration details or logging in with existing credentials, the system will provide the user with a JSON Web Token.
-Finally, the user is able to use this token to authenticate all subsequent requests to the application APIs.
+Finally, the user is able to use this token to authenticate all subsequent requests to the application APIs, manage their profile information, and log out.
 
-\subsubsection*{F2. Manual trip recording}
+\subsubsection*{F2. Manual Trip Recording}
 This function allows a cyclist to insert a trip into the system without having to track it in real-time.
 After selecting the origin, destination, and timing, the system will calculate the route details using the Mapbox integration and enrich the record with historical weather data from Open-Meteo.
 Finally, the cyclist is able to view this trip in their personal history immediately after creation.
 
-\subsubsection*{F3. Manual bike path creation}
+\subsubsection*{F3. Manual Bike Path Creation}
 This function allows a user to define a new bike path in the system.
 The system will provide the user with the calculated route and validate any reported obstacle, ensuring it lies within a specific distance from the path geometry.
-Finally, the user is able to update the path status or delete it if they are the creator.
+Finally, the user is able to update the path status (visibility and maintenance status) or delete it if the user is the creator.
 
-\subsubsection*{F4. Bike path finder}
+\subsubsection*{F4. Bike Path Search}
 This function allows a user to discover bike paths created by the community.
 The system will provide the user with a list of published bike paths that match the specified search radius around a starting point and a destination.
 This data should allow the user to choose the best rated path for their commute.
 
-\subsubsection*{F5. Collaboration on Bike Paths}
-This function allows users to report the variations of obstacles in public bike paths, changing their positions, removing them or editing their severity.
-
+\subsubsection*{F5. Collaborative Maintenance}
+This function allows users to report and modify obstacles on public bike paths, changing their positions, removing them, or editing their severity.
 
 \subsection{Discarded functions and details}
 This is a list of functions or functional details that are described in the previous documents but have been excluded from the implementation of the system.
-
 \begin{itemize}
-    \item \textbf{F6. Automatic trip tracking}: this functionality was not implemented, it required a continuous stream of GPS data from the client, which was not required in the implementation project.
-    \item \textbf{F.7 Automatic bike path generation}: this feature, which intended to create paths by aggregating frequently traveled user trips, was not implemented since it was not required in the implementation project.
+    \item \textbf{F6. Automatic Trip Recording}: this functionality was not implemented, it required a continuous stream of GPS data from the client, which was not required in the implementation project.
+    \item \textbf{F7. Automatic Bike Path Creation}: this feature, which intended to automatically create bike paths through GPS tracking and sensor data with obstacle detection and user validation, was not implemented since it was not required in the implementation project.
 \end{itemize}
 
 \subsection{Other changes}
-The database is located on the same infrastructure as the one of the backend, this change greatly simplifies the infrastructure for prototyping.
+For the prototype implementation, the database technology was changed from PostgreSQL with PostGIS to H2 in-memory database. Consequently, spatial operations are handled in the backend using the Java Topology Suite (JTS) library instead of PostGIS database extensions. These changes simplify the infrastructure setup for prototyping and testing purposes.

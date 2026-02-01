@@ -1,5 +1,5 @@
 \subsection{Scope of the document}
-    The purpose of this document is to present the implemented prototype of the project, therefore this document presents the functions of the software, the frameworks that have been used to implement them and how they have been tested, at last, this document presents a guide on how to make the project run.
+The purpose of this document is to present the implemented prototype of the project. Therefore, this document presents the functions of the software, the frameworks that have been used to implement them, how they have been tested, and finally, a guide on how to run the project.
 
 \subsection{Definitions, Acronyms, and Abbreviations}
 \begin{table}[H]
@@ -13,6 +13,8 @@
 \hline
 \textbf{BBP} & Best Bike Paths \\
 \hline
+\textbf{CRUD} & Create, Read, Update, Delete \\
+\hline
 \textbf{CSS} & Cascading Style Sheets \\
 \hline
 \textbf{DTO} & Data Transfer Object \\
@@ -21,17 +23,23 @@
 \hline
 \textbf{HTML} & HyperText Markup Language \\
 \hline
-\textbf{HTTP} & HyperText Transfer Protocol \\
+\textbf{HTTPS} & HyperText Transfer Protocol Secure \\
 \hline
 \textbf{ITD} & Implementation and Test Deliverable \\
 \hline
 \textbf{JPA} & Java Persistence API \\
 \hline
+\textbf{JSON} & JavaScript Object Notation \\
+\hline
 \textbf{JTS} & Java Topology Suite \\
 \hline
 \textbf{JWT} & JSON Web Token \\
 \hline
+\textbf{ORM} & Object-Relational Mapping \\
+\hline
 \textbf{REST} & Representational State Transfer \\
+\hline
+\textbf{SPA} & Single Page Application \\
 \hline
 \textbf{UI} & User Interface \\
 \hline
@@ -65,7 +73,7 @@ The document is organized into the following sections:
 \begin{itemize}
     \item[] \textbf{Introduction:} The first section of this document, containing the Scope of the document, the definitions and acronyms, revision history and reference documents.
 
-    \item[] \textbf{Product Functions:} This section describes the implemented functions, list the discarded functions that were excluded from the final implementation, and details other structural changes.
+    \item[] \textbf{Product Functions:} This section describes the implemented functions, lists the discarded functions that were excluded from the final implementation, and details other structural changes.
 
     \item[] \textbf{System Development Frameworks:} This section lists the technologies used to develop the application, including adopted frameworks, programming languages, middlewares, and external APIs.
 
@@ -73,7 +81,9 @@ The document is organized into the following sections:
 
     \item[] \textbf{Testing Activity:} This section details the testing strategy.
 
-    \item[] \textbf{Installation Guide:} This section provides a step-by-step instructions to build and run both the backend and frontend components of the system.
+    \item[] \textbf{Installation Guide:} This section provides step-by-step instructions to build and run both the backend and frontend components of the system.
+
+    \item[] \textbf{Use of Generative AI Tools:} This section documents the use of AI assistance during development and documentation.
 
     \item[] \textbf{Effort Spent:} This final section presents a breakdown of the hours spent by each group member for writing this document.
 \end{itemize}

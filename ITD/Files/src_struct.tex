@@ -6,6 +6,7 @@ The source code is organized in two main directories, separating the frontend lo
 ├── src
 │   ├── main
 │   │   ├── java/it/polimi/se/bbp
+│   │   │   ├── BbpApplication
 │   │   │   ├── config
 │   │   │   ├── controller
 │   │   │   ├── dto
@@ -34,6 +35,7 @@ The source code is organized in two main directories, separating the frontend lo
     \item[controller] Contains REST Controllers that expose API endpoints, handle HTTP requests, and delegate logic to services.
     \item[dto] Collects Data Transfer Objects, separated into request and response, as well as DTOs specific to external APIs.
     \item[entity] Defines JPA entities that map database tables.
+    \item[enums] Enumeration types for domain values.
     \item[exception] Centralized exception handling and custom exception definitions.
     \item[geo] Utility classes for geospatial calculations.
     \item[mapper] Interfaces for automatic conversion between Entities and DTOs.
@@ -49,7 +51,6 @@ The source code is organized in two main directories, separating the frontend lo
 ├── public
 ├── src
 │   ├── api
-│   ├── assets
 │   ├── components
 │   ├── composables
 │   ├── config
@@ -73,6 +74,8 @@ The source code is organized in two main directories, separating the frontend lo
     \item[api] HTTP client configuration and request interceptor management.
     \item[components] Reusable Vue components in the interface.
     \item[composables] Functions encapsulating reusable stateful logic.
+    \item[config] Configuration files for environment variables and external services.
+    \item[constants] Application-wide constant values and configuration parameters.
     \item[router] Client-side routing configuration defining page navigation.
     \item[services] Modules interfacing the frontend with backend APIs.
     \item[stores] Global application state management via Pinia.

@@ -1,20 +1,20 @@
-\subsubsection{Adopted frameworks}
-The development of the application has been made easier with  the implementation of notable frameworks.
+\subsection{Adopted frameworks}
+The development of the application has been facilitated by the adoption of notable frameworks.
 \begin{itemize}
-    \item \textbf{Spring Boot}: we used Spring Boot as the backend architecture, therefore simplifying the development of the application. It provides the embedded server and auto-configuration required to run the Java-based system.
-    \item \textbf{Vue.js}: for the frontend, we decided to use Vue.js, this choice permitted fast development of an interactive UI.
-    \item \textbf{JUnit and Mockito}: for testing the backend we used JUnit and Mockito.
+    \item \textbf{Spring Boot}: we used Spring Boot as the backend framework, simplifying the development of the application. It provides the embedded server and auto-configuration required to run the Java-based system.
+    \item \textbf{Vue.js}: for the frontend, we decided to use Vue.js, which enabled fast development of an interactive UI.
+    \item \textbf{JUnit and Mockito}: for testing the backend we used JUnit and Mockito to perform unit testing with mocked dependencies.
 \end{itemize}
 
-\subsubsection{Adopted programming languages}
+\subsection{Adopted programming languages}
 
 \paragraph{Java}
-The backend have been completely written in Java, it has therefore been used to define the entities, the business logic services, and the REST controllers that expose the API to the client.
+The backend has been completely written in Java, which has been used to define the entities, the business logic services, and the REST controllers that expose the API to the client.
 
 \paragraph{Java Pros}
 \begin{itemize}
     \item \textbf{Statically Typed}: being strongly typed ensures that type errors are caught at compile-time rather than runtime, making the system more robust.
-    \item \textbf{Rich Ecosystem}: the availability of libraries like JTS for geospatial operations speeded up development.
+    \item \textbf{Rich Ecosystem}: the availability of libraries like JTS for geospatial operations sped up development.
     \item \textbf{Multithreading}: Java's native support for multithreading allows the application to handle concurrent tasks, such as fetching weather data asynchronously.
 \end{itemize}
 
@@ -28,26 +28,48 @@ The frontend has been written in TypeScript.
 
 \paragraph{TypeScript Pros}
 \begin{itemize}
-    \item \textbf{Type Safety}: It brings the advantages of static typing to JavaScript.
-    \item \textbf{Maintainability}: In complex frontend projects, explicit interfaces and types make the code easier to read.
+    \item \textbf{Type Safety}: it brings the advantages of static typing to JavaScript.
+    \item \textbf{Maintainability}: in complex frontend projects, explicit interfaces and types make the code easier to read and maintain.
 \end{itemize}
 
 \paragraph{Other languages}
 Additionally, HTML  and CSS  were used to define the structure and styling of the pages.
 
-\subsubsection{Adopted middlewares}
-We used the following middleware in the backend:
+\subsection{Adopted middlewares and libraries}
+
+\subsubsection*{Backend}
+\paragraph{Middlewares}
 \begin{itemize}
-    \item \textbf{Spring Security}: we used Spring Security for managing authentication.
-    \item \textbf{Spring Data JPA}: we used Spring Data JPA for database abstraction, allowing data manipulation via Repository interfaces.
-\end{itemize}
-And the following in the frontend:
-\begin{itemize}
-    \item \textbf{Pinia}: we used Pinias as the state manager.
-    \item \textbf{Vue Router}: we use Vue Router for client-side navigation, mapping URLs to Vue components.
-    \item \textbf{Tailwind CSS}: we used Tailwind to rapidly style components, ensuring visual consistency.
-    \item \textbf{Axios}: we used Axios to perform asynchronous HTTP requests to the backend.
+    \item \textbf{Spring Security}: used for managing authentication and authorization.
+    \item \textbf{Spring Data JPA}: used for database abstraction, allowing data manipulation via Repository interfaces.
 \end{itemize}
 
-\subsubsection{Adopted APIs}
-The system relies on Mapbox to provide GPS-related functions and Open-Meteo to gather weather data.
+\paragraph{Libraries}
+\begin{itemize}
+    \item \textbf{JJWT}: used for JWT token creation and validation.
+    \item \textbf{MapStruct}: used for compile-time Entity-DTO mapping.
+    \item \textbf{Lombok}: used to reduce boilerplate code.
+    \item \textbf{JTS (Java Topology Suite)}: used for geospatial operations and geometric calculations.
+    \item \textbf{Resilience4j}: used for rate limiting requests to external APIs.
+    \item \textbf{Caffeine}: used as high-performance caching library for external API responses.
+    \item \textbf{H2 Database}: used as in-memory database for development and testing.
+\end{itemize}
+
+\subsubsection*{Frontend}
+\paragraph{Libraries}
+\begin{itemize}
+    \item \textbf{Pinia}: used as the state manager.
+    \item \textbf{Vue Router}: used for client-side navigation, mapping URLs to Vue components.
+    \item \textbf{Axios}: used to perform asynchronous HTTP requests to the backend.
+    \item \textbf{Mapbox GL}: used for interactive map rendering and visualization.
+    \item \textbf{Tailwind CSS}: used to rapidly style components, ensuring visual consistency.
+    \item \textbf{DaisyUI}: used as UI component library built on Tailwind CSS.
+    \item \textbf{Lucide Vue Next}: used for icons.
+\end{itemize}
+
+\subsection{Adopted APIs}
+The system relies on the following external APIs:
+\begin{itemize}
+    \item \textbf{Mapbox}: used for geocoding (address to coordinates conversion and reverse), and cycling route calculation.
+    \item \textbf{Open-Meteo}: used to retrieve historical weather data for trip enrichment.
+\end{itemize}
