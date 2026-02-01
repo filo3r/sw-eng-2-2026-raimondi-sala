@@ -140,4 +140,3 @@ To have more in-depth information about this project, you can have a look at the
 
 - [Filippo Raimondi](https://github.com/filo3r)
 - [Matteo Sala](https://github.com/m-tteo)
-```
