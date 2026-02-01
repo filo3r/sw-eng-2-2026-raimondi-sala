@@ -134,8 +134,8 @@ http://localhost:3000
 To have more in-depth information about this project, you can have a look at the documents that we have drawn up during the development of the project:
 
 - [**Requirement Analysis and Specification Document**](https://github.com/m-tteo/sw-eng-2-raimondi-sala/blob/main/DeliveryFolder/RASDv1.pdf)
-- [**Design Document**](https://github.com/m-tteo/sw-eng-2-raimondi-sala/blob/main/DeliveryFolder/DDv2.pdf)
-- [**Implementation and Test Deliverable**](https://github.com/m-tteo/sw-eng-2-raimondi-sala/blob/main/DeliveryFolder/ITD.pdf)
+- [**Design Document**](https://github.com/m-tteo/sw-eng-2-raimondi-sala/blob/main/DeliveryFolder/DDv3.pdf)
+- [**Implementation and Test Deliverable**](https://github.com/m-tteo/sw-eng-2-raimondi-sala/blob/main/DeliveryFolder/ITDv1.pdf)
 
 ---
 
