@@ -51,7 +51,7 @@ Build the executable JAR file:
 
 ### Download Pre-compiled JAR
 
-Alternatively, download the pre-compiled JAR file from the [releases page](https://github.com/).
+Alternatively, download the pre-compiled JAR file from the [releases page](https://github.com/m-tteo/sw-eng-2-raimondi-sala/releases/tag/BestBikePaths-v1.0.0).
 
 ### Run the Backend
 
@@ -87,7 +87,7 @@ bun run build:prod
 
 ### Download Pre-compiled Executable
 
-Alternatively, download the pre-compiled executable from the [releases page](https://github.com/).
+Alternatively, download the pre-compiled executable from the [releases page](https://github.com/m-tteo/sw-eng-2-raimondi-sala/releases/tag/BestBikePaths-v1.0.0).
 
 Make the file executable:
 
