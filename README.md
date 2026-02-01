@@ -56,14 +56,14 @@ bun run build:prod
 
 Run the generated binary. You must provide your Mapbox API key:
 ```bash
-./bbp-frontend mapbox.api.key=YOUR_KEY
+./bbp-frontend --mapbox.api.key=YOUR_KEY
 ```
 
 #### Optional Configuration
 
 You can specify custom ports if they differ from the defaults (Frontend: 3000, Backend: 8080):
 ```bash
-./bbp-frontend mapbox.api.key=YOUR_KEY --frontend.port=3000 --backend.port=8080
+./bbp-frontend --mapbox.api.key=YOUR_KEY --frontend.port=3000 --backend.port=8080
 ```
 
 ### 3. Access
