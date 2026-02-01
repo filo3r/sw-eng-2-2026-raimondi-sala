@@ -1,8 +1,5 @@
 # Best Bike Path
 
-This document provides step-by-step instructions to build and run both the backend and frontend components of the system.
-
----
 
 ## 🛠 Prerequisites
 
