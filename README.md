@@ -1,5 +1,27 @@
 # Best Bike Path
 
+## 🚀 Quick Start
+
+1. Download both pre-compiled binaries from releases
+2. Start the backend:
+   ```bash
+   java -jar bbp-backend.jar --mapbox.api.key=YOUR_KEY
+   ```
+3. Start the frontend:
+
+   for linux, before launching the executable run
+   ```bash
+   chmod +x bbp-frontend
+   ```
+   ```bash
+   ./bbp-frontend --mapbox.api.key=YOUR_KEY
+   ```
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+---
+
+## Installation
+
 ## 🛠 Prerequisites
 
 Before proceeding, ensure the following tools are installed on your machine:
@@ -106,25 +128,6 @@ http://localhost:3000
 
 ---
 
-## 🚀 Quick Start
-
-1. Download both pre-compiled binaries from releases
-2. Start the backend:
-   ```bash
-   java -jar bbp-backend.jar --mapbox.api.key=YOUR_KEY
-   ```
-3. Start the frontend:
-
-   for linux, before launching the executable run
-   ```bash
-   chmod +x bbp-frontend
-   ```
-   ```bash
-   ./bbp-frontend --mapbox.api.key=YOUR_KEY
-   ```
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
-
----
 
 ## 📚 Documentation
 
