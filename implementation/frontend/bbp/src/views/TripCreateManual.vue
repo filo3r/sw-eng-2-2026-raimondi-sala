@@ -1,4 +1,14 @@
 <script setup lang="ts">
+/**
+ * Trip manual creation page.
+ * - Lets the user create a trip by specifying origin/destination and optional waypoints.
+ * - Supports address autocomplete, map clicks, draggable markers, and waypoint reorder via drag & drop.
+ * - Draws a route line on the map and keeps it in sync with the markers array.
+ *
+ * Fragility notes:
+ * - The route depends on multiple composables (markers + route drawing + click handler + address manager).
+ * - Keep `addresses` and `routeMarkers` aligned by index; most of the logic assumes that invariant.
+ */
 import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-vue-next'
@@ -35,11 +45,23 @@ import {
 } from '@/constants/map'
 import type { MarkerConfig } from '@/composables/useInteractiveMarkers'
 
+/** Router instance used to navigate after successful creation or when going back. */
 const router = useRouter()
+
+/** Toast helper for user feedback. */
 const { show } = useToast()
+
+/** Field-level error helpers used by validation and API error mapping. */
 const { hasError, setError } = useFieldError()
 
+/** Map container element reference used to mount Mapbox map. */
 const mapContainer = ref<HTMLElement | null>(null)
+
+/**
+ * Map initialization via composable.
+ * - interactive: true enables pan/zoom
+ * - enableGeolocation: true enables geolocation control (per your composable)
+ */
 const { initMap, map } = useMap({
   container: mapContainer,
   accessToken: getMapboxApiKey(),
@@ -47,27 +69,51 @@ const { initMap, map } = useMap({
   enableGeolocation: true
 })
 
+/**
+ * Marker manager for route points (origin, waypoints, destination).
+ * `routeMarkers` must stay aligned with `addresses` indexes.
+ */
 const {
   createMarker: createRouteMarker,
   removeMarker: removeRouteMarker,
   markers: routeMarkers
 } = useInteractiveMarkers(map)
 
+/**
+ * Route polyline drawing composable.
+ * `updateRoute` recalculates route and redraws the line based on the markers list.
+ */
 const { updateRoute, attachMapClickHandler } = useRouteDrawing(map, {
   sourceId: TRIP_ROUTE_SOURCE_ID,
   layerId: TRIP_ROUTE_LAYER_ID
 })
 
+/** Shared Mapbox autocomplete state for inputs. */
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
 
+/** Drag & drop state for reordering address inputs. */
 const { draggedIndex, dragOverIndex, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd } =
     useDraggableList()
 
+/**
+ * Tracks which "field" is active for map clicks (e.g., route index).
+ * `handleMapClickBase` encapsulates the logic of deciding what to do on click.
+ */
 const { activeField, setActiveField, handleMapClick: handleMapClickBase } = useMapClickHandler()
 
+/**
+ * Route addresses in order:
+ * - index 0: origin
+ * - last index: destination
+ * - intermediate: waypoints
+ */
 const addresses = ref<string[]>(['', ''])
 
+/**
+ * Address manager keeps address list and marker list synchronized.
+ * Centralizes add/remove/reorder and click-to-set-address logic.
+ */
 const {
   addAddress,
   removeAddress,
@@ -86,27 +132,42 @@ const {
   context: 'TripCreateManual'
 })
 
+/** Optional trip description. */
 const description = ref('')
 
-// Date/Time nativi separati
+/** Native date/time inputs (kept separate) */
 const startDateStr = ref('') // YYYY-MM-DD
 const startTimeStr = ref('') // HH:mm:ss (step=1)
 const endDateStr = ref('')
 const endTimeStr = ref('')
 
+/** Optional max speed field; kept flexible for input binding. */
 const maxSpeed = ref<number | ''>('')
+
+/** Submit state to disable the form while creating the trip. */
 const loading = ref(false)
 
+/**
+ * Builds a Date from native date + time strings.
+ * @param dateStr - Date string in YYYY-MM-DD
+ * @param timeStr - Time string in HH:mm:ss (or HH:mm normalized)
+ * @returns Parsed Date, or null if inputs are missing/invalid.
+ */
 function toDate(dateStr: string, timeStr: string): Date | null {
   if (!dateStr || !timeStr) return null
   const d = new Date(`${dateStr}T${normalizeTime(timeStr)}`)
   return Number.isNaN(d.getTime()) ? null : d
 }
 
+/** Computed start/end Date objects (null when incomplete/invalid). */
 const startTime = computed<Date | null>(() => toDate(startDateStr.value, startTimeStr.value))
 const endTime = computed<Date | null>(() => toDate(endDateStr.value, endTimeStr.value))
 
-// min "soft" nativi
+/**
+ * Native "soft" constraints for end date/time inputs.
+ * - minEndDate: cannot be before start date
+ * - minEndTime: if same day, cannot be before start time
+ */
 const minEndDate = computed(() => (startDateStr.value ? startDateStr.value : undefined))
 const minEndTime = computed(() => {
   if (!startDateStr.value || !endDateStr.value) return undefined
@@ -115,7 +176,13 @@ const minEndTime = computed(() => {
   return t || undefined
 })
 
-async function selectSuggestion(suggestion: AutocompleteSuggestion, index: number) {
+/**
+ * Applies an autocomplete suggestion to the address input at `index`.
+ * If coordinates are available, set marker immediately; otherwise forward-geocode.
+ * @param suggestion - Autocomplete suggestion from Mapbox composable
+ * @param index - Address index to update (origin/waypoint/destination)
+ */
+async function selectSuggestion(suggestion: AutocompleteSuggestion, index: number): Promise<void> {
   const address = suggestion.full_address || ''
   addresses.value[index] = address
   showSuggestions.value = false
@@ -130,15 +197,28 @@ async function selectSuggestion(suggestion: AutocompleteSuggestion, index: numbe
   }
 }
 
-async function geocodeAndSetMarker(address: string, index: number) {
+/**
+ * Forward-geocodes an address to coordinates and places/updates the marker.
+ * @param address - Human-readable address string
+ * @param index - Marker/address index
+ */
+async function geocodeAndSetMarker(address: string, index: number): Promise<void> {
   try {
     const result = await forwardGeocode({ address })
     setMarker(index, result.longitude, result.latitude)
-  } catch (e) {
+  } catch (e: unknown) {
     catchApiError(e, 'TripCreateManual.geocodeAndSetMarker')
   }
 }
 
+/**
+ * Builds marker configuration based on index and total route points.
+ * Marker behavior:
+ * - draggable: true
+ * - onDragEnd: reverse-geocode and update route
+ * @param index - Marker index
+ * @returns MarkerConfig used by useInteractiveMarkers
+ */
 function getMarkerConfig(index: number): MarkerConfig {
   const { color, label } = getRouteMarkerConfig(index, addresses.value.length)
 
@@ -153,13 +233,24 @@ function getMarkerConfig(index: number): MarkerConfig {
   }
 }
 
-function setMarker(index: number, lng: number, lat: number) {
+/**
+ * Creates or updates the route marker at a given index and triggers a route redraw.
+ * @param index - Marker index
+ * @param lng - Longitude
+ * @param lat - Latitude
+ */
+function setMarker(index: number, lng: number, lat: number): void {
   const config = getMarkerConfig(index)
   createRouteMarker(index, lng, lat, config)
   void updateRoute(routeMarkers.value, ROUTE_UPDATE_DEBOUNCE_MS, 'TripCreateManual')
 }
 
-function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
+/**
+ * Map click handler:
+ * - Delegates to useMapClickHandler which decides whether this click updates an existing point
+ *   or inserts a new waypoint, based on the active field/context.
+ */
+function handleMapClick(e: import('mapbox-gl').MapMouseEvent): void {
   const { lng, lat } = e.lngLat
 
   handleMapClickBase(lng, lat, {
@@ -170,7 +261,11 @@ function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
   })
 }
 
-async function handleSubmit() {
+/**
+ * Submits the trip creation request.
+ * Runs frontend validations first, then calls createTripManually().
+ */
+async function handleSubmit(): Promise<void> {
   // Frontend validation
   if (!validateAndShow(validateAddresses(addresses.value), 'addresses', setError, show)) return
   if (!validateAndShow(validateOptionalDescription(description.value, DESCRIPTION_MAX_LENGTH), 'description', setError, show)) return
@@ -193,33 +288,43 @@ async function handleSubmit() {
 
     show('Trip recorded successfully', 'success')
     await router.push('/trips/')
-  } catch (error: any) {
+  } catch (error: unknown) {
     catchApiError(error, 'TripCreateManual.handleSubmit', setError)
   } finally {
     loading.value = false
   }
 }
 
-function goBack() {
+/** Navigates back using browser history. */
+function goBack(): void {
   router.back()
 }
 
+/**
+ * Lifecycle initialization:
+ * - initMap() creates the map instance.
+ * - watch(map, ..., { immediate: true }) attaches the click handler as soon as map is available. [web:28]
+ */
 onMounted(() => {
   initMap()
 
-  watch(map, (newMap) => {
-    if (newMap) {
-      attachMapClickHandler(handleMapClick)
-      newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
-    }
-  }, { immediate: true })
+  watch(
+      map,
+      (newMap) => {
+        if (newMap) {
+          attachMapClickHandler(handleMapClick)
+          newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
+        }
+      },
+      { immediate: true }
+  )
 })
 </script>
 
 <template>
   <div class="p-6 overflow-x-hidden">
     <div class="flex items-center gap-4 mb-6">
-      <button @click="goBack" class="btn btn-ghost btn-circle shrink-0">
+      <button @click="goBack" class="btn btn-ghost btn-circle shrink-0" aria-label="Go back">
         <ArrowLeft :size="20" />
       </button>
       <h1 class="text-3xl font-bold">Record Trip</h1>
@@ -271,6 +376,7 @@ onMounted(() => {
                   draggable="true"
                   @dragstart="onDragStart(index)"
                   @dragend="onDragEnd"
+                  aria-label="Drag to reorder"
               >
                 <GripVertical :size="20" />
               </div>
@@ -315,7 +421,7 @@ onMounted(() => {
                   <div
                       v-for="(suggestion, i) in suggestions"
                       :key="i"
-                      @click="selectSuggestion(suggestion, index)"
+                      @mousedown.prevent="selectSuggestion(suggestion, index)"
                       class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
                   >
                     <div class="font-medium">{{ suggestion.name }}</div>
@@ -329,6 +435,7 @@ onMounted(() => {
                   type="button"
                   @click="removeAddress(index)"
                   class="btn btn-ghost btn-sm mt-9"
+                  aria-label="Remove waypoint"
               >
                 <Trash2 :size="16" />
               </button>
@@ -352,11 +459,13 @@ onMounted(() => {
                 v-model="description"
                 placeholder="Add notes or description"
                 class="textarea textarea-bordered w-full"
-                :class="{'input-error': hasError('description')}"
+                :class="{ 'input-error': hasError('description') }"
                 rows="3"
                 :maxlength="DESCRIPTION_MAX_LENGTH"
             ></textarea>
-            <label class="label"><span class="label-text-alt">{{ description.length }}/{{ DESCRIPTION_MAX_LENGTH }}</span></label>
+            <label class="label">
+              <span class="label-text-alt">{{ description.length }}/{{ DESCRIPTION_MAX_LENGTH }}</span>
+            </label>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -366,7 +475,7 @@ onMounted(() => {
                   v-model="startDateStr"
                   type="date"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('startTime')}"
+                  :class="{ 'input-error': hasError('startTime') }"
                   required
               />
               <input
@@ -374,7 +483,7 @@ onMounted(() => {
                   type="time"
                   step="1"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('startTime')}"
+                  :class="{ 'input-error': hasError('startTime') }"
                   required
               />
             </div>
@@ -385,7 +494,7 @@ onMounted(() => {
                   v-model="endDateStr"
                   type="date"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('endTime')}"
+                  :class="{ 'input-error': hasError('endTime') }"
                   :min="minEndDate"
                   required
               />
@@ -394,7 +503,7 @@ onMounted(() => {
                   type="time"
                   step="1"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('endTime')}"
+                  :class="{ 'input-error': hasError('endTime') }"
                   :min="minEndTime"
                   required
               />
@@ -408,7 +517,7 @@ onMounted(() => {
                 type="number"
                 placeholder="Enter maximum speed in km/h"
                 class="input input-bordered w-full"
-                :class="{'input-error': hasError('maxSpeed')}"
+                :class="{ 'input-error': hasError('maxSpeed') }"
                 step="0.01"
                 min="0.01"
                 max="999.99"
@@ -422,7 +531,7 @@ onMounted(() => {
 
       <div class="flex gap-2 justify-end">
         <button type="button" @click="goBack" class="btn btn-ghost">Cancel</button>
-        <button type="submit" class="btn btn-neutral" :disabled="loading">
+        <button type="submit" class="btn btn-neutral" :disabled="loading" :aria-busy="loading">
           {{ loading ? 'Recording...' : 'Record' }}
         </button>
       </div>

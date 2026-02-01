@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * Bike paths list page.
+ * - Loads the user's bike paths with pagination.
+ * - Provides a filter modal (origin/destination + createdAt range).
+ * - Supports Mapbox address autocomplete for origin/destination inputs.
+ */
 import { ref, onMounted, toRaw, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Filter, Plus, X, Search, Eraser, Star, Bike, UsersRound, User } from 'lucide-vue-next'
@@ -12,17 +18,24 @@ import { useMapboxAutocomplete } from '@/composables/useMapboxAutocomplete'
 import { usePagination } from '@/composables/usePagination'
 import { validateDateRange, validateAndShow } from '@/utils/validation'
 import { formatDistance, formatScore } from '@/utils/format'
-import { formatDate } from '@/utils/date'
-import { normalizeTime } from '@/utils/date'
+import { formatDate, normalizeTime } from '@/utils/date'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
 import { BIKE_PATH_PAGE_SIZE, SORT_DESC } from '@/constants/pagination'
 import type { BikePathResponse, PagedBikePathResponse } from '@/types/bikePath'
 
+type ActiveField = 'origin' | 'destination' | null
+type BikePathSearchPayload = {
+  origin?: string
+  destination?: string
+  createdAtFrom?: string
+  createdAtTo?: string
+}
+
 const router = useRouter()
 const { show } = useToast()
 const { hasError, setError } = useFieldError()
-
 const { isLoading, execute } = useAsyncState<PagedBikePathResponse>()
+
 const {
   items: bikePaths,
   hasMore,
@@ -34,18 +47,29 @@ const {
 
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
-const activeField = ref<'origin' | 'destination' | null>(null)
 
+/** Used to disambiguate which input owns the shared autocomplete suggestions list. */
+const activeField = ref<ActiveField>(null)
+
+/** Filter modal driven by native <dialog>. [page:0] */
+const filterDialog = ref<HTMLDialogElement | null>(null)
 const isFilterModalOpen = ref(false)
+
 const originFilter = ref('')
 const destinationFilter = ref('')
 const createdDateFromStr = ref('')
 const createdTimeFromStr = ref('')
 const createdDateToStr = ref('')
 const createdTimeToStr = ref('')
+
+/** Used by pagination to decide between getUserBikePaths() and searchBikePaths(). */
 const hasActiveFilters = ref(false)
 
+/** Prevents "empty state" flash before the first page loads. */
 const initialLoadComplete = ref(false)
+
+/** Cache token so we don't call getMapboxApiKey() for every rendered card. */
+const mapboxToken = getMapboxApiKey()
 
 function toDate(dateStr: string, timeStr: string): Date | null {
   if (!dateStr || !timeStr) return null
@@ -61,53 +85,54 @@ const minCreatedTimeTo = computed(() => {
   return t || undefined
 })
 
-function setActiveField(field: 'origin' | 'destination') {
+function setActiveField(field: Exclude<ActiveField, null>) {
   activeField.value = field
 }
 
-function selectSuggestion(suggestion: any, field: 'origin' | 'destination') {
-  const address = suggestion.full_address || ''
-  if (field === 'origin') {
-    originFilter.value = address
-  } else {
-    destinationFilter.value = address
+function buildSearchPayload(): BikePathSearchPayload {
+  const createdAtFrom = toDate(createdDateFromStr.value, createdTimeFromStr.value)
+  const createdAtTo = toDate(createdDateToStr.value, createdTimeToStr.value)
+  return {
+    origin: originFilter.value || undefined,
+    destination: destinationFilter.value || undefined,
+    createdAtFrom: createdAtFrom?.toISOString(),
+    createdAtTo: createdAtTo?.toISOString()
   }
+}
+
+function selectSuggestion(suggestion: any, field: Exclude<ActiveField, null>) {
+  const address = suggestion.full_address || ''
+  if (field === 'origin') originFilter.value = address
+  else destinationFilter.value = address
   showSuggestions.value = false
   activeField.value = null
 }
 
 async function loadBikePaths() {
-  await loadInitial((page, size) =>
-      getUserBikePaths(page, size, 'createdAt', SORT_DESC)
-  )
+  await loadInitial((page, size) => getUserBikePaths(page, size, 'createdAt', SORT_DESC))
   initialLoadComplete.value = true
 }
 
 async function handleLoadMore() {
-  await loadMorePagination((page, size) =>
-      hasActiveFilters.value
-          ? searchBikePaths(
-              {
-                origin: originFilter.value || undefined,
-                destination: destinationFilter.value || undefined,
-                createdAtFrom: toDate(createdDateFromStr.value, createdTimeFromStr.value)?.toISOString(),
-                createdAtTo: toDate(createdDateToStr.value, createdTimeToStr.value)?.toISOString()
-              },
-              page,
-              size,
-              'createdAt',
-              SORT_DESC
-          )
-          : getUserBikePaths(page, size, 'createdAt', SORT_DESC)
-  )
+  await loadMorePagination((page, size) => {
+    if (!hasActiveFilters.value) return getUserBikePaths(page, size, 'createdAt', SORT_DESC)
+    return searchBikePaths(buildSearchPayload(), page, size, 'createdAt', SORT_DESC)
+  })
 }
 
+/** Open modal via dialog.showModal(), as in DaisyUI examples. [page:0] */
 function openFilterModal() {
+  if (isFilterModalOpen.value) return
+  filterDialog.value?.showModal()
   isFilterModalOpen.value = true
 }
 
 function closeFilterModal() {
+  if (!isFilterModalOpen.value) return
+  filterDialog.value?.close()
   isFilterModalOpen.value = false
+  showSuggestions.value = false
+  activeField.value = null
 }
 
 function clearFilters() {
@@ -117,30 +142,22 @@ function clearFilters() {
   createdTimeFromStr.value = ''
   createdDateToStr.value = ''
   createdTimeToStr.value = ''
+  hasActiveFilters.value = false
 }
 
 async function applyFilters() {
   const createdAtFrom = toDate(createdDateFromStr.value, createdTimeFromStr.value)
   const createdAtTo = toDate(createdDateToStr.value, createdTimeToStr.value)
-
-  // Frontend validation
   if (!validateAndShow(validateDateRange(createdAtFrom, createdAtTo, 'Created at'), 'createdAtTo', setError, show)) return
 
-  hasActiveFilters.value = !!(originFilter.value || destinationFilter.value || createdAtFrom || createdAtTo)
+  const payload = buildSearchPayload()
+  hasActiveFilters.value = !!(payload.origin || payload.destination || payload.createdAtFrom || payload.createdAtTo)
 
   await execute(
-      () => searchBikePaths(
-          {
-            origin: originFilter.value || undefined,
-            destination: destinationFilter.value || undefined,
-            createdAtFrom: createdAtFrom?.toISOString(),
-            createdAtTo: createdAtTo?.toISOString()
-          },
-          0,
-          BIKE_PATH_PAGE_SIZE,
-          'createdAt',
-          SORT_DESC
-      ),
+      () =>
+          hasActiveFilters.value
+              ? searchBikePaths(payload, 0, BIKE_PATH_PAGE_SIZE, 'createdAt', SORT_DESC)
+              : getUserBikePaths(0, BIKE_PATH_PAGE_SIZE, 'createdAt', SORT_DESC),
       'BikePaths.applyFilters',
       (response) => {
         bikePaths.value = response.content
@@ -174,7 +191,7 @@ function viewBikePathDetail(id: number) {
 }
 
 onMounted(() => {
-  loadBikePaths()
+  void loadBikePaths()
 })
 </script>
 
@@ -198,11 +215,11 @@ onMounted(() => {
       </div>
     </div>
 
-    <dialog :class="['modal', isFilterModalOpen && 'modal-open']">
+    <dialog ref="filterDialog" class="modal" @close="isFilterModalOpen = false">
       <div class="modal-box">
         <div class="flex justify-between items-center mb-4">
           <h3 class="font-bold text-lg">Filter Bike Paths</h3>
-          <button @click="closeFilterModal" class="btn btn-sm btn-circle btn-ghost">
+          <button @click="closeFilterModal" class="btn btn-sm btn-circle btn-ghost" aria-label="Close">
             <X :size="16" />
           </button>
         </div>
@@ -212,13 +229,14 @@ onMounted(() => {
             <label class="label">
               <span class="label-text">Origin</span>
             </label>
+
             <div class="relative">
               <input
-                  type="text"
                   v-model="originFilter"
+                  type="text"
                   placeholder="Search by origin location"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('origin')}"
+                  :class="{ 'input-error': hasError('origin') }"
                   :maxlength="ADDRESS_MAX_LENGTH"
                   @focus="setActiveField('origin')"
                   @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -232,7 +250,7 @@ onMounted(() => {
                 <div
                     v-for="(suggestion, i) in suggestions"
                     :key="i"
-                    @click="selectSuggestion(suggestion, 'origin')"
+                    @mousedown.prevent="selectSuggestion(suggestion, 'origin')"
                     class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
                 >
                   <div class="font-medium">{{ suggestion.name }}</div>
@@ -246,13 +264,14 @@ onMounted(() => {
             <label class="label">
               <span class="label-text">Destination</span>
             </label>
+
             <div class="relative">
               <input
-                  type="text"
                   v-model="destinationFilter"
+                  type="text"
                   placeholder="Search by destination location"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('destination')}"
+                  :class="{ 'input-error': hasError('destination') }"
                   :maxlength="ADDRESS_MAX_LENGTH"
                   @focus="setActiveField('destination')"
                   @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -266,7 +285,7 @@ onMounted(() => {
                 <div
                     v-for="(suggestion, i) in suggestions"
                     :key="i"
-                    @click="selectSuggestion(suggestion, 'destination')"
+                    @mousedown.prevent="selectSuggestion(suggestion, 'destination')"
                     class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
                 >
                   <div class="font-medium">{{ suggestion.name }}</div>
@@ -280,19 +299,20 @@ onMounted(() => {
             <label class="label">
               <span class="label-text">Created From</span>
             </label>
+
             <div class="grid grid-cols-2 gap-2">
               <input
                   v-model="createdDateFromStr"
                   type="date"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('createdAtFrom')}"
+                  :class="{ 'input-error': hasError('createdAtFrom') }"
               />
               <input
                   v-model="createdTimeFromStr"
                   type="time"
                   step="1"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('createdAtFrom')}"
+                  :class="{ 'input-error': hasError('createdAtFrom') }"
               />
             </div>
           </div>
@@ -301,12 +321,13 @@ onMounted(() => {
             <label class="label">
               <span class="label-text">Created To</span>
             </label>
+
             <div class="grid grid-cols-2 gap-2">
               <input
                   v-model="createdDateToStr"
                   type="date"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('createdAtTo')}"
+                  :class="{ 'input-error': hasError('createdAtTo') }"
                   :min="minCreatedDateTo"
               />
               <input
@@ -314,7 +335,7 @@ onMounted(() => {
                   type="time"
                   step="1"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('createdAtTo')}"
+                  :class="{ 'input-error': hasError('createdAtTo') }"
                   :min="minCreatedTimeTo"
               />
             </div>
@@ -332,6 +353,7 @@ onMounted(() => {
           </div>
         </form>
       </div>
+
       <form method="dialog" class="modal-backdrop">
         <button @click="closeFilterModal">close</button>
       </form>
@@ -352,7 +374,7 @@ onMounted(() => {
           <figure class="h-48 bg-gray-200">
             <img
                 :src="generateStaticMapUrl(bikePath.bikePathPoints, {
-                accessToken: getMapboxApiKey(),
+                accessToken: mapboxToken,
                 width: 400,
                 height: 300,
                 addMarkers: true

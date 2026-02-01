@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * Trip detail page.
+ * - Loads a single trip (from router state cache when available, otherwise via API).
+ * - Initializes an interactive Mapbox map and draws the route + origin/destination markers.
+ * - Allows deleting the trip with a confirmation modal.
+ */
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -19,97 +25,175 @@ import { useMap } from '@/composables/useMap'
 import { useMapRoute } from '@/composables/useMapRoute'
 import { useToast } from '@/composables/useToast'
 import { useAsyncState } from '@/composables/useAsyncState'
-import { formatDistance, formatDuration, formatSpeed, formatTemperature, formatHumidity, formatWindSpeed } from '@/utils/format'
+import {
+  formatDistance,
+  formatDuration,
+  formatSpeed,
+  formatTemperature,
+  formatHumidity,
+  formatWindSpeed
+} from '@/utils/format'
 import { formatDateTime } from '@/utils/date'
 import { SPINNER_DELAY_MS } from '@/constants/ui'
 import type { TripResponse } from '@/types/trip'
 
+/** Router utilities for reading route params and navigating back. */
 const route = useRoute()
 const router = useRouter()
+
+/** Global toast helper for success/error feedback. */
 const { show } = useToast()
 
+/** Async state for loading the trip entity. */
 const { data: trip, execute } = useAsyncState<TripResponse>()
+
+/** Async state for delete operation (kept separate for clearer logs/contexts). */
 const { execute: executeDelete } = useAsyncState<void>()
+
+/** UI state: disables destructive actions while delete request is in flight. */
 const deleting = ref(false)
+
+/** Map container DOM reference (required to initialize Mapbox map instance). */
 const mapContainer = ref<HTMLElement | null>(null)
 
-const showDeleteModal = ref(false)
+/** Delete confirmation modal driven by native <dialog>. */
+const deleteDialog = ref<HTMLDialogElement | null>(null)
+const isDeleteModalOpen = ref(false)
 
+/**
+ * Spinner state with delayed activation to prevent "flash" on fast responses.
+ * We show the spinner only if the request takes longer than SPINNER_DELAY_MS.
+ */
 const showSpinner = ref(false)
-let spinnerTimeout: number | null = null
+let spinnerTimeout: ReturnType<typeof window.setTimeout> | null = null
 
+/**
+ * Mapbox access token cached once.
+ * Avoids repeated reads of env/config while rendering.
+ */
+const mapboxToken = getMapboxApiKey()
+
+/**
+ * Map composable:
+ * - interactive: true enables pan/zoom.
+ * - enableGeolocation: false disables user-location features for this view.
+ */
 const { map, isReady, initMap } = useMap({
   container: mapContainer,
-  accessToken: getMapboxApiKey(),
+  accessToken: mapboxToken,
   interactive: true,
   enableGeolocation: false
 })
 
+/** Route drawing utilities bound to the map instance. */
 const { drawRoute, addMarkers } = useMapRoute(map)
 
-async function loadTrip() {
+/**
+ * Loads the trip details.
+ * Optimization: if router history state includes a matching trip object, use it and skip the network call.
+ * @returns Promise that resolves when trip state is ready (or determined missing).
+ */
+async function loadTrip(): Promise<void> {
   const tripId = Number(route.params.id)
 
+  // Router "state" cache (set by the list page when navigating to detail).
   const stateData = history.state?.trip as TripResponse | undefined
-
   if (stateData && stateData.id === tripId) {
     trip.value = stateData
     return
   }
 
+  // Show spinner only if the request isn't quick.
   spinnerTimeout = window.setTimeout(() => {
     showSpinner.value = true
   }, SPINNER_DELAY_MS)
 
-  await execute(
-      () => getTripById(tripId),
-      'TripDetail.loadTrip'
-  )
+  await execute(() => getTripById(tripId), 'TripDetail.loadTrip')
 
-  if (spinnerTimeout) clearTimeout(spinnerTimeout)
+  if (spinnerTimeout) {
+    clearTimeout(spinnerTimeout)
+    spinnerTimeout = null
+  }
   showSpinner.value = false
 }
 
+/**
+ * Watches both the map readiness and the trip payload.
+ * When both are available, draw the route polyline and add origin/destination markers.
+ */
 watch([isReady, trip], ([ready, tripData]) => {
-  if (ready && tripData) {
-    drawRoute(tripData.tripPoints)
-    addMarkers(
-        {
-          address: tripData.origin,
-          latitude: tripData.originLatitude,
-          longitude: tripData.originLongitude
-        },
-        {
-          address: tripData.destination,
-          latitude: tripData.destinationLatitude,
-          longitude: tripData.destinationLongitude
-        }
-    )
-  }
+  if (!ready || !tripData) return
+
+  drawRoute(tripData.tripPoints)
+  addMarkers(
+      {
+        address: tripData.origin,
+        latitude: tripData.originLatitude,
+        longitude: tripData.originLongitude
+      },
+      {
+        address: tripData.destination,
+        latitude: tripData.destinationLatitude,
+        longitude: tripData.destinationLongitude
+      }
+  )
 })
 
-function goBack() {
+/**
+ * Navigates back to the trips list.
+ */
+function goBack(): void {
   router.push('/trips')
 }
 
-async function handleDelete() {
-  if (!trip.value) return
-
-  showDeleteModal.value = false
-  deleting.value = true
-
-  await executeDelete(
-      () => deleteTrip(trip.value!.id),
-      'TripDetail.handleDelete',
-      async () => {
-        show('Trip deleted successfully', 'success')
-        await router.push('/trips')
-      }
-  )
-
-  deleting.value = false
+/**
+ * Opens the delete confirmation modal via native dialog API.
+ */
+function openDeleteModal(): void {
+  if (isDeleteModalOpen.value) return
+  deleteDialog.value?.showModal()
+  isDeleteModalOpen.value = true
 }
 
+/**
+ * Closes the delete confirmation modal and resets related UI state.
+ */
+function closeDeleteModal(): void {
+  if (!isDeleteModalOpen.value) return
+  deleteDialog.value?.close()
+  isDeleteModalOpen.value = false
+}
+
+/**
+ * Deletes the current trip.
+ * - Closes the modal immediately for responsive UX.
+ * - Performs API delete; on success, shows a toast and navigates back to list.
+ */
+async function handleDelete(): Promise<void> {
+  if (!trip.value) return
+
+  closeDeleteModal()
+  deleting.value = true
+
+  try {
+    await executeDelete(
+        () => deleteTrip(trip.value!.id),
+        'TripDetail.handleDelete',
+        async () => {
+          show('Trip deleted successfully', 'success')
+          await router.push('/trips')
+        }
+    )
+  } finally {
+    deleting.value = false
+  }
+}
+
+/**
+ * Lifecycle initialization:
+ * - Loads trip data (may come from history cache).
+ * - Initializes the map once the container element exists.
+ */
 onMounted(async () => {
   await loadTrip()
   initMap()
@@ -130,7 +214,7 @@ onMounted(async () => {
     <div class="space-y-6">
       <div class="space-y-4">
         <div class="flex items-start gap-4">
-          <button @click="goBack" class="btn btn-ghost btn-circle shrink-0">
+          <button @click="goBack" class="btn btn-ghost btn-circle shrink-0" aria-label="Back to trips">
             <ArrowLeft :size="20" />
           </button>
           <h1 class="text-3xl font-bold wrap-break-word flex-1">
@@ -150,8 +234,9 @@ onMounted(async () => {
           <div class="flex items-center justify-between mb-4">
             <h2 class="card-title">Trip Information</h2>
             <button
-                @click="showDeleteModal = true"
+                @click="openDeleteModal"
                 class="btn btn-sm btn-ghost text-error"
+                aria-label="Delete trip"
             >
               <Trash2 :size="16" />
             </button>
@@ -252,19 +337,20 @@ onMounted(async () => {
       </div>
     </div>
 
-    <dialog :class="['modal', showDeleteModal && 'modal-open']">
+    <dialog ref="deleteDialog" class="modal" @close="isDeleteModalOpen = false">
       <div class="modal-box">
         <h3 class="font-bold text-lg mb-4">Delete Trip</h3>
         <p class="mb-6">Are you sure you want to delete this trip? This action cannot be undone.</p>
         <div class="flex gap-2 justify-end">
-          <button @click="showDeleteModal = false" class="btn btn-ghost">Cancel</button>
+          <button @click="closeDeleteModal" class="btn btn-ghost">Cancel</button>
           <button @click="handleDelete" class="btn btn-error" :disabled="deleting">
             {{ deleting ? 'Deleting...' : 'Delete' }}
           </button>
         </div>
       </div>
+
       <form method="dialog" class="modal-backdrop">
-        <button @click="showDeleteModal = false">close</button>
+        <button @click="closeDeleteModal">close</button>
       </form>
     </dialog>
   </div>

@@ -1,5 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, toRaw } from 'vue'
+/**
+ * Bike Path Finder page (map + sidebar search).
+ * - Shows a full-screen Mapbox map with a slide-in sidebar for search inputs.
+ * - Uses Mapbox autocomplete for origin/destination addresses.
+ * - Calls the bike path finder API with pagination and shows selectable results.
+ * - When a result is selected, draws its route and overlays obstacles on the map.
+ * - Persists/restores search state via Pinia store when navigating to details and back.
+ *
+ * Fragility notes:
+ * - Map event listeners must be registered after the map instance exists and removed on unmount
+ *   using the exact same handler reference. [web:185]
+ * - Autocomplete suggestion clicks can be swallowed by input blur; use mousedown to select first.
+ */
+import { ref, onMounted, onUnmounted, watch, toRaw } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { Search, X, Eraser, Star, Bike, ArrowRight, ChevronDown } from 'lucide-vue-next'
@@ -20,12 +33,25 @@ import { BIKE_PATH_FINDER_PAGE_SIZE } from '@/constants/pagination'
 import { ADDRESS_MAX_LENGTH } from '@/constants/validation'
 import type { BikePathResponse } from '@/types/bikePath'
 
+type ActiveField = 'origin' | 'destination' | null
+
 const router = useRouter()
 const { show } = useToast()
 const { hasError, setError } = useFieldError()
 const store = useBikePathFinderStore()
+
+/**
+ * Disables page scroll while this view is active (map full-screen UX).
+ * Keep in mind: this composable may already manage body styles; we still restore on unmount below.
+ */
 useNoScroll()
 
+/**
+ * Pagination composable holds:
+ * - searchResults: current result list
+ * - hasMore: server says there are more pages
+ * - showSpinner / loadingMore: loading states
+ */
 const {
   items: searchResults,
   hasMore,
@@ -36,21 +62,38 @@ const {
   reset
 } = usePagination<BikePathResponse>(BIKE_PATH_FINDER_PAGE_SIZE)
 
+/** Map container reference used to mount Mapbox map. */
 const mapContainer = ref<HTMLDivElement | null>(null)
 
+/** Cache Mapbox token once (avoid repeated calls during render). */
+const mapboxToken = getMapboxApiKey()
+
+/**
+ * Map initialization.
+ * - interactive: true enables pan/zoom
+ * - enableGeolocation: true enables the geolocation control/features (per your composable)
+ */
 const { map, isReady, initMap } = useMap({
   container: mapContainer,
-  accessToken: getMapboxApiKey(),
+  accessToken: mapboxToken,
   interactive: true,
   enableGeolocation: true
 })
+
+/** Route/marker helpers bound to the current map instance. */
 const { drawRoute, addMarkers, clearRoute } = useMapRoute(map)
+
+/** Obstacle helpers bound to the current map instance. */
 const { addObstacles, clearObstacles } = useMapObstacles(map)
 
+/** Autocomplete state shared by origin/destination inputs. */
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
-const activeField = ref<'origin' | 'destination' | null>(null)
 
+/** Tracks which field currently owns the shared suggestions list. */
+const activeField = ref<ActiveField>(null)
+
+/** Sidebar UI + search params. */
 const isSidebarOpen = ref(false)
 const originAddress = ref('')
 const originRadius = ref(DEFAULT_RADIUS_KM)
@@ -58,35 +101,46 @@ const destinationAddress = ref('')
 const destinationRadius = ref(DEFAULT_RADIUS_KM)
 const selectedBikePathId = ref<number | null>(null)
 
-function selectOriginRadius(value: number) {
+/**
+ * Dropdown select helpers.
+ * Blurring the focused dropdown trigger ensures it closes after selection (DaisyUI dropdown behavior). [web:190]
+ */
+function selectOriginRadius(value: number): void {
   originRadius.value = value
-  ;(document.activeElement as HTMLElement)?.blur()
+  ;(document.activeElement as HTMLElement | null)?.blur()
 }
 
-function selectDestinationRadius(value: number) {
+function selectDestinationRadius(value: number): void {
   destinationRadius.value = value
-  ;(document.activeElement as HTMLElement)?.blur()
+  ;(document.activeElement as HTMLElement | null)?.blur()
 }
 
-function setActiveField(field: 'origin' | 'destination') {
+/**
+ * Sets which input is active so suggestions render under the correct field.
+ * @param field - 'origin' or 'destination'
+ */
+function setActiveField(field: Exclude<ActiveField, null>): void {
   activeField.value = field
 }
 
-function selectSuggestion(suggestion: any, field: 'origin' | 'destination') {
+/**
+ * Applies an autocomplete suggestion to the selected field.
+ * @param suggestion - Mapbox suggestion object (shape depends on your composable)
+ * @param field - 'origin' or 'destination'
+ */
+function selectSuggestion(suggestion: any, field: Exclude<ActiveField, null>): void {
   const address = suggestion.full_address || ''
-
-  if (field === 'origin') {
-    originAddress.value = address
-  } else {
-    destinationAddress.value = address
-  }
-
+  if (field === 'origin') originAddress.value = address
+  else destinationAddress.value = address
   showSuggestions.value = false
   activeField.value = null
 }
 
-async function handleSearch() {
-  // Frontend validation
+/**
+ * Executes the search and loads the first page of results.
+ * Validates origin/destination presence before calling the API.
+ */
+async function handleSearch(): Promise<void> {
   if (!validateAndShow(validateRequired(originAddress.value, 'Origin'), 'originAddress', setError, show)) return
   if (!validateAndShow(validateRequired(destinationAddress.value, 'Destination'), 'destinationAddress', setError, show)) return
 
@@ -110,7 +164,10 @@ async function handleSearch() {
   }
 }
 
-async function handleLoadMore() {
+/**
+ * Loads the next page of results with the same current search params.
+ */
+async function handleLoadMore(): Promise<void> {
   await loadMorePagination((page, size) =>
       findBikePaths(
           {
@@ -125,12 +182,18 @@ async function handleLoadMore() {
   )
 }
 
-function clearSearch() {
+/**
+ * Clears search inputs, results, map overlays, and stored state.
+ */
+function clearSearch(): void {
   originAddress.value = ''
   originRadius.value = DEFAULT_RADIUS_KM
   destinationAddress.value = ''
   destinationRadius.value = DEFAULT_RADIUS_KM
   selectedBikePathId.value = null
+
+  showSuggestions.value = false
+  activeField.value = null
 
   reset()
   clearRoute()
@@ -138,7 +201,11 @@ function clearSearch() {
   store.clearSearchState()
 }
 
-function selectBikePath(bikePathId: number) {
+/**
+ * Selects a bike path result and draws it on the map.
+ * @param bikePathId - Selected bike path id
+ */
+function selectBikePath(bikePathId: number): void {
   selectedBikePathId.value = bikePathId
 
   const selectedPath = searchResults.value.find(bp => bp.id === bikePathId)
@@ -162,12 +229,14 @@ function selectBikePath(bikePathId: number) {
       }
   )
 
-  if (selectedPath.obstacles && selectedPath.obstacles.length > 0) {
-    addObstacles(selectedPath.obstacles)
-  }
+  if (selectedPath.obstacles?.length) addObstacles(selectedPath.obstacles)
 }
 
-function viewDetails(bikePathId: number) {
+/**
+ * Navigates to BikePathDetail, saving finder state so it can be restored when navigating back.
+ * @param bikePathId - Selected bike path id
+ */
+function viewDetails(bikePathId: number): void {
   const selectedBikePath = searchResults.value.find(bp => bp.id === bikePathId)
 
   store.saveSearchState({
@@ -192,13 +261,11 @@ function viewDetails(bikePathId: number) {
   })
 }
 
-function restoreSearchState() {
-  if (!store.hasSearchState) {
-    console.log('⊘ No saved search state to restore')
-    return
-  }
-
-  console.log('↻ Restoring search state from store...')
+/**
+ * Restores sidebar/search state from the store (if present).
+ */
+function restoreSearchState(): void {
+  if (!store.hasSearchState) return
 
   originAddress.value = store.originAddress
   destinationAddress.value = store.destinationAddress
@@ -210,17 +277,20 @@ function restoreSearchState() {
 
   selectedBikePathId.value = store.selectedBikePathId
   isSidebarOpen.value = store.isSidebarOpen
-
-  console.log(`✓ Restored ${searchResults.value.length} search results`)
 }
 
-function restoreMapState() {
+/**
+ * Restores map overlays (route/markers/obstacles) from the stored selected bike path.
+ * Requires map readiness and a selected id.
+ */
+function restoreMapState(): void {
   if (!isReady.value || !store.selectedBikePathId) return
 
   const selectedPath = searchResults.value.find(bp => bp.id === store.selectedBikePathId)
   if (!selectedPath) return
 
-  console.log('↻ Restoring map state...')
+  clearRoute()
+  clearObstacles()
 
   drawRoute(selectedPath.bikePathPoints)
 
@@ -237,32 +307,54 @@ function restoreMapState() {
       }
   )
 
-  if (selectedPath.obstacles && selectedPath.obstacles.length > 0) {
-    addObstacles(selectedPath.obstacles)
-  }
-
-  console.log('✓ Map state restored')
+  if (selectedPath.obstacles?.length) addObstacles(selectedPath.obstacles)
 }
 
+/**
+ * When the map becomes ready, restore overlays if we have saved search state.
+ * Watching a ref is the standard pattern for reacting to readiness flags. [web:91]
+ */
 watch(isReady, (ready) => {
-  if (ready && store.hasSearchState) {
-    restoreMapState()
-  }
+  if (ready && store.hasSearchState) restoreMapState()
 })
 
+/**
+ * Map click handler used to close the sidebar when user clicks on the map.
+ * Important: keep this as a stable function reference so it can be removed with map.off(...). [web:185]
+ */
+function handleMapClick(): void {
+  if (isSidebarOpen.value) isSidebarOpen.value = false
+}
+
+/** Store and restore body styles to avoid leaking "no scroll" styles to other routes. */
+const originalBodyOverflow = document.body.style.overflow
+
 onMounted(() => {
+  // Keep the current behavior: enforce no scroll (map full-screen).
   document.body.style.overflow = 'hidden'
 
   restoreSearchState()
   initMap()
+})
 
+/**
+ * Attach/detach map click listener safely:
+ * - Attach only when map is ready and map instance exists
+ * - Detach on unmount (prevents duplicated handlers if the component is re-mounted)
+ */
+watch(isReady, (ready) => {
+  if (!ready || !map.value) return
+  map.value.on('click', handleMapClick)
+})
+
+onUnmounted(() => {
+  // Cleanup map listener (requires same handler reference). [web:185]
   if (map.value) {
-    (map.value as any).on('click', () => {
-      if (isSidebarOpen.value) {
-        isSidebarOpen.value = false
-      }
-    })
+    map.value.off('click', handleMapClick)
   }
+
+  // Restore body style so other pages can scroll normally.
+  document.body.style.overflow = originalBodyOverflow
 })
 </script>
 
@@ -274,6 +366,7 @@ onMounted(() => {
         v-if="!isSidebarOpen"
         @click="isSidebarOpen = true"
         class="btn btn-circle btn-neutral shadow-xl absolute top-4 left-4 z-30"
+        aria-label="Open search sidebar"
     >
       <Search :size="20" />
     </button>
@@ -288,23 +381,22 @@ onMounted(() => {
       <div class="p-6">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-2xl font-bold">Search Bike Paths</h2>
-          <button @click="isSidebarOpen = false" class="btn btn-circle btn-ghost">
+          <button @click="isSidebarOpen = false" class="btn btn-circle btn-ghost" aria-label="Close sidebar">
             <X :size="20" />
           </button>
         </div>
 
         <form @submit.prevent="handleSearch" class="space-y-4">
           <div>
-            <label class="label">
-              <span class="label-text">Origin</span>
-            </label>
+            <label class="label"><span class="label-text">Origin</span></label>
+
             <div class="relative">
               <input
-                  type="text"
                   v-model.trim="originAddress"
+                  type="text"
                   placeholder="Enter origin address"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('originAddress')}"
+                  :class="{ 'input-error': hasError('originAddress') }"
                   :maxlength="ADDRESS_MAX_LENGTH"
                   @focus="setActiveField('origin')"
                   @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -319,7 +411,7 @@ onMounted(() => {
                 <div
                     v-for="(suggestion, i) in suggestions"
                     :key="i"
-                    @click="selectSuggestion(suggestion, 'origin')"
+                    @mousedown.prevent="selectSuggestion(suggestion, 'origin')"
                     class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
                 >
                   <div class="font-medium">{{ suggestion.name }}</div>
@@ -327,23 +419,21 @@ onMounted(() => {
                 </div>
               </div>
             </div>
-            <label class="label">
-              <span class="label-text">Radius</span>
-            </label>
+
+            <label class="label"><span class="label-text">Radius</span></label>
+
             <div class="dropdown w-full">
               <div
                   tabindex="0"
                   role="button"
                   class="btn btn-bordered w-full justify-between font-normal"
-                  :class="{'input-error': hasError('originRadiusKm')}"
+                  :class="{ 'input-error': hasError('originRadiusKm') }"
               >
                 {{ RADIUS_OPTIONS.find(o => o.value === originRadius)?.label }}
                 <ChevronDown :size="16" />
               </div>
-              <ul
-                  tabindex="0"
-                  class="dropdown-content menu bg-base-100 rounded-box z-1 w-full p-2 shadow"
-              >
+
+              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-1 w-full p-2 shadow">
                 <li v-for="option in RADIUS_OPTIONS" :key="option.value">
                   <a @click="selectOriginRadius(option.value)">{{ option.label }}</a>
                 </li>
@@ -352,16 +442,15 @@ onMounted(() => {
           </div>
 
           <div>
-            <label class="label">
-              <span class="label-text">Destination</span>
-            </label>
+            <label class="label"><span class="label-text">Destination</span></label>
+
             <div class="relative">
               <input
-                  type="text"
                   v-model.trim="destinationAddress"
+                  type="text"
                   placeholder="Enter destination address"
                   class="input input-bordered w-full"
-                  :class="{'input-error': hasError('destinationAddress')}"
+                  :class="{ 'input-error': hasError('destinationAddress') }"
                   :maxlength="ADDRESS_MAX_LENGTH"
                   @focus="setActiveField('destination')"
                   @input="onAutocompleteInput(($event.target as HTMLInputElement).value)"
@@ -376,7 +465,7 @@ onMounted(() => {
                 <div
                     v-for="(suggestion, i) in suggestions"
                     :key="i"
-                    @click="selectSuggestion(suggestion, 'destination')"
+                    @mousedown.prevent="selectSuggestion(suggestion, 'destination')"
                     class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
                 >
                   <div class="font-medium">{{ suggestion.name }}</div>
@@ -384,23 +473,21 @@ onMounted(() => {
                 </div>
               </div>
             </div>
-            <label class="label">
-              <span class="label-text">Radius</span>
-            </label>
+
+            <label class="label"><span class="label-text">Radius</span></label>
+
             <div class="dropdown w-full">
               <div
                   tabindex="0"
                   role="button"
                   class="btn btn-bordered w-full justify-between font-normal"
-                  :class="{'input-error': hasError('destinationRadiusKm')}"
+                  :class="{ 'input-error': hasError('destinationRadiusKm') }"
               >
                 {{ RADIUS_OPTIONS.find(o => o.value === destinationRadius)?.label }}
                 <ChevronDown :size="16" />
               </div>
-              <ul
-                  tabindex="0"
-                  class="dropdown-content menu bg-base-100 rounded-box z-1 w-full p-2 shadow"
-              >
+
+              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-1 w-full p-2 shadow">
                 <li v-for="option in RADIUS_OPTIONS" :key="option.value">
                   <a @click="selectDestinationRadius(option.value)">{{ option.label }}</a>
                 </li>
@@ -413,7 +500,7 @@ onMounted(() => {
               <Eraser :size="16" />
               Clear
             </button>
-            <button type="submit" class="btn btn-neutral flex-1" :disabled="showSpinner">
+            <button type="submit" class="btn btn-neutral flex-1" :disabled="showSpinner" :aria-busy="showSpinner">
               <Search :size="16" />
               {{ showSpinner ? 'Searching...' : 'Search' }}
             </button>
@@ -475,12 +562,7 @@ onMounted(() => {
             </button>
           </div>
 
-          <button
-              v-if="hasMore"
-              @click="handleLoadMore"
-              class="btn btn-neutral w-full"
-              :disabled="loadingMore"
-          >
+          <button v-if="hasMore" @click="handleLoadMore" class="btn btn-neutral w-full" :disabled="loadingMore">
             {{ loadingMore ? 'Loading...' : 'Load More' }}
           </button>
         </div>

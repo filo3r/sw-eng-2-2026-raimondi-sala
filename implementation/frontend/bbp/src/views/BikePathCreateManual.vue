@@ -1,4 +1,18 @@
 <script setup lang="ts">
+/**
+ * BikePathCreateManual page.
+ * - Creates a bike path by entering origin/destination and optional waypoints.
+ * - Allows adding optional obstacles with type/severity and an obstacle marker on the map.
+ * - Uses Mapbox autocomplete + forward geocoding as fallback.
+ * - Route preview is derived from route markers; obstacles are separate marker list.
+ *
+ * Fragility notes:
+ * - Route addresses (`addresses`) and route markers (`routeMarkers`) must stay aligned by index.
+ * - Obstacles (`obstacles`) and obstacle markers (`obstacleMarkers`) are also index-aligned; removing
+ *   an obstacle shifts indices and can desync marker slots depending on your composable.
+ * - Autocomplete list can disappear on input blur before click; using @mousedown prevents that.
+ */
+
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Plus, Trash2, ChevronDown, GripVertical } from 'lucide-vue-next'
@@ -17,12 +31,7 @@ import { getRouteMarkerConfig } from '@/composables/useRouteMarkerConfig'
 import { getMapboxApiKey } from '@/config/mapbox'
 import { catchApiError } from '@/utils/error'
 import { getAddressFromCoordinates } from '@/utils/geocoding'
-import {
-  validateAddresses,
-  validateOptionalDescription,
-  validateRequired,
-  validateAndShow
-} from '@/utils/validation'
+import { validateAddresses, validateOptionalDescription, validateRequired, validateAndShow } from '@/utils/validation'
 import { BIKE_PATH_STATUS_OPTIONS } from '@/constants/bikePath'
 import { OBSTACLE_TYPE_OPTIONS, OBSTACLE_SEVERITY_OPTIONS } from '@/constants/obstacle'
 import { DESCRIPTION_MAX_LENGTH } from '@/constants/validation'
@@ -38,11 +47,25 @@ import type { BikePathStatus } from '@/types/bikePath'
 import type { ObstacleType, ObstacleSeverity } from '@/types/obstacle'
 import type { MarkerConfig } from '@/composables/useInteractiveMarkers'
 
+type MarkerKind = 'route' | 'obstacle'
+
+/** Router instance used for navigation (back and redirect after creation). */
 const router = useRouter()
+
+/** Toast helper for user feedback. */
 const { show } = useToast()
+
+/** Field-level error helpers used by validation and API error mapping. */
 const { hasError, setError } = useFieldError()
 
+/** Map container element reference used to mount Mapbox map. */
 const mapContainer = ref<HTMLElement | null>(null)
+
+/**
+ * Map initialization via composable.
+ * - interactive: true enables pan/zoom
+ * - enableGeolocation: true enables geolocation control (per your composable)
+ */
 const { initMap, map } = useMap({
   container: mapContainer,
   accessToken: getMapboxApiKey(),
@@ -50,12 +73,20 @@ const { initMap, map } = useMap({
   enableGeolocation: true
 })
 
+/**
+ * Route markers (origin/waypoints/destination).
+ * The index in `routeMarkers` must correspond to the index in `addresses`.
+ */
 const {
   createMarker: createRouteMarker,
   removeMarker: removeRouteMarker,
   markers: routeMarkers
 } = useInteractiveMarkers(map)
 
+/**
+ * Obstacle markers (separate list).
+ * The index in `obstacleMarkers` must correspond to the index in `obstacles`.
+ */
 const {
   createMarker: createObstacleMarker,
   removeMarker: removeObstacleMarker,
@@ -63,57 +94,85 @@ const {
   markers: obstacleMarkers
 } = useInteractiveMarkers(map)
 
+/**
+ * Route drawing composable.
+ * `updateRoute` recalculates and redraws the polyline from the route markers.
+ */
 const { updateRoute, attachMapClickHandler } = useRouteDrawing(map, {
   sourceId: ROUTE_SOURCE_ID,
   layerId: ROUTE_LAYER_ID
 })
 
+/** Shared Mapbox autocomplete state for all address inputs. */
 const { suggestions, showSuggestions, onInput: onAutocompleteInput, onBlur: onAutocompleteBlur } =
     useMapboxAutocomplete()
 
+/** Drag & drop state for reordering route address inputs. */
 const { draggedIndex, dragOverIndex, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd } =
     useDraggableList()
 
+/**
+ * Tracks which field is active for map clicks and autocomplete.
+ * activeField is expected to contain { type: 'route' | 'obstacle', index }.
+ */
 const { activeField, setActiveField, handleMapClick: handleMapClickBase } = useMapClickHandler()
 
+/**
+ * Route addresses in order:
+ * - index 0: origin
+ * - last index: destination
+ * - intermediate indices: waypoints
+ */
 const addresses = ref<string[]>(['', ''])
 
-const {
-  addAddress,
-  removeAddress,
-  reorderAddresses,
-  handleRoutePointClick,
-  handleWaypointInsert
-} = useAddressManager({
-  addresses,
-  routeMarkers,
-  activeField,
-  setActiveField: (type: string, index: number) => setActiveField(type as 'route' | 'obstacle', index),
-  removeRouteMarker,
-  setMarker: (index, lng, lat) => setMarker('route', index, lng, lat),
-  updateRoute,
-  debounceMs: ROUTE_UPDATE_DEBOUNCE_MS,
-  context: 'BikePathCreateManual'
-})
+/**
+ * Address manager keeps route addresses and route markers synchronized.
+ * It delegates marker placement to our `setMarker(...)` (wrapped here to fix type + signature).
+ */
+const { addAddress, removeAddress, reorderAddresses, handleRoutePointClick, handleWaypointInsert } =
+    useAddressManager({
+      addresses,
+      routeMarkers,
+      activeField,
+      setActiveField: (type: string, index: number) => setActiveField(type as MarkerKind, index),
+      removeRouteMarker,
+      setMarker: (index, lng, lat) => setMarker('route', index, lng, lat),
+      updateRoute,
+      debounceMs: ROUTE_UPDATE_DEBOUNCE_MS,
+      context: 'BikePathCreateManual'
+    })
 
+/** Bike path metadata fields. */
 const description = ref('')
 const status = ref<BikePathStatus>('GOOD')
 const published = ref(false)
+
+/** Submit state to disable the form while creating the bike path. */
 const loading = ref(false)
 
+/** Obstacle form model. */
 interface ObstacleForm {
   address: string
   type: ObstacleType
   severity: ObstacleSeverity
 }
 
+/** List of obstacle forms. Index must align with obstacleMarkers. */
 const obstacles = ref<ObstacleForm[]>([])
 
+/**
+ * Applies an autocomplete suggestion to either a route address or an obstacle address.
+ * If coordinates are present, place/update marker immediately; otherwise forward-geocode.
+ *
+ * @param suggestion - Autocomplete suggestion from Mapbox composable
+ * @param type - Whether we are editing a route point or an obstacle
+ * @param index - Index in the corresponding array (addresses or obstacles)
+ */
 async function selectSuggestion(
     suggestion: AutocompleteSuggestion,
-    type: 'route' | 'obstacle',
+    type: MarkerKind,
     index: number
-) {
+): Promise<void> {
   const address = suggestion.full_address || ''
 
   if (type === 'route') {
@@ -134,16 +193,28 @@ async function selectSuggestion(
   }
 }
 
-async function geocodeAndSetMarker(address: string, type: 'route' | 'obstacle', index: number) {
+/**
+ * Forward-geocodes an address and sets/updates a marker.
+ *
+ * @param address - Address string to geocode
+ * @param type - Marker kind (route/obstacle)
+ * @param index - Marker index
+ */
+async function geocodeAndSetMarker(address: string, type: MarkerKind, index: number): Promise<void> {
   try {
     const result = await forwardGeocode({ address })
     setMarker(type, index, result.longitude, result.latitude)
-  } catch (e) {
+  } catch (e: unknown) {
     catchApiError(e, 'BikePathCreateManual.geocodeAndSetMarker')
   }
 }
 
-function getMarkerConfig(type: 'route' | 'obstacle', index: number): MarkerConfig {
+/**
+ * Builds marker configuration based on marker kind and index.
+ * - Route markers: colored/labeled by position and update route on drag end.
+ * - Obstacle markers: color depends on severity and only reverse-geocodes address on drag end.
+ */
+function getMarkerConfig(type: MarkerKind, index: number): MarkerConfig {
   if (type === 'obstacle' && obstacles.value[index]) {
     const severity = obstacles.value[index].severity
     return {
@@ -171,7 +242,12 @@ function getMarkerConfig(type: 'route' | 'obstacle', index: number): MarkerConfi
   }
 }
 
-function setMarker(type: 'route' | 'obstacle', index: number, lng: number, lat: number) {
+/**
+ * Creates/updates a marker.
+ * - For route markers, we also trigger a (debounced) route update.
+ * - For obstacle markers, we only place/update the marker.
+ */
+function setMarker(type: MarkerKind, index: number, lng: number, lat: number): void {
   const config = getMarkerConfig(type, index)
 
   if (type === 'route') {
@@ -182,7 +258,14 @@ function setMarker(type: 'route' | 'obstacle', index: number, lng: number, lat: 
   }
 }
 
-function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
+/**
+ * Map click handler:
+ * Delegates to useMapClickHandler to decide whether the click is meant to:
+ * - update an existing route point
+ * - update an obstacle
+ * - insert a waypoint before a given index
+ */
+function handleMapClick(e: import('mapbox-gl').MapMouseEvent): void {
   const { lng, lat } = e.lngLat
 
   handleMapClickBase(lng, lat, {
@@ -198,7 +281,13 @@ function handleMapClick(e: import('mapbox-gl').MapMouseEvent) {
   })
 }
 
-async function addObstacle() {
+/**
+ * Adds a new obstacle form and reserves a corresponding obstacle marker slot.
+ * Also focuses the new obstacle address input.
+ *
+ * Fragility: focusing by querySelectorAll index is brittle if the DOM structure changes.
+ */
+async function addObstacle(): Promise<void> {
   obstacles.value.push({ address: '', type: 'POTHOLE', severity: 'LOW' })
   addObstacleSlot()
 
@@ -207,14 +296,18 @@ async function addObstacle() {
 
   await nextTick()
 
-  // Focus sull'input del nuovo ostacolo
+  // Focus the newly added obstacle input (fragile DOM query).
   const inputs = document.querySelectorAll('input[type="text"]')
   const obstacleInputIndex = addresses.value.length + newIndex
-  const input = inputs[obstacleInputIndex] as HTMLInputElement
+  const input = inputs[obstacleInputIndex] as HTMLInputElement | undefined
   input?.focus()
 }
 
-function removeObstacle(index: number) {
+/**
+ * Removes an obstacle form and its marker.
+ * Fragility: after splice, obstacle indices shift; ensure your marker composable remains aligned.
+ */
+function removeObstacle(index: number): void {
   removeObstacleMarker(index)
   obstacles.value.splice(index, 1)
 
@@ -223,19 +316,27 @@ function removeObstacle(index: number) {
   }
 }
 
-function selectStatus(value: BikePathStatus) {
+/**
+ * Sets bike path status and closes the dropdown by blurring the focused trigger (DaisyUI dropdown behavior). [web:190]
+ */
+function selectStatus(value: BikePathStatus): void {
   status.value = value
   ;(document.activeElement as HTMLElement | null)?.blur?.()
 }
 
-function selectObstacleType(index: number, value: ObstacleType) {
-  if (obstacles.value[index]) {
-    obstacles.value[index].type = value
-  }
+/**
+ * Updates obstacle type and closes dropdown (blur).
+ */
+function selectObstacleType(index: number, value: ObstacleType): void {
+  if (obstacles.value[index]) obstacles.value[index].type = value
   ;(document.activeElement as HTMLElement | null)?.blur?.()
 }
 
-function selectObstacleSeverity(index: number, value: ObstacleSeverity) {
+/**
+ * Updates obstacle severity.
+ * Also re-renders the marker to update its color (by recreating/updating it at same coords).
+ */
+function selectObstacleSeverity(index: number, value: ObstacleSeverity): void {
   if (obstacles.value[index]) {
     obstacles.value[index].severity = value
 
@@ -248,19 +349,31 @@ function selectObstacleSeverity(index: number, value: ObstacleSeverity) {
   ;(document.activeElement as HTMLElement | null)?.blur?.()
 }
 
-async function handleSubmit() {
-  // Frontend validation
+/**
+ * Submits the bike path creation request.
+ * - Validates route addresses + optional description.
+ * - Validates each obstacle address.
+ * - Sends payload to createBikePathManually.
+ */
+async function handleSubmit(): Promise<void> {
   if (!validateAndShow(validateAddresses(addresses.value), 'addresses', setError, show)) return
-  if (!validateAndShow(validateOptionalDescription(description.value, DESCRIPTION_MAX_LENGTH), 'description', setError, show)) return
+  if (!validateAndShow(
+      validateOptionalDescription(description.value, DESCRIPTION_MAX_LENGTH),
+      'description',
+      setError,
+      show
+  )) return
 
-  // Validate obstacle addresses
+  // Validate obstacle addresses (each obstacle must have an address if present).
   for (let i = 0; i < obstacles.value.length; i++) {
-    if (!validateAndShow(
-        validateRequired(obstacles.value[i]?.address || '', `Obstacle ${i + 1} address`),
-        `obstacles[${i}].address`,
-        setError,
-        show
-    )) return
+    if (
+        !validateAndShow(
+            validateRequired(obstacles.value[i]?.address || '', `Obstacle ${i + 1} address`),
+            `obstacles[${i}].address`,
+            setError,
+            show
+        )
+    ) return
   }
 
   const validAddresses = addresses.value.filter(addr => addr.trim() !== '')
@@ -282,33 +395,43 @@ async function handleSubmit() {
 
     show('Bike path created successfully', 'success')
     await router.push('/bike-paths/')
-  } catch (error: any) {
+  } catch (error: unknown) {
     catchApiError(error, 'BikePathCreateManual.handleSubmit', setError)
   } finally {
     loading.value = false
   }
 }
 
-function goBack() {
+/** Navigates back using browser history. */
+function goBack(): void {
   router.back()
 }
 
+/**
+ * Lifecycle initialization:
+ * - initMap() creates the map instance.
+ * - watch(map, ..., { immediate: true }) attaches the click handler as soon as map is available. [web:28]
+ */
 onMounted(() => {
   initMap()
 
-  watch(map, (newMap) => {
-    if (newMap) {
-      attachMapClickHandler(handleMapClick)
-      newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
-    }
-  }, { immediate: true })
+  watch(
+      map,
+      (newMap) => {
+        if (newMap) {
+          attachMapClickHandler(handleMapClick)
+          newMap.getCanvas().style.cursor = MAP_CURSOR_CROSSHAIR
+        }
+      },
+      { immediate: true }
+  )
 })
 </script>
 
 <template>
   <div class="p-6 overflow-x-hidden">
     <div class="flex items-center gap-4 mb-6">
-      <button @click="goBack" class="btn btn-ghost btn-circle shrink-0">
+      <button @click="goBack" class="btn btn-ghost btn-circle shrink-0" aria-label="Go back">
         <ArrowLeft :size="20" />
       </button>
       <h1 class="text-3xl font-bold">Create Bike Path</h1>
@@ -363,6 +486,7 @@ onMounted(() => {
                   draggable="true"
                   @dragstart="onDragStart(index)"
                   @dragend="onDragEnd"
+                  aria-label="Drag to reorder"
               >
                 <GripVertical :size="20" />
               </div>
@@ -407,7 +531,7 @@ onMounted(() => {
                   <div
                       v-for="(suggestion, i) in suggestions"
                       :key="i"
-                      @click="selectSuggestion(suggestion, 'route', index)"
+                      @mousedown.prevent="selectSuggestion(suggestion, 'route', index)"
                       class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
                   >
                     <div class="font-medium">{{ suggestion.name }}</div>
@@ -421,6 +545,7 @@ onMounted(() => {
                   type="button"
                   @click="removeAddress(index)"
                   class="btn btn-ghost btn-sm mt-9"
+                  aria-label="Remove waypoint"
               >
                 <Trash2 :size="16" />
               </button>
@@ -444,11 +569,13 @@ onMounted(() => {
                 v-model="description"
                 placeholder="Add notes..."
                 class="textarea textarea-bordered w-full"
-                :class="{'input-error': hasError('description')}"
+                :class="{ 'input-error': hasError('description') }"
                 rows="3"
                 :maxlength="DESCRIPTION_MAX_LENGTH"
             ></textarea>
-            <label class="label"><span class="label-text-alt">{{ description.length }}/{{ DESCRIPTION_MAX_LENGTH }}</span></label>
+            <label class="label">
+              <span class="label-text-alt">{{ description.length }}/{{ DESCRIPTION_MAX_LENGTH }}</span>
+            </label>
           </div>
 
           <div>
@@ -458,7 +585,7 @@ onMounted(() => {
                   tabindex="0"
                   role="button"
                   class="btn btn-bordered w-full justify-between font-normal"
-                  :class="{'input-error': hasError('status')}"
+                  :class="{ 'input-error': hasError('status') }"
               >
                 {{ BIKE_PATH_STATUS_OPTIONS.find(o => o.value === status)?.label || 'Select status' }}
                 <ChevronDown :size="16" />
@@ -480,7 +607,7 @@ onMounted(() => {
                   v-model="published"
                   type="checkbox"
                   class="checkbox"
-                  :class="{'input-error': hasError('published')}"
+                  :class="{ 'input-error': hasError('published') }"
               />
               <span class="block">
                 <span class="label-text font-medium block">Public</span>
@@ -552,7 +679,7 @@ onMounted(() => {
                     <div
                         v-for="(suggestion, i) in suggestions"
                         :key="i"
-                        @click="selectSuggestion(suggestion, 'obstacle', index)"
+                        @mousedown.prevent="selectSuggestion(suggestion, 'obstacle', index)"
                         class="px-4 py-2 hover:bg-base-200 cursor-pointer border-b border-base-200 last:border-0"
                     >
                       <div class="font-medium">{{ suggestion.name }}</div>
@@ -570,7 +697,7 @@ onMounted(() => {
                         tabindex="0"
                         role="button"
                         class="btn btn-bordered w-full justify-between font-normal"
-                        :class="{'input-error': hasError(`obstacles[${index}].type`)}"
+                        :class="{ 'input-error': hasError(`obstacles[${index}].type`) }"
                     >
                       {{ OBSTACLE_TYPE_OPTIONS.find(o => o.value === obstacle.type)?.label }}
                       <ChevronDown :size="16" />
@@ -590,7 +717,7 @@ onMounted(() => {
                         tabindex="0"
                         role="button"
                         class="btn btn-bordered w-full justify-between font-normal"
-                        :class="{'input-error': hasError(`obstacles[${index}].severity`)}"
+                        :class="{ 'input-error': hasError(`obstacles[${index}].severity`) }"
                     >
                       {{ OBSTACLE_SEVERITY_OPTIONS.find(o => o.value === obstacle.severity)?.label }}
                       <ChevronDown :size="16" />
@@ -610,7 +737,7 @@ onMounted(() => {
 
       <div class="flex gap-2 justify-end">
         <button type="button" @click="goBack" class="btn btn-ghost">Cancel</button>
-        <button type="submit" class="btn btn-neutral" :disabled="loading">
+        <button type="submit" class="btn btn-neutral" :disabled="loading" :aria-busy="loading">
           {{ loading ? 'Creating...' : 'Create' }}
         </button>
       </div>
