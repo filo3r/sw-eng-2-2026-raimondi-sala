@@ -132,9 +132,14 @@ console.log(`\nPress Ctrl+C to stop\n`);
  * Opens the browser automatically on macOS/Windows and on Linux when DISPLAY is available.
  * Skips auto-open on headless Linux environments.
  */
-if (process.platform !== "linux" || process.env.DISPLAY) {
-    const openCommand =
-        process.platform === "darwin" ? "open" :
-            process.platform === "win32" ? "start" : "xdg-open";
-    Bun.spawn([openCommand, `http://localhost:${frontendPort}`]);
+let openCommand;
+
+if (process.platform === "win32") {
+  openCommand = "explorer"; // Windows
+} else if (process.platform === "darwin") {
+  openCommand = "open";     // Mac
+} else {
+  openCommand = "xdg-open"; // Linux
 }
+
+Bun.spawn([openCommand, http://localhost:${frontendPort}]);
