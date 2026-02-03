@@ -142,4 +142,4 @@ if (process.platform === "win32") {
   openCommand = "xdg-open"; // Linux
 }
 
-Bun.spawn([openCommand, http://localhost:${frontendPort}]);
+Bun.spawn([openCommand, `http://localhost:${frontendPort}`]);
