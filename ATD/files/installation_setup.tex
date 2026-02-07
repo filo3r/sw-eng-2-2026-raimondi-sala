@@ -1,0 +1,14 @@
+\noindent
+To install the prototype we followed both the guide in the READMEs of GitHub and the one present in the ITD document.
+We downloaded the \textit{I\&T} folder from GitHub, made and activated the Python virtual environment for every service present on different shells, installed all the requirements for every service, for the path-management, trip-management and user-management set up the database and launched each of the 5 services.
+
+\subsection{Documentation Inconsistencies}
+There are two different installation references: the one present in the README files in each microservice folder and one in the ITD document, the one in the ITD is clearer but presents some discrepancies as we proceed to explain. \\
+Firstly, the instructions regarding the environment variables in the ITD are ambiguous; the document implies that every microservice should share the same \texttt{.env} file as stated in Section 6.2 "Each microservice requires the following environment variables configured in a .env file:" however this is not true, as some services will get this error: "Extra inputs are not permitted", so we copied the environment variables present in the README and some provided by email from the project's authors, because in the README of the frontend service there are no environment variables present. \\
+Secondly, there is a discrepancy regarding the API-Gateway configuration. The ITD specifies that the API-Gateway listens on port 8003, whereas the README indicates port 8080. Attempts to configure the system according to the ITD (port 8003) failed; the system appears to function correctly only when the API-Gateway is set to port 8080 as per the README.
+
+\subsection{PostgreSQL}
+The guidelines for setting up the PostgreSQL database are absent, therefore an inexperienced user could struggle as there is no explanation on setting up the user and the database and an explanation of how to get the Supabase database URL and password is not present in the documentation.
+
+\subsection{Public Deployment}
+A notable positive aspect is that the project provides a publicly accessible deployment on Railway (\url{https://bbp-frontend-service-production.up.railway.app}). This allows immediate testing of the prototype without requiring local installation, significantly simplifying the acceptance testing process.

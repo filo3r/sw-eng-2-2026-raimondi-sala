@@ -1,0 +1,51 @@
+The following sections detail the acceptance tests performed on the main views and functionalities of the application. The tests focus on usability, adherence to documentation, and compliance with the assignment requirements. \\ 
+Tests were selected based on the implemented requirements documented in the ITD (R.1-R.7, R.9-R.16, R.20-R.24, R.38-R.41), prioritizing core user workflows and edge cases to verify system robustness. Features excluded from implementation were not tested.
+
+\subsection{Authentication}
+The authentication flow was tested for both registration and login procedures (Requirements R.38-R.41).
+
+\subsubsection{Registration and Login}
+\begin{itemize}
+    \item \textbf{Registration:} Tests verified email uniqueness enforcement (duplicate emails rejected), password field validation, and successful account creation. Error messages for duplicate emails lack clarity.
+    \item \textbf{Login:} Tests verified correct credential validation (valid/invalid combinations) and session token generation. Error messages lack clarity and specificity.
+\end{itemize}
+
+\subsection{Views and Functionalities}
+
+\subsubsection{Search (\texttt{/search})}
+The search functionality operates exactly as described in the provided documentation (Requirements R.1-R.5). Specific edge cases we tested:
+\begin{itemize}
+    \item Insertion of non-existent street names.
+    \item Selection of Origin and Destination points between which no viable path exists.
+\end{itemize}
+In all tested scenarios, the system handled the inputs correctly without crashing or entering an infinite loop. Furthermore, the service correctly identifies the optimal path. The score calculation mechanism operates exactly as described in the documentation.
+
+\subsubsection{Manual Path Insertion (\texttt{/path/manual})}
+The manual path insertion functionality was found to be intuitive and user-friendly (Requirements R.15-R.16, R.20-R.24).
+We conducted specific tests to verify the robustness of this view, including:
+\begin{itemize}
+    \item Placing obstacles outside the relevant path.
+    \item Inserting extremely long paths or extremely short paths.
+\end{itemize}
+In all these cases, the system functioned correctly without throwing errors.
+The only failed test, although this edge case is not critical for the platform's correctness, is that a path of length 0m could be inserted by placing two points on top of the other.
+
+\subsubsection{Trip Dashboard (\texttt{/trip/dashboard})}
+The functionality is implemented in accordance with the project documentation (Requirements R.6-R.7, R.9), allowing users to start trip recording, track GPS coordinates, and stop when completed.
+
+\subsubsection{Trip History (\texttt{/trip/history})}
+The view functions correctly and displays all required information such as distance traveled, start and end timestamps, duration, and weather information (Requirements R.10-R.14).
+We tested the following:
+\begin{itemize}
+\item \textbf{Access Control:} Attempts to access a non-existent trip ID resulted in an appropriate error. Furthermore, attempts to access a private trip belonging to another user were successfully blocked, showing no data.
+\item \textbf{Deletion:} The functionality to delete a trip was tested; the trip was correctly removed from both the visualization and the database.
+\end{itemize}
+
+\subsubsection{Profile (\texttt{/profile})}
+This section is minimalistic, displaying only the information of the currently logged-in user.
+While the "Log out" functionality works as expected, the profile lacks essential data management features. Specifically:
+\begin{itemize}
+    \item It is not possible to modify user data.
+    \item It is not possible to delete the account.
+\end{itemize}
+These missing features conflict with RASD Constraint C.5 regarding GDPR compliance, which requires user rights to data modification and deletion.
